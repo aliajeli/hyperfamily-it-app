@@ -9,7 +9,7 @@
     "target": [{ "target": "nsis", "arch": ["x64"] }],
     "icon": "public/electron/icon.ico",
     "artifactName": "HyperFamily-Branch-Monitor-Setup-${version}.${ext}",
-    "publisherName": "HyperFamily Stores"
+    "signtoolOptions": { "publisherName": "HyperFamily Stores" }
   },
   "nsis": {
     "oneClick": false,
