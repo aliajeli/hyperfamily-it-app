@@ -91,6 +91,62 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 [data-theme='polar'] .glass { box-shadow: 0 22px 60px rgb(0 0 0 / .22); }
+
+.login-card {
+  box-shadow:
+    0 28px 80px rgb(46 52 64 / .13),
+    inset 0 1px 0 rgb(255 255 255 / .32);
+}
+.login-card-highlight {
+  background: linear-gradient(90deg, transparent, rgb(var(--primary) / .72), rgb(var(--secondary) / .62), transparent);
+  filter: blur(.2px);
+}
+.login-code-caret { animation: login-caret-blink .82s steps(1) infinite; }
+.login-button.login-button {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgb(255 255 255 / .16);
+  background: linear-gradient(110deg, rgb(var(--primary)), rgb(var(--primary)) 38%, rgb(var(--secondary)) 72%, rgb(var(--primary)));
+  background-size: 230% 100%;
+  color: white;
+  text-shadow: 0 1px 1px rgb(46 52 64 / .2);
+  box-shadow: 0 10px 26px rgb(var(--primary) / .22);
+  transition: background-position .55s cubic-bezier(.22, 1, .36, 1), box-shadow .35s ease, transform .25s ease, filter .25s ease;
+}
+.login-button.login-button::before {
+  content: '';
+  position: absolute;
+  inset: -2px auto -2px -45%;
+  z-index: 0;
+  width: 32%;
+  transform: skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / .5), transparent);
+  transition: left .58s cubic-bezier(.22, 1, .36, 1);
+}
+.login-button.login-button:hover {
+  background-position: 100% 0;
+  box-shadow: 0 14px 34px rgb(var(--primary) / .32), 0 0 0 4px rgb(var(--primary) / .09);
+  filter: saturate(1.12) brightness(1.06);
+}
+.login-button.login-button:hover::before { left: 118%; }
+.login-button.login-button:active {
+  box-shadow: 0 6px 18px rgb(var(--primary) / .2);
+}
+
+@keyframes login-caret-blink {
+  0%, 46% { opacity: 1; }
+  47%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-code-caret { animation: none; }
+  .login-button.login-button,
+  .login-button.login-button::before { transition-duration: .01ms; }
+}
+
+[data-theme='polar'] .login-card {
+  box-shadow: 0 30px 86px rgb(0 0 0 / .38), inset 0 1px 0 rgb(255 255 255 / .06);
+}
 .recharts-cartesian-grid line { stroke: rgb(var(--border)); }
 .recharts-text { fill: rgb(var(--muted)); font-size: 10px; }
 .drag-region { -webkit-app-region: drag; }
