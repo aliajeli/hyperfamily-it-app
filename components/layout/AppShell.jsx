@@ -9,7 +9,7 @@ import { useDevicesStore } from '@/stores/devices.store'
 import Sidebar from './Sidebar'
 import Header from './Header'
 
-export default function AppShell({ children }) {
+export default function AppShell({ children, compact = false }) {
   const router = useRouter()
   const { user, hydrated, logout } = useAuthStore()
   const setSnapshot = useDevicesStore((s) => s.setSnapshot)
@@ -43,6 +43,6 @@ export default function AppShell({ children }) {
   return <div className="min-h-screen">
     <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} onLogout={onLogout} />
     <Header collapsed={collapsed} user={user} />
-    <motion.main initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className={`min-h-screen px-4 pb-10 pt-24 transition-[margin] md:px-7 ${collapsed ? 'md:ml-[84px]' : 'md:ml-64'}`}>{children}</motion.main>
+    <motion.main initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className={`min-h-screen transition-[margin] ${compact ? 'px-3 pb-5 pt-20 md:px-4' : 'px-4 pb-10 pt-24 md:px-7'} ${collapsed ? 'md:ml-[84px]' : 'md:ml-64'}`}>{children}</motion.main>
   </div>
 }
