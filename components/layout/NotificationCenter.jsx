@@ -104,7 +104,7 @@ export default function NotificationCenter() {
             transition={{ type: 'spring', stiffness: 390, damping: 29 }}
             className="notification-popup glass absolute right-0 top-[calc(100%+12px)] z-50 w-[min(430px,calc(100vw-1.5rem))] overflow-hidden rounded-[22px] shadow-2xl"
           >
-            <span aria-hidden="true" className="absolute -right-14 -top-16 h-36 w-36 rounded-full bg-[rgb(var(--primary)/.13)] blur-3xl" />
+            <span aria-hidden="true" className="absolute -right-14 -top-16 h-36 w-36 rounded-full bg-[rgb(var(--primary)/.06)] blur-3xl" />
             <header className="relative flex items-start justify-between border-b px-4 py-3.5">
               <div>
                 <h2 className="flex items-center gap-2 text-sm font-black tracking-[0.025em]"><Bell size={15} className="text-[rgb(var(--primary))]" /> Network notifications</h2>
@@ -136,7 +136,7 @@ export default function NotificationCenter() {
                     const Icon = deviceIcons[device.device_type] || Server
                     const ping = device.last_ping_ms ?? device.ping_time
                     return (
-                      <motion.article key={device.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index, 8) * 0.035 }} className="group flex min-w-0 items-center gap-2.5 rounded-xl border bg-[rgb(var(--surface)/.58)] p-2.5 transition-all hover:-translate-y-0.5 hover:bg-[rgb(var(--surface))] hover:shadow-md">
+                      <motion.article key={device.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index, 8) * 0.035 }} className="group flex min-w-0 items-center gap-2.5 rounded-xl border bg-[rgb(var(--surface)/.82)] p-2.5 transition-all hover:-translate-y-0.5 hover:bg-[rgb(var(--surface))] hover:shadow-md">
                         <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] ${device.status === 'offline' ? 'bg-nord-11/12 text-nord-11' : 'bg-nord-13/15 status-warning-text'}`}><Icon size={14} /></div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[10px] font-extrabold tracking-[0.03em]" title={device.name}>{device.name}</p>

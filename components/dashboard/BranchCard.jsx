@@ -19,7 +19,7 @@ export default function BranchCard({ branch, devices, compact = false, onOpenDet
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.055, type: 'spring', stiffness: 250, damping: 25 }}
       whileHover={{ y: -4 }}
-      className="branch-card panel group/branch min-w-0 overflow-hidden"
+      className="branch-card panel group/branch relative min-w-0 overflow-visible hover:z-20"
       aria-label={`${branch.name} branch status`}
     >
       <header className="relative overflow-hidden border-b px-3 py-2.5">
@@ -29,7 +29,7 @@ export default function BranchCard({ branch, devices, compact = false, onOpenDet
             <MapPin size={15} />
           </motion.div>
           <div className="min-w-0 flex-1">
-            <button type="button" onClick={onOpenDetails} className="branch-title-button interactive-sheen group/title flex max-w-full items-center gap-1.5 rounded-lg pr-1 text-left" aria-label={`Open all monitored equipment for ${branch.name}`}>
+            <button type="button" onClick={onOpenDetails} className="branch-title-button interactive-sheen group/title flex max-w-full items-center gap-1.5 rounded-lg p-[2px] text-left" aria-label={`Open all monitored equipment for ${branch.name}`}>
               <h2 className="truncate text-xs font-extrabold tracking-[0.04em]" title={branch.name}>{branch.name}</h2>
               <span className="shrink-0 rounded-md bg-[rgb(var(--border)/.55)] px-1.5 py-0.5 font-mono text-[7px] font-bold tracking-wider">{branch.code}</span>
               <ChevronRight size={12} className="shrink-0 text-[rgb(var(--primary))] transition-transform duration-300 group-hover/title:translate-x-1" />

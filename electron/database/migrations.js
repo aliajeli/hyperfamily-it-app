@@ -1,7 +1,7 @@
 const DEVICE_COLUMNS = [
   'branch_id', 'device_type', 'model', 'name', 'location', 'ip', 'port', 'asset_code',
   'connection_type', 'connection_port', 'hostname', 'user', 'domain', 'esxi_version',
-  'version', 'terminal_id', 'acceptance_id', 'brand', 'checkout_number',
+  'version', 'terminal_id', 'acceptance_id', 'brand', 'checkout_number', 'serial_number',
   'remote_id', 'protocol', 'is_dashboard_visible'
 ]
 
@@ -51,7 +51,7 @@ function runMigrations(db, adminHash) {
       port INTEGER CHECK (port IS NULL OR (port BETWEEN 1 AND 65535)),
       asset_code TEXT,
       connection_type TEXT,
-      connection_port INTEGER,
+      connection_port TEXT,
       hostname TEXT,
       user TEXT,
       domain TEXT,
@@ -61,12 +61,27 @@ function runMigrations(db, adminHash) {
       acceptance_id TEXT,
       brand TEXT,
       checkout_number INTEGER,
+      serial_number TEXT,
       remote_id TEXT,
       protocol TEXT DEFAULT 'https' CHECK (protocol IN ('http','https')),
       is_dashboard_visible INTEGER NOT NULL DEFAULT 0 CHECK (is_dashboard_visible IN (0,1)),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS switch_ports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id INTEGER NOT NULL,
+      port_number INTEGER NOT NULL CHECK (port_number > 0),
+      vlan TEXT,
+      status TEXT NOT NULL DEFAULT 'up' CHECK (status IN ('up','down','disabled')),
+      ip TEXT,
+      details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+      UNIQUE (device_id, port_number)
     );
 
     CREATE TABLE IF NOT EXISTS credentials (
@@ -121,6 +136,7 @@ function runMigrations(db, adminHash) {
 
     CREATE INDEX IF NOT EXISTS idx_devices_branch ON devices(branch_id);
     CREATE INDEX IF NOT EXISTS idx_devices_type ON devices(device_type);
+    CREATE INDEX IF NOT EXISTS idx_switch_ports_device ON switch_ports(device_id);
     CREATE INDEX IF NOT EXISTS idx_ping_device ON ping_history(device_id);
     CREATE INDEX IF NOT EXISTS idx_ping_timestamp ON ping_history(timestamp);
     CREATE INDEX IF NOT EXISTS idx_uptime_device ON uptime_logs(device_id);
@@ -131,6 +147,7 @@ function runMigrations(db, adminHash) {
   // Upgrade databases made by early development builds without these optional fields.
   if (!hasColumn(db, 'devices', 'remote_id')) db.exec('ALTER TABLE devices ADD COLUMN remote_id TEXT')
   if (!hasColumn(db, 'devices', 'protocol')) db.exec("ALTER TABLE devices ADD COLUMN protocol TEXT DEFAULT 'https'")
+  if (!hasColumn(db, 'devices', 'serial_number')) db.exec('ALTER TABLE devices ADD COLUMN serial_number TEXT')
 
   const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count
   if (!userCount) db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('Admin', adminHash)
@@ -146,7 +163,7 @@ function runMigrations(db, adminHash) {
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   const transaction = db.transaction(() => Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value))))
   transaction()
-  db.pragma('user_version = 1')
+  db.pragma('user_version = 2')
 }
 
 module.exports = { runMigrations, DEVICE_COLUMNS }

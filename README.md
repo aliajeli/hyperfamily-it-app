@@ -8,7 +8,7 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 
 - **Real-time monitoring** — parallel pings, live status cards, Router charts, active-alert notifications, and daily uptime aggregation.
 - **Adaptive branch dashboard** — four-column branch cards, configurable compact behavior, and animated modal or side-panel equipment views.
-- **Branch and device directory** — full CRUD for branches and 10 device types with adaptive forms.
+- **Branch-first device directory** — select or define a branch before adding equipment, choose from 10 device-type cards, edit saved devices reliably, and manage normalized Switch port records.
 - **Encrypted local database** — SQLCipher-compatible AES-256 SQLite encryption; database key protected with Windows DPAPI. Passwords are additionally encrypted at field level.
 - **Secure remote actions** — RDP, TeamViewer, Winbox, browser management, and Termius SSH with audit logging.
 - **Inventory export** — filtered, formatted `.xlsx` workbooks via ExcelJS.
@@ -23,7 +23,7 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 | --- | --- |
 | `/login` | Local bcryptjs authentication (`Admin` / `Admin` on a fresh install) |
 | `/dashboard` | Live branch health, Router charts, alert notifications, expandable equipment, and three-dot remote actions |
-| `/devices` | Branch and device CRUD |
+| `/devices` | Branch-first location and equipment workflow with type-specific forms and managed Switch ports |
 | `/inventory` | Search, filter, status snapshot, and Excel export |
 | `/settings` | General, Dashboard display, credentials, device tools, VPN, and theme settings |
 | `/about` | Build information, updates, stack, and support links |
@@ -82,6 +82,16 @@ npm run dev:next
 ```
 
 The browser preview uses seeded local demo data and does **not** execute OS operations. Remote tools, Excel save dialogs, VPN control, DPAPI, and native database behavior are available only inside Electron.
+
+## Branch and device workflow
+
+1. Open **Branches & devices** and create a branch or select an existing branch.
+2. Select **Add device** for that branch.
+3. Choose one of the ten device-type cards.
+4. Complete only the fields shown for that equipment type, choose whether it appears on the Dashboard, and save.
+5. Use the device card's edit action to revise the saved record later.
+
+Branch records contain Name, Code, Link1, IP Link1, Link2, IP Link2, Manager Name, Manager Tell, Deputy Name, and Deputy Tell. Equipment forms are deliberately type-specific. Switches additionally support any number of managed port records containing Port Number, VLAN, Status, IP, and Details. Scale serial numbers and Switch ports are included in encrypted persistence and Excel inventory exports.
 
 ## Scripts
 
@@ -192,7 +202,7 @@ Database integration tests intentionally run through Electron because the native
 - Confirm ICMP is permitted by endpoint and branch firewalls.
 - Confirm the IP/hostname is reachable from the workstation or connected VPN.
 - Check the ping interval under Settings.
-- Ensure **Show on monitoring dashboard** is enabled for the device.
+- Ensure **Show on Dashboard** is enabled for the device.
 
 ### Remote executable not found
 
