@@ -176,34 +176,77 @@ class AppDatabase {
     return { success: true }
   }
 
+  listSwitchPorts(deviceId = null) {
+    if (deviceId) return this.db.prepare('SELECT * FROM switch_ports WHERE device_id = ? ORDER BY port_number').all(Number(deviceId))
+    return this.db.prepare('SELECT * FROM switch_ports ORDER BY device_id, port_number').all()
+  }
+
+  attachSwitchPorts(devices) {
+    const portsByDevice = new Map()
+    for (const port of this.listSwitchPorts()) {
+      if (!portsByDevice.has(port.device_id)) portsByDevice.set(port.device_id, [])
+      portsByDevice.get(port.device_id).push(port)
+    }
+    return devices.map((device) => ({ ...device, switch_ports: portsByDevice.get(device.id) || [] }))
+  }
+
   listDevices() {
-    return this.db.prepare(`SELECT d.*, p.status, p.ping_time
+    const devices = this.db.prepare(`SELECT d.*, p.status, p.ping_time
       FROM devices d
       LEFT JOIN ping_history p ON p.id = (SELECT id FROM ping_history WHERE device_id = d.id ORDER BY id DESC LIMIT 1)
       ORDER BY d.branch_id, d.device_type, d.name COLLATE NOCASE`).all()
+    return this.attachSwitchPorts(devices)
   }
 
-  getDevice(id) { return this.db.prepare('SELECT * FROM devices WHERE id = ?').get(Number(id)) }
+  getDevice(id) {
+    const device = this.db.prepare('SELECT * FROM devices WHERE id = ?').get(Number(id))
+    return device ? { ...device, switch_ports: this.listSwitchPorts(device.id) } : undefined
+  }
   listMonitoredDevices() { return this.db.prepare('SELECT * FROM devices WHERE is_dashboard_visible = 1 ORDER BY id').all() }
+
+  replaceSwitchPorts(deviceId, ports = []) {
+    this.db.prepare('DELETE FROM switch_ports WHERE device_id = ?').run(Number(deviceId))
+    if (!ports.length) return
+    const insert = this.db.prepare(`INSERT INTO switch_ports (device_id, port_number, vlan, status, ip, details)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+    for (const port of ports) {
+      insert.run(
+        Number(deviceId),
+        Number(port.port_number),
+        String(port.vlan || '').trim() || null,
+        ['up', 'down', 'disabled'].includes(port.status) ? port.status : 'up',
+        String(port.ip || '').trim() || null,
+        String(port.details || '').trim() || null
+      )
+    }
+  }
 
   saveDevice(data, actor = 'Admin') {
     const normalized = { ...data }
     normalized.branch_id = Number(data.branch_id)
     normalized.port = data.port ? Number(data.port) : null
-    normalized.connection_port = data.connection_port ? Number(data.connection_port) : null
+    normalized.connection_port = String(data.connection_port || '').trim() || null
     normalized.checkout_number = data.checkout_number ? Number(data.checkout_number) : null
     normalized.is_dashboard_visible = data.is_dashboard_visible ? 1 : 0
     normalized.protocol = data.protocol === 'http' ? 'http' : 'https'
     const values = DEVICE_COLUMNS.map((key) => normalized[key] === '' || normalized[key] === undefined ? null : normalized[key])
-    if (data.id) {
-      const result = this.db.prepare(`UPDATE devices SET ${DEVICE_COLUMNS.map((key) => `${key} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, Number(data.id))
-      if (!result.changes) throw new Error('Device not found')
-      this.audit(actor, 'DEVICE_UPDATE', String(data.id), `${data.device_type} ${data.ip}`)
-      return { ...normalized, id: Number(data.id) }
-    }
-    const result = this.db.prepare(`INSERT INTO devices (${DEVICE_COLUMNS.join(',')}) VALUES (${DEVICE_COLUMNS.map(() => '?').join(',')})`).run(...values)
-    this.audit(actor, 'DEVICE_ADD', String(result.lastInsertRowid), `${data.device_type} ${data.ip}`)
-    return { ...normalized, id: Number(result.lastInsertRowid) }
+
+    return this.db.transaction(() => {
+      let deviceId
+      if (data.id) {
+        deviceId = Number(data.id)
+        const result = this.db.prepare(`UPDATE devices SET ${DEVICE_COLUMNS.map((key) => `${key} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values, deviceId)
+        if (!result.changes) throw new Error('Device not found')
+        this.audit(actor, 'DEVICE_UPDATE', String(deviceId), `${data.device_type} ${data.ip}`)
+      } else {
+        const result = this.db.prepare(`INSERT INTO devices (${DEVICE_COLUMNS.join(',')}) VALUES (${DEVICE_COLUMNS.map(() => '?').join(',')})`).run(...values)
+        deviceId = Number(result.lastInsertRowid)
+        this.audit(actor, 'DEVICE_ADD', String(deviceId), `${data.device_type} ${data.ip}`)
+      }
+
+      this.replaceSwitchPorts(deviceId, data.device_type === 'Switch' ? data.switch_ports || [] : [])
+      return { ...normalized, id: deviceId, switch_ports: this.listSwitchPorts(deviceId) }
+    })()
   }
 
   deleteDevice(id, actor = 'Admin') {
@@ -316,10 +359,11 @@ class AppDatabase {
   }
 
   listInventory() {
-    return this.db.prepare(`SELECT d.*, b.name AS branch_name, b.code AS branch_code, p.status, p.ping_time
+    const rows = this.db.prepare(`SELECT d.*, b.name AS branch_name, b.code AS branch_code, p.status, p.ping_time
       FROM devices d JOIN branches b ON b.id = d.branch_id
       LEFT JOIN ping_history p ON p.id = (SELECT id FROM ping_history WHERE device_id = d.id ORDER BY id DESC LIMIT 1)
       ORDER BY b.name, d.device_type, d.name`).all()
+    return this.attachSwitchPorts(rows)
   }
 
   audit(user, action, target = null, details = null) {

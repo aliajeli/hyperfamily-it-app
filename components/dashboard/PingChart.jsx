@@ -52,7 +52,7 @@ export default function PingChart({ history = [], compact = false, detailed = fa
   const showAxes = detailed || !compact
 
   return (
-    <div className={`w-full ${chartHeight}`} aria-label="Gateway ping history chart">
+    <div className={`ping-chart relative w-full overflow-visible ${chartHeight}`} aria-label="Gateway ping history chart">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={detailed ? { top: 12, right: 18, bottom: 4, left: 4 } : { top: 6, right: 4, bottom: 0, left: 4 }}>
           {detailed ? <CartesianGrid strokeDasharray="4 4" vertical={false} opacity={0.5} /> : null}
@@ -76,7 +76,12 @@ export default function PingChart({ history = [], compact = false, detailed = fa
             </>
           ) : null}
           <ReferenceLine y={300} stroke="#EBCB8B" strokeDasharray="5 4" strokeWidth={detailed ? 1.5 : 1} />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgb(var(--muted))', strokeDasharray: '3 3' }} />
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={{ stroke: 'rgb(var(--muted))', strokeDasharray: '3 3' }}
+            allowEscapeViewBox={{ x: true, y: true }}
+            wrapperStyle={{ zIndex: 40, pointerEvents: 'none' }}
+          />
           <Line
             type="monotone"
             dataKey="value"

@@ -1,44 +1,208 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { ArrowLeft, Eye, EyeOff, Network, Plus, Trash2 } from 'lucide-react'
 import { Button, Input, Label, Select, Switch } from '@/components/ui'
-import { DEVICE_FIELDS, DEVICE_TYPES } from '@/lib/constants'
+import { DEVICE_TYPES, DEVICE_TYPE_DETAILS } from '@/lib/constants'
 import { isValidHost } from '@/lib/utils'
+
+const optionalHost = z.string().trim().refine((value) => !value || isValidHost(value), 'Enter a valid IP address or hostname')
+const optionalPort = z.union([z.literal(''), z.coerce.number().int().min(1).max(65535)]).optional()
+const optionalPositiveNumber = z.union([z.literal(''), z.coerce.number().int().min(1)]).optional()
+const switchPortSchema = z.object({
+  port_number: z.coerce.number().int().positive('Port number is required'),
+  vlan: z.string().trim().optional(),
+  status: z.enum(['up', 'down', 'disabled']),
+  ip: optionalHost,
+  details: z.string().trim().optional()
+})
 
 const schema = z.object({
   branch_id: z.coerce.number().int().positive('Select a branch'),
   device_type: z.enum(DEVICE_TYPES),
+  model: z.string().trim().optional(),
   name: z.string().trim().optional(),
+  location: z.string().trim().optional(),
   ip: z.string().trim().refine(isValidHost, 'Enter a valid IPv4 address or hostname'),
-  port: z.union([z.literal(''), z.coerce.number().int().min(1).max(65535)]).optional(),
-  model: z.string().trim().optional(), location: z.string().trim().optional(), asset_code: z.string().trim().optional(),
-  connection_type: z.string().trim().optional(), connection_port: z.union([z.literal(''), z.coerce.number().int().min(1)]).optional(),
-  hostname: z.string().trim().optional(), user: z.string().trim().optional(), domain: z.string().trim().optional(), esxi_version: z.string().trim().optional(),
-  version: z.string().trim().optional(), terminal_id: z.string().trim().optional(), acceptance_id: z.string().trim().optional(), brand: z.string().trim().optional(),
-  checkout_number: z.union([z.literal(''), z.coerce.number().int().min(1)]).optional(), remote_id: z.string().trim().optional(), protocol: z.string().trim().optional(),
+  port: optionalPort,
+  asset_code: z.string().trim().optional(),
+  connection_type: z.string().trim().optional(),
+  connection_port: z.string().trim().optional(),
+  hostname: z.string().trim().optional(),
+  user: z.string().trim().optional(),
+  domain: z.string().trim().optional(),
+  esxi_version: z.string().trim().optional(),
+  version: z.string().trim().optional(),
+  terminal_id: z.string().trim().optional(),
+  acceptance_id: z.string().trim().optional(),
+  brand: z.string().trim().optional(),
+  checkout_number: optionalPositiveNumber,
+  serial_number: z.string().trim().optional(),
+  switch_ports: z.array(switchPortSchema).default([]),
   is_dashboard_visible: z.boolean().optional()
+}).superRefine((data, context) => {
+  if (data.device_type !== 'Switch') return
+  const seen = new Set()
+  data.switch_ports.forEach((port, index) => {
+    if (seen.has(port.port_number)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['switch_ports', index, 'port_number'], message: 'Port numbers must be unique' })
+    }
+    seen.add(port.port_number)
+  })
 })
-const defaults = { branch_id: '', device_type: 'Router', name: '', ip: '', port: '', model: '', location: '', asset_code: '', connection_type: '', connection_port: '', hostname: '', user: '', domain: '', esxi_version: '', version: '', terminal_id: '', acceptance_id: '', brand: '', checkout_number: '', remote_id: '', protocol: 'https', is_dashboard_visible: false }
 
-const labels = { connection_type: 'Connection type', connection_port: 'Connection port', hostname: 'Hostname', user: 'Local user', domain: 'Domain', esxi_version: 'ESXi version', version: 'Software version', terminal_id: 'Terminal ID', acceptance_id: 'Acceptance ID', brand: 'Brand', checkout_number: 'Checkout number' }
+const defaults = {
+  branch_id: '', device_type: 'Router', model: '', name: '', location: '', ip: '', port: '', asset_code: '',
+  connection_type: '', connection_port: '', hostname: '', user: '', domain: '', esxi_version: '', version: '',
+  terminal_id: '', acceptance_id: '', brand: '', checkout_number: '', serial_number: '', switch_ports: [],
+  is_dashboard_visible: false
+}
 
-export default function DeviceForm({ value, branches, onSubmit, saving }) {
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({ resolver: zodResolver(schema), defaultValues: defaults })
-  useEffect(() => { reset(value ? { ...defaults, ...value, branch_id: value.branch_id, port: value.port || '', connection_port: value.connection_port || '', checkout_number: value.checkout_number || '', is_dashboard_visible: Boolean(value.is_dashboard_visible) } : defaults) }, [value, reset])
+const emptySwitchPort = (portNumber = 1) => ({ port_number: portNumber, vlan: '', status: 'up', ip: '', details: '' })
+
+const fieldSets = {
+  Router: ['model', 'ip', 'port', 'asset_code'],
+  Switch: ['model', 'name', 'location', 'ip', 'connection_type', 'connection_port', 'asset_code'],
+  iLO: ['ip', 'esxi_version', 'model', 'asset_code'],
+  Server: ['hostname', 'ip', 'name'],
+  NVR: ['ip', 'model', 'name', 'asset_code'],
+  AccessPoint: ['model', 'name', 'location', 'ip', 'port', 'asset_code'],
+  Scale: ['model', 'location', 'ip', 'serial_number', 'asset_code'],
+  Client: ['hostname', 'user', 'ip', 'domain'],
+  Checkout: ['checkout_number', 'hostname', 'ip'],
+  POS: ['checkout_number', 'brand', 'model', 'version', 'ip', 'terminal_id', 'acceptance_id', 'asset_code']
+}
+
+const fieldMeta = {
+  model: { label: 'Model', placeholder: 'Manufacturer and model' },
+  name: { label: 'Name', placeholder: 'Device display name' },
+  location: { label: 'Location', placeholder: 'Network room / sales floor' },
+  ip: { label: 'IP', placeholder: '10.10.1.10' },
+  port: { label: 'Port', placeholder: '443', type: 'number', min: 1, max: 65535 },
+  asset_code: { label: 'Asset Code', placeholder: 'HF-BER-001' },
+  connection_type: { label: 'Connection Type', placeholder: 'Fiber / Copper / Uplink' },
+  connection_port: { label: 'Connection Port', placeholder: 'Gi1/0/24' },
+  hostname: { label: 'Hostname', placeholder: 'BRANCH-SRV-01' },
+  user: { label: 'User', placeholder: 'Local or domain user' },
+  domain: { label: 'Domain', placeholder: 'HYPERFAMILY' },
+  esxi_version: { label: 'ESXI Version', placeholder: '8.0 U3' },
+  version: { label: 'Software Version', placeholder: '4.2.1' },
+  terminal_id: { label: 'Terminal ID', placeholder: 'Terminal identifier' },
+  acceptance_id: { label: 'Acceptance ID', placeholder: 'Acceptance identifier' },
+  brand: { label: 'Brand', placeholder: 'Payment terminal brand' },
+  checkout_number: { label: 'Checkout Number', placeholder: '1', type: 'number', min: 1 },
+  serial_number: { label: 'Serial Number', placeholder: 'Manufacturer serial number' }
+}
+
+export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack, saving }) {
+  const { register, control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: defaults
+  })
+  const { fields: switchPorts, append, remove } = useFieldArray({ control, name: 'switch_ports' })
+
+  useEffect(() => {
+    const type = value?.device_type || deviceType || 'Router'
+    const sourcePorts = Array.isArray(value?.switch_ports) ? value.switch_ports : []
+    reset({
+      ...defaults,
+      ...(value || {}),
+      branch_id: value?.branch_id || branch?.id || '',
+      device_type: type,
+      port: value?.port || '',
+      checkout_number: value?.checkout_number || '',
+      switch_ports: type === 'Switch' ? (sourcePorts.length ? sourcePorts : value ? [] : [emptySwitchPort()]) : [],
+      is_dashboard_visible: Boolean(value?.is_dashboard_visible)
+    })
+  }, [branch?.id, deviceType, reset, value])
+
   const type = watch('device_type')
   const visible = watch('is_dashboard_visible')
-  const customFields = DEVICE_FIELDS[type] || []
-  const field = (name, label, placeholder, props = {}) => <label><Label>{label}</Label><Input placeholder={placeholder} {...register(name)} {...props} />{errors[name] && <p className="mt-1 text-[11px] text-nord-11">{errors[name].message}</p>}</label>
+  const fields = fieldSets[type] || []
+  const typeDetail = DEVICE_TYPE_DETAILS[type]
 
-  return <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-    <div className="grid gap-4 sm:grid-cols-2"><label><Label>Branch *</Label><Select {...register('branch_id')}><option value="">Select branch</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name} ({b.code})</option>)}</Select>{errors.branch_id && <p className="mt-1 text-[11px] text-nord-11">{errors.branch_id.message}</p>}</label><label><Label>Device type *</Label><Select {...register('device_type')}>{DEVICE_TYPES.map((item) => <option key={item}>{item}</option>)}</Select></label></div>
-    <div className="grid gap-4 sm:grid-cols-2">{field('name', 'Device name', `${type} name`)}{field('ip', 'IP address / hostname *', '10.10.1.10')}{field('port', 'Port', type === 'Checkout' ? '3389' : type === 'POS' ? '443' : 'Optional', { type: 'number' })}{field('model', 'Model', 'Manufacturer and model')}{field('location', 'Location', 'Network room / aisle')}{field('asset_code', 'Asset code', 'HF-BER-001')}</div>
-    {customFields.length > 0 && <fieldset className="rounded-xl border p-4"><legend className="px-2 text-xs font-bold">{type} details</legend><div className="grid gap-4 sm:grid-cols-2">{customFields.map((name) => field(name, labels[name], name.includes('number') || name.includes('port') ? '1' : 'Optional', name.includes('number') || name.includes('port') ? { type: 'number' } : {}))}</div></fieldset>}
-    {['Router', 'Switch', 'iLO', 'NVR', 'AccessPoint', 'POS'].includes(type) && <div className="grid gap-4 sm:grid-cols-2"><label><Label>Browser protocol</Label><Select {...register('protocol')}><option value="https">HTTPS</option><option value="http">HTTP</option></Select></label>{field('remote_id', 'Remote / TeamViewer ID', 'Optional')}</div>}
-    <label className="flex items-center justify-between rounded-xl border bg-[rgb(var(--surface)/.42)] p-4"><span><b className="block text-sm">Show on monitoring dashboard</b><small className="text-[rgb(var(--muted))]">Ping this device continuously and display its live status.</small></span><Switch checked={visible} onCheckedChange={(checked) => setValue('is_dashboard_visible', checked, { shouldDirty: true })} /></label>
-    <div className="flex justify-end"><Button disabled={saving || branches.length === 0}>{saving ? 'Saving…' : value ? 'Save device' : 'Add device'}</Button></div>
-  </form>
+  const renderField = (name) => {
+    const meta = fieldMeta[name]
+    const label = type === 'iLO' && name === 'model' ? 'Server Model' : meta.label
+    const inputId = `device-${type}-${name}`
+    return (
+      <div key={name}>
+        <Label htmlFor={inputId}>{label}</Label>
+        <Input id={inputId} placeholder={meta.placeholder} type={meta.type} min={meta.min} max={meta.max} autoComplete="off" aria-required={name === 'ip'} {...register(name)} />
+        {errors[name] && <p className="mt-1 text-[11px] font-semibold text-nord-11">{errors[name].message}</p>}
+      </div>
+    )
+  }
+
+  const addSwitchPort = () => {
+    const used = new Set(switchPorts.map((_, index) => Number(watch(`switch_ports.${index}.port_number`))))
+    let next = 1
+    while (used.has(next)) next += 1
+    append(emptySwitchPort(next))
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <input type="hidden" {...register('branch_id')} />
+      <input type="hidden" {...register('device_type')} />
+
+      <div className="flex flex-col gap-3 rounded-2xl border bg-[rgb(var(--canvas)/.55)] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-[rgb(var(--muted))]">Selected branch</p>
+          <p className="mt-1 truncate text-sm font-black">{branch?.name || 'Unknown branch'} <span className="font-mono text-[10px] text-[rgb(var(--muted))]">· {branch?.code}</span></p>
+        </div>
+        <div className="rounded-xl border border-[rgb(var(--primary)/.2)] bg-[rgb(var(--primary)/.09)] px-3 py-2 text-right">
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-[rgb(var(--primary))]">{typeDetail?.label || type}</p>
+          <p className="mt-0.5 text-[8px] text-[rgb(var(--muted))]">Only relevant fields are shown</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">{fields.map(renderField)}</div>
+
+      {type === 'Switch' && (
+        <fieldset className="rounded-2xl border bg-[rgb(var(--canvas)/.34)] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-black"><Network size={16} className="text-[rgb(var(--primary))]" /> Managed switch ports</h3>
+              <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Define as many physical ports as this switch requires.</p>
+            </div>
+            <Button type="button" variant="secondary" size="sm" onClick={addSwitchPort}><Plus size={14} />Add port</Button>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {switchPorts.map((port, index) => (
+              <div key={port.id} className="relative rounded-2xl border bg-[rgb(var(--surface)/.72)] p-3.5 pr-12 shadow-sm">
+                <span className="absolute right-3 top-3 grid h-6 min-w-6 place-items-center rounded-lg bg-[rgb(var(--primary)/.1)] px-1.5 text-[9px] font-black text-[rgb(var(--primary))]">#{index + 1}</span>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div><Label htmlFor={`switch-port-${index}-number`}>Port Number</Label><Input id={`switch-port-${index}-number`} type="number" min="1" aria-required="true" {...register(`switch_ports.${index}.port_number`)} />{errors.switch_ports?.[index]?.port_number && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].port_number.message}</p>}</div>
+                  <div><Label htmlFor={`switch-port-${index}-vlan`}>VLAN</Label><Input id={`switch-port-${index}-vlan`} placeholder="10 / Trunk" {...register(`switch_ports.${index}.vlan`)} /></div>
+                  <div><Label htmlFor={`switch-port-${index}-status`}>Status</Label><Select id={`switch-port-${index}-status`} {...register(`switch_ports.${index}.status`)}><option value="up">Up</option><option value="down">Down</option><option value="disabled">Disabled</option></Select></div>
+                  <div><Label htmlFor={`switch-port-${index}-ip`}>IP</Label><Input id={`switch-port-${index}-ip`} placeholder="Optional" {...register(`switch_ports.${index}.ip`)} />{errors.switch_ports?.[index]?.ip && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].ip.message}</p>}</div>
+                  <div><Label htmlFor={`switch-port-${index}-details`}>Details</Label><Input id={`switch-port-${index}-details`} placeholder="Uplink / camera" {...register(`switch_ports.${index}.details`)} /></div>
+                </div>
+                <button type="button" onClick={() => remove(index)} className="absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-nord-11/12 hover:text-nord-11" aria-label={`Remove switch port ${index + 1}`}><Trash2 size={14} /></button>
+              </div>
+            ))}
+            {!switchPorts.length && <div className="rounded-xl border border-dashed p-5 text-center text-xs text-[rgb(var(--muted))]">No ports defined yet. Select <b>Add port</b> to create one.</div>}
+          </div>
+        </fieldset>
+      )}
+
+      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border bg-[rgb(var(--surface)/.7)] p-4 transition hover:border-[rgb(var(--primary)/.35)] hover:shadow-sm">
+        <span className="flex min-w-0 items-center gap-3">
+          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${visible ? 'bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]' : 'bg-[rgb(var(--border)/.55)] text-[rgb(var(--muted))]'}`}>{visible ? <Eye size={18} /> : <EyeOff size={18} />}</span>
+          <span><b className="block text-sm">Show on Dashboard</b><small className="mt-0.5 block text-[10px] text-[rgb(var(--muted))]">Monitor this device and include it in the selected branch&apos;s Dashboard view.</small></span>
+        </span>
+        <Switch checked={visible} onCheckedChange={(checked) => setValue('is_dashboard_visible', checked, { shouldDirty: true })} />
+      </label>
+
+      <div className="flex items-center justify-between border-t pt-4">
+        {onBack ? <Button type="button" variant="ghost" onClick={onBack}><ArrowLeft size={15} />Back to device types</Button> : <span />}
+        <Button disabled={saving}>{saving ? 'Saving…' : value ? 'Save changes' : `Add ${typeDetail?.label || type}`}</Button>
+      </div>
+    </form>
+  )
 }

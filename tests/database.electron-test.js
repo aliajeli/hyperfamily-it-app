@@ -5,7 +5,9 @@ const os = require('node:os')
 const path = require('node:path')
 const NativeDatabase = require('better-sqlite3-multiple-ciphers')
 const bcrypt = require('bcryptjs')
+const ExcelJS = require('exceljs')
 const { AppDatabase } = require('../electron/database')
+const { exportInventory } = require('../electron/services/excel.service')
 
 class TestVault {
   constructor(directory) { this.keyFile = path.join(directory, '.test-db-key') }
@@ -90,6 +92,120 @@ test('persists branch, device, ping snapshot, and encrypted settings', () => {
     const raw = database.db.prepare("SELECT value FROM settings WHERE key = 'vpn_pass'").get().value
     assert.equal(raw.includes('sensitive-secret'), false)
   } finally { cleanup() }
+})
+
+test('persists device-specific fields, edits devices, and replaces managed switch ports', () => {
+  const { database, cleanup } = fixture()
+  try {
+    const branch = database.saveBranch({ name: 'Port Test Branch', code: 'PORT-01' })
+    const created = database.saveDevice({
+      branch_id: branch.id,
+      device_type: 'Switch',
+      model: 'Cisco CBS350',
+      name: 'Core Switch',
+      location: 'Network room',
+      ip: '10.20.1.2',
+      connection_type: 'Fiber',
+      connection_port: 'Gi1/0/24',
+      asset_code: 'SW-001',
+      is_dashboard_visible: true,
+      switch_ports: [
+        { port_number: 1, vlan: '10', status: 'up', ip: '10.20.10.1', details: 'Server uplink' },
+        { port_number: 2, vlan: '20', status: 'down', ip: '', details: 'Checkout lane' }
+      ]
+    })
+
+    assert.equal(created.switch_ports.length, 2)
+    assert.equal(database.listDevices()[0].switch_ports[1].status, 'down')
+
+    const updated = database.saveDevice({
+      ...created,
+      name: 'Core Distribution Switch',
+      switch_ports: [
+        { port_number: 1, vlan: '110', status: 'up', ip: '10.20.110.1', details: 'Updated uplink' },
+        { port_number: 3, vlan: '30', status: 'disabled', ip: '', details: 'Reserved' }
+      ]
+    })
+    assert.equal(updated.name, 'Core Distribution Switch')
+    assert.deepEqual(updated.switch_ports.map((port) => [port.port_number, port.vlan, port.status]), [[1, '110', 'up'], [3, '30', 'disabled']])
+
+    const scale = database.saveDevice({ branch_id: branch.id, device_type: 'Scale', model: 'Mettler', location: 'Deli', ip: '10.20.1.40', serial_number: 'SN-4400', asset_code: 'SC-001' })
+    assert.equal(database.getDevice(scale.id).serial_number, 'SN-4400')
+
+    database.deleteBranch(branch.id)
+    assert.equal(database.db.prepare('SELECT COUNT(*) FROM switch_ports').pluck().get(), 0)
+  } finally { cleanup() }
+})
+
+test('upgrades version-one databases with scale serial numbers and managed switch ports', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperfamily-schema-upgrade-'))
+  const vault = new TestVault(directory)
+  let database = new AppDatabase(directory, vault)
+  database.close()
+
+  const legacy = new NativeDatabase(path.join(directory, 'hyperfamily-monitor.db'))
+  try {
+    legacy.pragma("cipher='sqlcipher'")
+    legacy.pragma(`key="x'${vault.getDatabaseKey()}'"`)
+    legacy.exec('DROP TABLE switch_ports; ALTER TABLE devices DROP COLUMN serial_number; PRAGMA user_version = 1;')
+  } finally { legacy.close() }
+
+  try {
+    database = new AppDatabase(directory, vault)
+    const deviceColumns = database.db.prepare('PRAGMA table_info(devices)').all().map((column) => column.name)
+    assert.equal(deviceColumns.includes('serial_number'), true)
+    assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'switch_ports'").pluck().get(), 1)
+    assert.equal(database.db.pragma('user_version', { simple: true }), 2)
+  } finally {
+    database?.close()
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('exports serial numbers, dashboard choices, and managed Switch ports to Excel', async () => {
+  const { database, cleanup } = fixture()
+  const filePath = path.join(os.tmpdir(), `hyperfamily-inventory-${Date.now()}.xlsx`)
+  const filteredPath = path.join(os.tmpdir(), `hyperfamily-inventory-filtered-${Date.now()}.xlsx`)
+  try {
+    const branch = database.saveBranch({ name: 'Export Branch', code: 'EXP-01' })
+    database.saveDevice({
+      branch_id: branch.id,
+      device_type: 'Switch',
+      model: 'Cisco C9300',
+      name: 'Export Switch',
+      ip: '10.30.1.2',
+      is_dashboard_visible: true,
+      switch_ports: [{ port_number: 7, vlan: '170', status: 'up', ip: '10.30.170.1', details: 'Export uplink' }]
+    })
+    database.saveDevice({ branch_id: branch.id, device_type: 'Scale', model: 'Mettler', location: 'Deli', ip: '10.30.1.40', serial_number: 'EXPORT-SN-1' })
+
+    const result = await exportInventory(database, { branch: 'all', type: 'all', query: '' }, filePath)
+    assert.equal(result.success, true)
+    assert.equal(result.count, 2)
+    assert.equal(database.listAudit(1)[0].action, 'INVENTORY_EXPORT')
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.readFile(filePath)
+    const sheet = workbook.getWorksheet('Inventory')
+    const headers = sheet.getRow(1).values
+    assert.equal(headers.includes('Serial Number'), true)
+    assert.equal(headers.includes('Switch Ports'), true)
+    assert.equal(sheet.getColumn(headers.indexOf('Serial Number')).values.includes('EXPORT-SN-1'), true)
+    assert.match(sheet.getColumn(headers.indexOf('Switch Ports')).values.join(' '), /Port 7 · VLAN 170 · up · 10\.30\.170\.1 · Export uplink/)
+    assert.equal(sheet.getColumn(headers.indexOf('Dashboard')).values.includes('Shown'), true)
+
+    const filtered = await exportInventory(database, { branch: branch.id, type: 'Switch', query: 'Export uplink' }, filteredPath)
+    assert.equal(filtered.count, 1)
+    const filteredWorkbook = new ExcelJS.Workbook()
+    await filteredWorkbook.xlsx.readFile(filteredPath)
+    const filteredSheet = filteredWorkbook.getWorksheet('Inventory')
+    assert.equal(filteredSheet.rowCount, 2)
+    assert.equal(filteredSheet.getCell('C2').value, 'Switch')
+    assert.equal(filteredSheet.getCell('E2').value, 'Export Switch')
+  } finally {
+    cleanup()
+    fs.rmSync(filePath, { force: true })
+    fs.rmSync(filteredPath, { force: true })
+  }
 })
 
 test('credential mappings cascade when a credential is deleted', () => {
