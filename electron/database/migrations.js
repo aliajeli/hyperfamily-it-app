@@ -137,6 +137,7 @@ function runMigrations(db, adminHash) {
 
   const defaults = {
     theme: 'aurora', ping_interval: 3, ping_history_count: 30,
+    dashboard_branch_mode: 'compact_over_four', dashboard_branch_details_view: 'modal',
     teamviewer_path: 'C:\\Program Files\\TeamViewer\\TeamViewer.exe', teamviewer_password: '',
     winbox_path: 'C:\\Program Files\\Winbox\\winbox64.exe', winbox_port: 8291,
     vpn_gateway: '', vpn_port: 443, vpn_user: '', vpn_pass: '',

@@ -61,13 +61,13 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>}
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-nord-0/55 backdrop-blur-sm data-[state=open]:animate-in" />
-        <DialogPrimitive.Content className={cn('glass fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-6', className)}>
+        <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-50 bg-nord-0/55 backdrop-blur-sm" />
+        <DialogPrimitive.Content className={cn('dialog-content glass fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-6 shadow-2xl outline-none', className)}>
           <div className="pr-10">
             <DialogPrimitive.Title className="text-xl font-bold">{title}</DialogPrimitive.Title>
             {description && <DialogPrimitive.Description className="mt-1 text-sm text-[rgb(var(--muted))]">{description}</DialogPrimitive.Description>}
           </div>
-          <DialogPrimitive.Close asChild><button aria-label="Close dialog" className="absolute right-4 top-4 rounded-lg p-2 text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.6)]"><X size={18} /></button></DialogPrimitive.Close>
+          <DialogPrimitive.Close asChild><button aria-label="Close dialog" className="absolute right-4 top-4 rounded-lg p-2 text-[rgb(var(--muted))] transition-all duration-300 hover:rotate-90 hover:scale-105 hover:bg-[rgb(var(--border)/.6)] hover:text-[rgb(var(--text))]"><X size={18} /></button></DialogPrimitive.Close>
           <div className="mt-5">{children}</div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -85,7 +85,7 @@ export function Tabs({ value, onValueChange, tabs, children, className }) {
     </TabsPrimitive.Root>
   )
 }
-export function TabsContent({ value, children, className }) { return <TabsPrimitive.Content value={value} className={cn('outline-none', className)}>{children}</TabsPrimitive.Content> }
+export function TabsContent({ value, children, className }) { return <TabsPrimitive.Content value={value} className={cn('outline-none data-[state=active]:animate-[dashboard-overlay-in_.28s_ease-out]', className)}>{children}</TabsPrimitive.Content> }
 
 export function Switch({ checked, onCheckedChange, ...props }) {
   return <SwitchPrimitive.Root checked={checked} onCheckedChange={onCheckedChange} className="relative h-6 w-11 rounded-full bg-[rgb(var(--border))] transition data-[state=checked]:bg-[rgb(var(--primary))]" {...props}><SwitchPrimitive.Thumb className="block h-5 w-5 translate-x-0.5 rounded-full bg-white shadow transition data-[state=checked]:translate-x-[22px]" /></SwitchPrimitive.Root>

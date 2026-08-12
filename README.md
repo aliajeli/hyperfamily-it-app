@@ -6,7 +6,8 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 
 ## Highlights
 
-- **Real-time monitoring** — parallel pings, live status cards, 30-point gateway charts, and daily uptime aggregation.
+- **Real-time monitoring** — parallel pings, live status cards, Router charts, active-alert notifications, and daily uptime aggregation.
+- **Adaptive branch dashboard** — four-column branch cards, configurable compact behavior, and animated modal or side-panel equipment views.
 - **Branch and device directory** — full CRUD for branches and 10 device types with adaptive forms.
 - **Encrypted local database** — SQLCipher-compatible AES-256 SQLite encryption; database key protected with Windows DPAPI. Passwords are additionally encrypted at field level.
 - **Secure remote actions** — RDP, TeamViewer, Winbox, browser management, and Termius SSH with audit logging.
@@ -21,10 +22,10 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 | Route | Purpose |
 | --- | --- |
 | `/login` | Local bcryptjs authentication (`Admin` / `Admin` on a fresh install) |
-| `/dashboard` | Live branch health, ping charts, and remote context menus |
+| `/dashboard` | Live branch health, Router charts, alert notifications, expandable equipment, and three-dot remote actions |
 | `/devices` | Branch and device CRUD |
 | `/inventory` | Search, filter, status snapshot, and Excel export |
-| `/settings` | General, credentials, device tools, VPN, and theme settings |
+| `/settings` | General, Dashboard display, credentials, device tools, VPN, and theme settings |
 | `/about` | Build information, updates, stack, and support links |
 
 ## Technology
@@ -154,7 +155,7 @@ The service refuses a profile that does not satisfy both checks. OpenVPN credent
 
 ## Remote tools
 
-Right-click a device card on the dashboard. Methods appear according to device type. Credential submenus are populated from **Settings → Device tools** mappings.
+Select a device card's three-dot button on the Dashboard. Methods appear according to device type. Credential submenus are populated from **Settings → Device tools** mappings.
 
 - **RDP** stores a target-scoped credential with `cmdkey.exe`, then launches `mstsc.exe`.
 - **TeamViewer** uses the configured executable and the device remote ID.

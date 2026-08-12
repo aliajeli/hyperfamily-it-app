@@ -1,14 +1,62 @@
 'use client'
 
 import { useState } from 'react'
-import { UserRoundCog, Activity, ShieldCheck } from 'lucide-react'
+import { Activity, Check, LayoutDashboard, Maximize2, PanelRightOpen, Rows3, ShieldCheck, UserRoundCog } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth.store'
+import { useSettingsStore } from '@/stores/settings.store'
+
+const branchModes = [
+  {
+    value: 'compact_over_four',
+    icon: Rows3,
+    title: 'Compact after four branches',
+    description: 'Show equipment inside cards for up to four branches. With more branches, cards show only the Router chart.'
+  },
+  {
+    value: 'always_compact',
+    icon: LayoutDashboard,
+    title: 'Always compact',
+    description: 'Every branch card always shows only its Router chart. Select the branch title to see equipment.'
+  }
+]
+
+const detailViews = [
+  {
+    value: 'modal',
+    icon: Maximize2,
+    title: 'Large popup',
+    description: 'Open branch equipment in a spacious centered panel.'
+  },
+  {
+    value: 'side_panel',
+    icon: PanelRightOpen,
+    title: 'Side panel',
+    description: 'Slide branch equipment in from the right side.'
+  }
+]
+
+function Choice({ selected, icon: Icon, title, description, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className={`group relative overflow-hidden rounded-2xl border p-3.5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${selected ? 'border-[rgb(var(--primary)/.55)] bg-[rgb(var(--primary)/.09)] shadow-md shadow-black/5' : 'bg-[rgb(var(--surface)/.48)] hover:border-[rgb(var(--primary)/.3)] hover:bg-[rgb(var(--surface)/.8)]'}`}>
+      <span aria-hidden="true" className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[rgb(var(--primary)/.1)] blur-2xl transition-transform duration-500 group-hover:scale-150" />
+      <div className="relative flex items-start gap-3">
+        <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-300 group-hover:rotate-[-5deg] group-hover:scale-105 ${selected ? 'bg-[rgb(var(--primary))] text-white shadow-md' : 'bg-[rgb(var(--border)/.5)] text-[rgb(var(--muted))]'}`}><Icon size={17} /></div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-extrabold tracking-[0.025em]">{title}</p>
+          <p className="mt-1 text-[10px] leading-4 text-[rgb(var(--muted))]">{description}</p>
+        </div>
+        <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-all duration-300 ${selected ? 'scale-100 border-[rgb(var(--primary))] bg-[rgb(var(--primary))] text-white' : 'scale-90 text-transparent'}`}><Check size={12} strokeWidth={3} /></span>
+      </div>
+    </button>
+  )
+}
 
 export default function GeneralSettings({ settings, onSaved }) {
   const { user, updateUser } = useAuthStore()
+  const setGlobalSettings = useSettingsStore((state) => state.setSettings)
   const [account, setAccount] = useState({
     newUsername: user?.username || '',
     currentPassword: '',
@@ -19,7 +67,16 @@ export default function GeneralSettings({ settings, onSaved }) {
     ping_interval: settings.ping_interval || 3,
     ping_history_count: settings.ping_history_count || 30
   })
+  const [dashboard, setDashboard] = useState({
+    dashboard_branch_mode: settings.dashboard_branch_mode === 'always_compact' ? 'always_compact' : 'compact_over_four',
+    dashboard_branch_details_view: settings.dashboard_branch_details_view === 'side_panel' ? 'side_panel' : 'modal'
+  })
   const [busy, setBusy] = useState('')
+
+  const finishSettingsSave = (next) => {
+    onSaved(next)
+    setGlobalSettings(next)
+  }
 
   const updateAccount = async (event) => {
     event.preventDefault()
@@ -55,8 +112,22 @@ export default function GeneralSettings({ settings, onSaved }) {
     try {
       const next = await getApi().settings.save(normalized)
       setPing(normalized)
-      onSaved(next)
+      finishSettingsSave(next)
       toast.success('Ping settings saved')
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const saveDashboard = async (event) => {
+    event.preventDefault()
+    setBusy('dashboard')
+    try {
+      const next = await getApi().settings.save(dashboard)
+      finishSettingsSave(next)
+      toast.success('Dashboard display settings saved')
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -80,45 +151,21 @@ export default function GeneralSettings({ settings, onSaved }) {
           <form onSubmit={updateAccount} className="space-y-4">
             <label>
               <Label>Login username</Label>
-              <Input
-                autoComplete="username"
-                minLength={3}
-                maxLength={64}
-                required
-                value={account.newUsername}
-                onChange={(event) => setAccount({ ...account, newUsername: event.target.value })}
-              />
+              <Input autoComplete="username" minLength={3} maxLength={64} required value={account.newUsername} onChange={(event) => setAccount({ ...account, newUsername: event.target.value })} />
               <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">This username will be required at the next login.</p>
             </label>
             <label>
               <Label>Current password</Label>
-              <Input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={account.currentPassword}
-                onChange={(event) => setAccount({ ...account, currentPassword: event.target.value })}
-              />
+              <Input type="password" autoComplete="current-password" required value={account.currentPassword} onChange={(event) => setAccount({ ...account, currentPassword: event.target.value })} />
             </label>
             <label>
               <Label>New password (optional)</Label>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                minLength={account.newPassword ? 4 : undefined}
-                value={account.newPassword}
-                onChange={(event) => setAccount({ ...account, newPassword: event.target.value })}
-              />
+              <Input type="password" autoComplete="new-password" minLength={account.newPassword ? 4 : undefined} value={account.newPassword} onChange={(event) => setAccount({ ...account, newPassword: event.target.value })} />
               <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Leave blank to keep the current password. A longer passphrase is recommended.</p>
             </label>
             <label>
               <Label>Confirm new password</Label>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={account.confirmPassword}
-                onChange={(event) => setAccount({ ...account, confirmPassword: event.target.value })}
-              />
+              <Input type="password" autoComplete="new-password" value={account.confirmPassword} onChange={(event) => setAccount({ ...account, confirmPassword: event.target.value })} />
             </label>
             <Button disabled={busy === 'account'}>{busy === 'account' ? 'Updating account…' : 'Update account'}</Button>
           </form>
@@ -152,6 +199,35 @@ export default function GeneralSettings({ settings, onSaved }) {
               <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Between 10 and 100 responses. Default: 30.</p>
             </label>
             <Button disabled={busy === 'ping'}>{busy === 'ping' ? 'Saving…' : 'Save monitoring settings'}</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="xl:col-span-2">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-[rgb(var(--primary)/.14)] p-2.5 text-[rgb(var(--primary))]"><LayoutDashboard size={19} /></div>
+            <div>
+              <CardTitle>Dashboard branch experience</CardTitle>
+              <CardDescription>Choose when branch cards become compact and how their complete equipment view opens.</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={saveDashboard} className="space-y-5">
+            <fieldset>
+              <legend className="field-label">Branch card density</legend>
+              <div className="grid gap-2.5 md:grid-cols-2">
+                {branchModes.map((option) => <Choice key={option.value} {...option} selected={dashboard.dashboard_branch_mode === option.value} onClick={() => setDashboard({ ...dashboard, dashboard_branch_mode: option.value })} />)}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="field-label">Equipment view style</legend>
+              <div className="grid gap-2.5 md:grid-cols-2">
+                {detailViews.map((option) => <Choice key={option.value} {...option} selected={dashboard.dashboard_branch_details_view === option.value} onClick={() => setDashboard({ ...dashboard, dashboard_branch_details_view: option.value })} />)}
+              </div>
+            </fieldset>
+            <Button disabled={busy === 'dashboard'}>{busy === 'dashboard' ? 'Saving…' : 'Save Dashboard experience'}</Button>
           </form>
         </CardContent>
       </Card>
