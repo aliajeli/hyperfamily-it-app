@@ -85,7 +85,9 @@ export default function PingChart({ history = [], compact = false, detailed = fa
             dot={detailed ? <StatusDot /> : false}
             activeDot={{ r: 5, fill: '#88C0D0', stroke: 'rgb(var(--surface))', strokeWidth: 2 }}
             connectNulls={false}
-            isAnimationActive={false}
+            isAnimationActive
+            animationDuration={650}
+            animationEasing="ease-out"
           />
         </LineChart>
       </ResponsiveContainer>

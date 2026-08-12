@@ -81,7 +81,11 @@ test('persists branch, device, ping snapshot, and encrypted settings', () => {
     assert.equal(snapshot.branches.length, 1)
     assert.equal(snapshot.devices[0].status, 'online')
     assert.equal(snapshot.devices[0].history[0].ping_time, 12)
-    database.saveSettings({ vpn_pass: 'sensitive-secret' })
+    assert.equal(database.getSettings().dashboard_branch_mode, 'compact_over_four')
+    assert.equal(database.getSettings().dashboard_branch_details_view, 'modal')
+    database.saveSettings({ vpn_pass: 'sensitive-secret', dashboard_branch_mode: 'always_compact', dashboard_branch_details_view: 'side_panel' })
+    assert.equal(database.getSettings().dashboard_branch_mode, 'always_compact')
+    assert.equal(database.getSettings().dashboard_branch_details_view, 'side_panel')
     assert.equal(database.getSettings().vpn_pass, 'sensitive-secret')
     const raw = database.db.prepare("SELECT value FROM settings WHERE key = 'vpn_pass'").get().value
     assert.equal(raw.includes('sensitive-secret'), false)
