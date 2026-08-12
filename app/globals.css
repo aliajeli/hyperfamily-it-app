@@ -91,6 +91,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 [data-theme='polar'] .glass { box-shadow: 0 22px 60px rgb(0 0 0 / .22); }
+.status-online-text { color: #5f7f4d; }
+.status-warning-text { color: #806823; }
+[data-theme='polar'] .status-online-text { color: #A3BE8C; }
+[data-theme='polar'] .status-warning-text { color: #EBCB8B; }
 
 .login-card {
   box-shadow:

@@ -18,7 +18,7 @@ All persistent production operations flow through `ipcRenderer.invoke` → valid
 
 `AppDatabase` wraps the synchronous Better-SQLite3 API. The multiple-ciphers build opens the file with a random 256-bit key before any schema query. On Windows, Electron's `safeStorage` protects the sidecar key with DPAPI.
 
-Schema migrations are idempotent. Foreign keys, WAL, prepared statements, transactions, indexes, and bounded ping retention are enabled. The first launch creates `Admin` with a bcrypt hash of `Admin`.
+Schema migrations are idempotent. Foreign keys, WAL, prepared statements, transactions, indexes, and bounded ping retention are enabled. The first launch creates `Admin` with a bcryptjs hash of `Admin`.
 
 ### Legacy plaintext migration
 

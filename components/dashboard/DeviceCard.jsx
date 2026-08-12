@@ -1,39 +1,55 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { Router, Network, Server, Video, Wifi, Scale, Monitor, ShoppingCart, CreditCard, Cpu } from 'lucide-react'
+import { Server, ShoppingCart, ShieldCheck, MoreHorizontal } from 'lucide-react'
 import DeviceActionsMenu from './DeviceActionsMenu'
+import DeviceStatusBadge from './DeviceStatusBadge'
 
-const icons = { Router, Switch: Network, iLO: Cpu, Server, NVR: Video, AccessPoint: Wifi, Scale, Client: Monitor, Checkout: ShoppingCart, POS: CreditCard }
-const statusClass = {
+const iconMap = {
+  iLO: ShieldCheck,
+  Server,
+  Checkout: ShoppingCart
+}
+
+const treatment = {
+  online: 'border-nord-14/45 bg-gradient-to-r from-nord-14/12 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
+  warning: 'border-nord-13/55 bg-gradient-to-r from-nord-13/16 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
+  offline: 'border-nord-11/45 bg-gradient-to-r from-nord-11/12 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
+  unknown: 'border-[rgb(var(--border))] bg-[rgb(var(--surface))]'
+}
+
+const accent = {
   online: 'bg-nord-14',
   warning: 'bg-nord-13',
   offline: 'bg-nord-11',
-  unknown: 'bg-nord-3'
+  unknown: 'bg-nord-3/40'
 }
 
-export default function DeviceCard({ device }) {
-  const Icon = icons[device.device_type] || Cpu
-  const ping = device.ping_time == null ? 'No reply' : `${device.ping_time} ms`
+export default function DeviceCard({ device, label }) {
+  const Icon = iconMap[device.device_type] || MoreHorizontal
+  const state = device.status || 'unknown'
+  const lastPing = device.last_ping_ms ?? device.ping_time
+  const address = device.ip_address || device.ip
+  const ping = Number.isFinite(lastPing) ? `${lastPing} ms` : 'No reply'
 
   return (
-    <motion.div
-      whileHover={{ y: -1, scale: 1.01 }}
-      transition={{ duration: 0.15 }}
-      className="group flex h-10 min-w-0 items-center gap-1 rounded-md border bg-[rgb(var(--surface)/.58)] px-1.5 shadow-sm transition-colors hover:border-[rgb(var(--primary)/.35)] hover:bg-[rgb(var(--surface)/.82)]"
-      title={`${device.name || device.device_type} • ${device.ip}${device.port ? `:${device.port}` : ''} • ${device.status} • ${ping}`}
-    >
-      <div className="relative grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[rgb(var(--primary)/.1)] text-[rgb(var(--primary))]">
-        <Icon size={11} strokeWidth={2.1} />
-        <span className={`absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ring-1 ring-[rgb(var(--surface))] ${statusClass[device.status] || statusClass.unknown}`} />
-      </div>
+    <article className={`relative min-w-0 overflow-hidden rounded-xl border p-2 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${treatment[state] || treatment.unknown}`}>
+      <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${accent[state] || accent.unknown}`} />
+      <div className="flex min-w-0 items-start gap-2 pl-1">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--canvas))] text-[rgb(var(--primary))]">
+          <Icon size={15} />
+        </div>
 
-      <div className="min-w-0 flex-1 leading-none">
-        <p className="truncate text-[8.5px] font-extrabold" title={device.name || device.device_type}>{device.name || device.device_type}</p>
-        <p className="mt-1 truncate text-[7.5px] font-semibold text-[rgb(var(--muted))]">{ping}</p>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-extrabold leading-4" title={device.name}>{label || device.name}</p>
+          <p className="truncate font-mono text-[8px] leading-3 text-[rgb(var(--muted))]" title={address}>{address}</p>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5">
+            <DeviceStatusBadge status={state} compact />
+            <span className="truncate text-[8px] font-bold tabular-nums text-[rgb(var(--muted))]">{ping}</span>
+          </div>
+        </div>
 
-      <DeviceActionsMenu device={device} />
-    </motion.div>
+        <DeviceActionsMenu device={device} />
+      </div>
+    </article>
   )
 }

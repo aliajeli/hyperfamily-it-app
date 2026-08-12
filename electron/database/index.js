@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const Database = require('better-sqlite3-multiple-ciphers')
-const bcrypt = require('bcrypt')
+const bcrypt = require('bcryptjs')
 const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
 
 const BRANCH_COLUMNS = ['name', 'code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
@@ -119,12 +119,35 @@ class AppDatabase {
     return { id: user.id, username: user.username }
   }
 
+  updateCredentials(userId, payload = {}) {
+    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(Number(userId))
+    if (!user || !bcrypt.compareSync(String(payload.currentPassword || ''), user.password)) throw new Error('Current password is incorrect')
+
+    const nextUsername = String(payload.newUsername || '').trim()
+    const nextPassword = String(payload.newPassword || '')
+    if (nextUsername.length < 3 || nextUsername.length > 64) throw new Error('Username must contain between 3 and 64 characters')
+    if (/[\u0000-\u001f\u007f]/.test(nextUsername)) throw new Error('Username contains unsupported characters')
+    if (nextPassword && nextPassword.length < 4) throw new Error('New password must contain at least 4 characters')
+
+    const passwordHash = nextPassword ? bcrypt.hashSync(nextPassword, 10) : user.password
+    try {
+      this.db.prepare("UPDATE users SET username = ?, password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(nextUsername, passwordHash, user.id)
+    } catch (error) {
+      if (String(error.code || '').startsWith('SQLITE_CONSTRAINT')) throw new Error('That username is already in use')
+      throw error
+    }
+
+    const changed = []
+    if (nextUsername !== user.username) changed.push(`username from ${user.username} to ${nextUsername}`)
+    if (nextPassword) changed.push('password')
+    this.audit(nextUsername, 'ACCOUNT_UPDATE', nextUsername, `Administrator ${changed.length ? changed.join(' and ') : 'credentials verified'}`)
+    return { id: user.id, username: nextUsername }
+  }
+
   changePassword(username, currentPassword, newPassword) {
-    if (String(newPassword || '').length < 4) throw new Error('New password must contain at least 4 characters')
-    const user = this.db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(username)
-    if (!user || !bcrypt.compareSync(String(currentPassword || ''), user.password)) throw new Error('Current password is incorrect')
-    this.db.prepare("UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(bcrypt.hashSync(newPassword, 10), user.id)
-    this.audit(username, 'PASSWORD_CHANGE', username, 'Administrator password changed')
+    const user = this.db.prepare('SELECT id, username FROM users WHERE username = ? COLLATE NOCASE').get(String(username || '').trim())
+    if (!user) throw new Error('Current password is incorrect')
+    this.updateCredentials(user.id, { currentPassword, newUsername: user.username, newPassword })
     return { success: true }
   }
 

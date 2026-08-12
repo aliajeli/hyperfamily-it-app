@@ -9,7 +9,7 @@ function pingHost(host, timeoutMs = 1000) {
       const match = stdout.match(/(?:time|zeit|temps|tiempo)[=<]\s*(\d+(?:\.\d+)?)\s*ms/i)
       const lessThanOne = /(?:time|zeit|temps|tiempo)<\s*1\s*ms/i.test(stdout)
       const pingTime = lessThanOne ? 1 : match ? Math.max(1, Math.round(Number(match[1]))) : 1
-      resolve({ status: pingTime < 50 ? 'online' : 'warning', ping_time: pingTime })
+      resolve({ status: pingTime <= 300 ? 'online' : 'warning', ping_time: pingTime })
     })
   })
 }

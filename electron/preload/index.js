@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     login: (payload) => invoke('auth:login', payload),
     status: () => invoke('auth:status'),
     logout: () => invoke('auth:logout'),
+    updateCredentials: (payload) => invoke('auth:update-credentials', payload),
     changePassword: (payload) => invoke('auth:change-password', payload)
   },
   branches: { list: () => invoke('branches:list'), save: (payload) => invoke('branches:save', payload), remove: (id) => invoke('branches:remove', id) },

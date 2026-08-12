@@ -9,7 +9,7 @@ function friendlyError(error) {
 }
 
 function registerIpcHandlers({ database, remoteService, vpnService, updateService, getWindow }) {
-  const sessions = new Set()
+  const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
     if (!(url.startsWith('app://hyperfamily/') || url.startsWith('http://localhost:3000'))) throw new Error('Untrusted IPC sender')
@@ -27,30 +27,46 @@ function registerIpcHandlers({ database, remoteService, vpnService, updateServic
   ipcMain.handle('auth:login', open((event, payload) => {
     const user = database.authenticate(payload?.username, payload?.password)
     if (!user) throw new Error('Invalid username or password')
-    sessions.add(event.sender.id)
+    sessions.set(event.sender.id, user)
     event.sender.once('destroyed', () => sessions.delete(event.sender.id))
     return user
   }))
-  ipcMain.handle('auth:status', open((event) => ({ authenticated: sessions.has(event.sender.id) })))
-  ipcMain.handle('auth:logout', open((event) => { sessions.delete(event.sender.id); database.audit('Admin', 'LOGOUT', 'Application', 'Local logout'); return { success: true } }))
-  ipcMain.handle('auth:change-password', secure((_event, payload) => database.changePassword('Admin', payload.currentPassword, payload.newPassword)))
+  ipcMain.handle('auth:status', open((event) => ({ authenticated: sessions.has(event.sender.id), user: sessions.get(event.sender.id) || null })))
+  ipcMain.handle('auth:logout', open((event) => {
+    const session = sessions.get(event.sender.id)
+    sessions.delete(event.sender.id)
+    database.audit(session?.username || 'System', 'LOGOUT', 'Application', 'Local logout')
+    return { success: true }
+  }))
+  ipcMain.handle('auth:update-credentials', secure((event, payload) => {
+    const session = sessions.get(event.sender.id)
+    const updatedUser = database.updateCredentials(session.id, payload)
+    sessions.set(event.sender.id, updatedUser)
+    return updatedUser
+  }))
+  ipcMain.handle('auth:change-password', secure((event, payload) => {
+    const session = sessions.get(event.sender.id)
+    const updatedUser = database.updateCredentials(session.id, { ...payload, newUsername: session.username })
+    sessions.set(event.sender.id, updatedUser)
+    return { success: true }
+  }))
 
   ipcMain.handle('branches:list', secure(() => database.listBranches()))
-  ipcMain.handle('branches:save', secure((_event, payload) => database.saveBranch(payload)))
-  ipcMain.handle('branches:remove', secure((_event, id) => database.deleteBranch(id)))
+  ipcMain.handle('branches:save', secure((event, payload) => database.saveBranch(payload, sessions.get(event.sender.id).username)))
+  ipcMain.handle('branches:remove', secure((event, id) => database.deleteBranch(id, sessions.get(event.sender.id).username)))
   ipcMain.handle('devices:list', secure(() => database.listDevices()))
-  ipcMain.handle('devices:save', secure((_event, payload) => database.saveDevice(payload)))
-  ipcMain.handle('devices:remove', secure((_event, id) => database.deleteDevice(id)))
+  ipcMain.handle('devices:save', secure((event, payload) => database.saveDevice(payload, sessions.get(event.sender.id).username)))
+  ipcMain.handle('devices:remove', secure((event, id) => database.deleteDevice(id, sessions.get(event.sender.id).username)))
   ipcMain.handle('monitor:snapshot', secure(() => { const settings = database.getSettings(); return database.getMonitorSnapshot(settings.ping_history_count || 30) }))
 
   ipcMain.handle('settings:get', secure(() => database.getSettings()))
-  ipcMain.handle('settings:save', secure((_event, patch) => database.saveSettings(patch)))
+  ipcMain.handle('settings:save', secure((event, patch) => database.saveSettings(patch, sessions.get(event.sender.id).username)))
   ipcMain.handle('credentials:list', secure(() => database.listCredentials()))
   ipcMain.handle('credentials:reveal', secure((_event, id) => database.revealCredential(id)))
-  ipcMain.handle('credentials:save', secure((_event, payload) => database.saveCredential(payload)))
-  ipcMain.handle('credentials:remove', secure((_event, id) => database.deleteCredential(id)))
+  ipcMain.handle('credentials:save', secure((event, payload) => database.saveCredential(payload, sessions.get(event.sender.id).username)))
+  ipcMain.handle('credentials:remove', secure((event, id) => database.deleteCredential(id, sessions.get(event.sender.id).username)))
   ipcMain.handle('credentials:mappings', secure(() => database.getMappings()))
-  ipcMain.handle('credentials:save-mappings', secure((_event, mappings) => database.saveMappings(mappings)))
+  ipcMain.handle('credentials:save-mappings', secure((event, mappings) => database.saveMappings(mappings, sessions.get(event.sender.id).username)))
 
   ipcMain.handle('inventory:list', secure(() => database.listInventory()))
   ipcMain.handle('inventory:export', secure((_event, filters) => exportInventory(database, filters || {})))

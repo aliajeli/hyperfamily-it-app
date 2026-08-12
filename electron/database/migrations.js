@@ -132,7 +132,8 @@ function runMigrations(db, adminHash) {
   if (!hasColumn(db, 'devices', 'remote_id')) db.exec('ALTER TABLE devices ADD COLUMN remote_id TEXT')
   if (!hasColumn(db, 'devices', 'protocol')) db.exec("ALTER TABLE devices ADD COLUMN protocol TEXT DEFAULT 'https'")
 
-  db.prepare('INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)').run('Admin', adminHash)
+  const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count
+  if (!userCount) db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('Admin', adminHash)
 
   const defaults = {
     theme: 'aurora', ping_interval: 3, ping_history_count: 30,
