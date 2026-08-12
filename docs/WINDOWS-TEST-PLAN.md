@@ -18,7 +18,7 @@ Use a clean x64 VM and a staging branch/VPN. Record OS build, application commit
 - [ ] Reject incorrect credentials.
 - [ ] Change the password and reject the former password.
 - [ ] Restart the app and require a new authenticated session.
-- [ ] Inspect audit rows for login, logout, and password change.
+- [ ] Change the login username and password independently, sign in with the new credentials, and inspect audit rows for login, logout, and account updates.
 
 ## Branches and devices
 
@@ -31,7 +31,7 @@ Use a clean x64 VM and a staging branch/VPN. Record OS build, application commit
 ## Monitoring
 
 - [ ] Test at least 40 devices for one hour.
-- [ ] Verify online (<50 ms), warning (>=50 ms), and no-response states.
+- [ ] Verify online (up to and including 300 ms), warning (>300 ms), and no-response states.
 - [ ] Change interval from 3 seconds to 1 and 60 seconds.
 - [ ] Change history count from 30 to 10 and 100.
 - [ ] Confirm UI remains responsive and memory remains stable.

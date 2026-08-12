@@ -11,10 +11,10 @@ import { useDevicesStore } from '@/stores/devices.store'
 const BRANCHES_PER_PAGE = 4
 
 const statMeta = [
-  { key: 'branches', title: 'Total branches', icon: Building2, color: 'from-nord-8 to-nord-10' },
-  { key: 'online', title: 'Online devices', icon: CircleCheck, color: 'from-nord-14 to-[#7fa46a]' },
+  { key: 'offline', title: 'Offline', icon: CircleX, color: 'from-nord-11 to-[#944b54]' },
   { key: 'warning', title: 'Warnings', icon: TriangleAlert, color: 'from-nord-13 to-nord-12' },
-  { key: 'offline', title: 'Offline', icon: CircleX, color: 'from-nord-11 to-[#944b54]' }
+  { key: 'online', title: 'Online devices', icon: CircleCheck, color: 'from-nord-14 to-[#7fa46a]' },
+  { key: 'branches', title: 'Total branches', icon: Building2, color: 'from-nord-8 to-nord-10' }
 ]
 
 export default function DashboardPage() {
@@ -34,48 +34,46 @@ export default function DashboardPage() {
   return (
     <AppShell compact>
       <div className="mx-auto max-w-[1920px] space-y-3 text-[13px]">
-        <div className="flex min-h-8 flex-col justify-between gap-2 sm:flex-row sm:items-end">
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight">Network at a glance</h1>
-            <p className="mt-0.5 text-[11px] text-[rgb(var(--muted))]">Live health, gateway latency, and priority systems across every store.</p>
-          </div>
-          <div className="flex items-center gap-1.5 text-[9px] font-semibold text-[rgb(var(--muted))]">
-            <Clock3 size={11} />
-            {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : 'Connecting to monitor…'}
-          </div>
-        </div>
+        <div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="mr-1 text-xl font-extrabold tracking-tight">Network at a glance</h1>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {statMeta.map((stat, index) => {
-            const Icon = stat.icon
-            return (
-              <motion.div
-                key={stat.key}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.04 }}
-                whileHover={{ y: -2 }}
-                className="panel relative h-[50px] overflow-hidden px-2.5 py-2"
-              >
-                <div className={`absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b ${stat.color}`} />
-                <div className="flex h-full items-center">
-                  <div className={`grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br ${stat.color} text-white shadow-sm`}>
-                    <Icon size={15} />
-                  </div>
-                  <div className="ml-2.5 min-w-0">
-                    <p className="truncate text-[8px] font-bold uppercase tracking-[0.1em] text-[rgb(var(--muted))]">{stat.title}</p>
-                    <p className="text-lg font-black leading-5">{branches.length ? stats[stat.key] : '—'}</p>
-                  </div>
-                  <span className="ml-auto rounded-full bg-[rgb(var(--border)/.5)] px-1.5 py-0.5 text-[7px] font-bold tracking-wider text-[rgb(var(--muted))]">LIVE</span>
-                </div>
-              </motion.div>
-            )
-          })}
+            <div className="flex flex-wrap items-center gap-1.5" aria-label="Network summary">
+              {statMeta.map((stat, index) => {
+                const Icon = stat.icon
+                return (
+                  <motion.div
+                    key={stat.key}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.035 }}
+                    whileHover={{ y: -1 }}
+                    className="relative flex h-8 min-w-[88px] items-center gap-1.5 overflow-hidden rounded-xl border bg-[rgb(var(--surface)/.78)] py-1 pl-2 pr-2.5 shadow-sm"
+                  >
+                    <span className={`absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b ${stat.color}`} />
+                    <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md bg-gradient-to-br ${stat.color} text-white`}>
+                      <Icon size={11} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[7px] font-extrabold uppercase leading-2.5 tracking-[0.08em] text-[rgb(var(--muted))]">{stat.title}</span>
+                      <span className="block text-[13px] font-black leading-3.5 tabular-nums">{branches.length ? stats[stat.key] : '—'}</span>
+                    </span>
+                  </motion.div>
+                )
+              })}
+            </div>
+
+            <div className="ml-auto flex items-center gap-1.5 text-[9px] font-semibold text-[rgb(var(--muted))]">
+              <Clock3 size={11} />
+              {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : 'Connecting to monitor…'}
+            </div>
+          </div>
+          <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Live health, gateway latency, and priority systems across every store.</p>
         </div>
 
         {!generatedAt ? (
-          <div className="grid gap-2.5 xl:grid-cols-2">
-            {[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-72" />)}
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-[620px]" />)}
           </div>
         ) : branches.length ? (
           <>
@@ -83,7 +81,7 @@ export default function DashboardPage() {
               key={currentPage}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="grid items-start gap-2.5 xl:grid-cols-2"
+              className="grid items-start gap-2.5 sm:grid-cols-2 xl:grid-cols-4"
             >
               {pageBranches.map((branch) => <BranchCard key={branch.id} branch={branch} devices={devices} />)}
             </motion.div>

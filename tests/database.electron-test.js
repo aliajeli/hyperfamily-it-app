@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const NativeDatabase = require('better-sqlite3-multiple-ciphers')
+const bcrypt = require('bcryptjs')
 const { AppDatabase } = require('../electron/database')
 
 class TestVault {
@@ -37,6 +38,37 @@ test('creates default admin and authenticates Admin/Admin', () => {
     assert.deepEqual(database.authenticate('Admin', 'Admin'), { id: 1, username: 'Admin' })
     assert.equal(database.authenticate('Admin', 'wrong'), null)
   } finally { cleanup() }
+})
+
+test('updates username and password without recreating the default Admin account', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperfamily-account-test-'))
+  const vault = new TestVault(directory)
+  let database = new AppDatabase(directory, vault)
+  try {
+    const storedHash = database.db.prepare('SELECT password FROM users WHERE id = 1').pluck().get()
+    assert.equal(bcrypt.compareSync('Admin', storedHash), true)
+
+    const updated = database.updateCredentials(1, { currentPassword: 'Admin', newUsername: 'OperationsAdmin', newPassword: 'SecurePass123!' })
+    assert.deepEqual(updated, { id: 1, username: 'OperationsAdmin' })
+    assert.equal(database.authenticate('Admin', 'Admin'), null)
+    assert.deepEqual(database.authenticate('operationsadmin', 'SecurePass123!'), { id: 1, username: 'OperationsAdmin' })
+
+    const renamed = database.updateCredentials(1, { currentPassword: 'SecurePass123!', newUsername: 'BranchAdmin' })
+    assert.deepEqual(renamed, { id: 1, username: 'BranchAdmin' })
+    assert.deepEqual(database.authenticate('BranchAdmin', 'SecurePass123!'), { id: 1, username: 'BranchAdmin' })
+
+    database.updateCredentials(1, { currentPassword: 'SecurePass123!', newUsername: 'BranchAdmin', newPassword: 'AnotherSecurePass!' })
+    assert.deepEqual(database.authenticate('BranchAdmin', 'AnotherSecurePass!'), { id: 1, username: 'BranchAdmin' })
+    assert.throws(() => database.updateCredentials(1, { currentPassword: 'wrong', newUsername: 'OtherAdmin' }), /Current password is incorrect/)
+
+    database.close()
+    database = new AppDatabase(directory, vault)
+    assert.equal(database.db.prepare('SELECT COUNT(*) FROM users').pluck().get(), 1)
+    assert.deepEqual(database.authenticate('BranchAdmin', 'AnotherSecurePass!'), { id: 1, username: 'BranchAdmin' })
+  } finally {
+    database?.close()
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('persists branch, device, ping snapshot, and encrypted settings', () => {

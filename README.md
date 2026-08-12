@@ -20,7 +20,7 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 
 | Route | Purpose |
 | --- | --- |
-| `/login` | Local bcrypt authentication (`Admin` / `Admin` on a fresh install) |
+| `/login` | Local bcryptjs authentication (`Admin` / `Admin` on a fresh install) |
 | `/dashboard` | Live branch health, ping charts, and remote context menus |
 | `/devices` | Branch and device CRUD |
 | `/inventory` | Search, filter, status snapshot, and Excel export |
@@ -34,7 +34,7 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 - Tailwind CSS 3.4 + shadcn-style Radix primitives
 - Framer Motion 11, Recharts 3, Zustand 4
 - `better-sqlite3-multiple-ciphers` (Better-SQLite3 API + SQLCipher)
-- bcrypt, Windows DPAPI (`safeStorage`), optional keytar
+- bcryptjs, Windows DPAPI (`safeStorage`), optional keytar
 - ExcelJS and electron-updater
 
 ## Requirements
@@ -222,7 +222,7 @@ See [docs/WINDOWS-TEST-PLAN.md](docs/WINDOWS-TEST-PLAN.md).
 
 ## Developer
 
-**Ali Ajali Lahiji**  
+**Ali Ajeli Lahiji**<br>
 IT Specialist — HyperFamily Retail Stores
 
 Repository: <https://github.com/aliajeli/hyperfamily-it-app>

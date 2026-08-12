@@ -23,7 +23,7 @@ Use the repository's private vulnerability-reporting option under **Security →
 - External navigation is limited to HTTPS and `mailto:` links.
 - Remote processes use argument arrays with `shell: false`.
 - Device host input is validated before OS process launch.
-- Administrator passwords use bcrypt cost 10.
+- Administrator passwords use bcryptjs with cost 10.
 - SQLite uses SQLCipher-compatible AES-256 encryption.
 - The random database key is encrypted with Electron `safeStorage` (Windows DPAPI).
 - Credential and VPN password fields receive a second encryption layer.

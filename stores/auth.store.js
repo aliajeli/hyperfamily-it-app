@@ -7,6 +7,7 @@ export const useAuthStore = create(
       user: null,
       hydrated: false,
       login: (user) => set({ user }),
+      updateUser: (user) => set({ user }),
       logout: () => set({ user: null }),
       setHydrated: () => set({ hydrated: true })
     }),
