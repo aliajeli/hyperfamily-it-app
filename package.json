@@ -23,7 +23,7 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "@formkit/auto-animate": "^0.8.2",
+    "@formkit/auto-animate": "^0.10.0",
     "@hookform/resolvers": "^3.10.0",
     "@phosphor-icons/react": "^2.1.7",
     "@radix-ui/react-dialog": "^1.1.14",
