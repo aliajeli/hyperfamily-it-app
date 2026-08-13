@@ -1,7 +1,7 @@
 const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
 const { exportInventory } = require('../services/excel.service')
-const { openRemoteViewer } = require('./remote-window')
+const { openDeviceWebview, broadcastPalette } = require('./webview-window')
 
 function friendlyError(error) {
   if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE') && String(error.message).includes('devices.branch_id')) return new Error('Only one Router can be defined for each branch')
@@ -10,7 +10,7 @@ function friendlyError(error) {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, guacamoleService, updateService, getWindow }) {
+function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow }) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
@@ -76,20 +76,32 @@ function registerIpcHandlers({ database, remoteService, vpnService, guacamoleSer
   ipcMain.handle('inventory:export', secure((_event, filters) => exportInventory(database, filters || {})))
   ipcMain.handle('remote:connect', secure(async (event, payload) => {
     const result = await remoteService.connect(payload, sessions.get(event.sender.id).username)
-    if (result?.session) {
-      openRemoteViewer(result.session, getWindow(), payload?.palette || {})
-      return { success: true, protocol: result.session.protocol, fileTransfer: result.session.fileTransfer }
+    // iLO and NVR open inside a themed application window rather than an
+    // external browser, so the credential can be injected into the login form.
+    if (result?.webview) {
+      // Auto sign-in is a global preference; the renderer only supplies the palette.
+      const autologin = database.getSettings().webview_autologin !== false
+      return openDeviceWebview({ ...result.webview, palette: payload?.palette || {}, autologin }, getWindow())
     }
     return result
   }))
   ipcMain.handle('remote:probe', secure(() => remoteService.probe()))
-  ipcMain.handle('remote:guacamole', secure(async (event, payload) => {
-    const descriptor = await guacamoleService.prepare(payload || {}, sessions.get(event.sender.id).username)
-    openRemoteViewer(descriptor, getWindow(), payload?.palette || {})
-    return { success: true, protocol: descriptor.protocol, fileTransfer: descriptor.fileTransfer }
-  }))
-  ipcMain.handle('remote:guacamole-test', secure(() => guacamoleService.test()))
-  ipcMain.handle('remote:guacamole-close', secure(() => guacamoleService.disconnect()))
+  ipcMain.handle('remote:palette', secure((_event, palette) => { broadcastPalette(palette || {}); return true }))
+
+  ipcMain.handle('terminal:targets', secure(() => terminalService.targets()))
+  ipcMain.handle('terminal:open', secure((event, payload) => terminalService.open(payload || {}, event.sender, sessions.get(event.sender.id).username)))
+  ipcMain.handle('terminal:write', secure((event, payload) => terminalService.write(payload?.sessionId, payload?.data ?? '', event.sender)))
+  ipcMain.handle('terminal:resize', secure((event, payload) => terminalService.resize(payload?.sessionId, payload || {}, event.sender)))
+  ipcMain.handle('terminal:close', secure((event, sessionId) => { terminalService.owned(sessionId, event.sender); return terminalService.close(sessionId, 'Closed by the operator') }))
+
+  ipcMain.handle('snippets:list', secure(() => database.listSnippets()))
+  ipcMain.handle('snippets:save', secure((event, payload) => database.saveSnippet(payload, sessions.get(event.sender.id).username)))
+  ipcMain.handle('snippets:remove', secure((event, id) => database.deleteSnippet(id, sessions.get(event.sender.id).username)))
+
+  ipcMain.handle('notes:list', secure(() => database.listNotes()))
+  ipcMain.handle('notes:save', secure((event, payload) => database.saveNote(payload, sessions.get(event.sender.id).username)))
+  ipcMain.handle('notes:remove', secure((event, id) => database.deleteNote(id, sessions.get(event.sender.id).username)))
+
   ipcMain.handle('vpn:status', secure(() => vpnService.getStatus()))
   ipcMain.handle('vpn:probe', secure(() => vpnService.probe()))
   ipcMain.handle('vpn:connect', secure((event, mode) => vpnService.connect(mode, sessions.get(event.sender.id).username)))

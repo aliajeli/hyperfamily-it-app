@@ -1,17 +1,17 @@
 const path = require('path')
 const fs = require('fs')
 const { pathToFileURL } = require('url')
-const { app, BrowserWindow, Menu, protocol, net, shell, session, screen } = require('electron')
+const { app, BrowserWindow, Menu, protocol, net, shell, session, screen, ipcMain } = require('electron')
 const isDev = process.env.NODE_ENV === 'development'
 const { SecureVault } = require('../services/crypto.service')
 const { AppDatabase } = require('../database')
 const { PingMonitor } = require('../services/ping.service')
 const { RemoteService } = require('../services/remote.service')
 const { VPNService } = require('../services/vpn.service')
-const { GuacamoleService } = require('../services/guacamole.service')
+const { TerminalService } = require('../services/terminal.service')
 const { UpdateService } = require('../services/update.service')
 const { registerIpcHandlers } = require('./ipc-handlers')
-const { registerRemoteViewerHandlers } = require('./remote-window')
+const { registerDeviceWebviewHandlers } = require('./webview-window')
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false } }])
 
@@ -19,6 +19,7 @@ let mainWindow = null
 let database = null
 let pingMonitor = null
 let vpnService = null
+let terminalService = null
 
 function sendEvent(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
@@ -47,7 +48,7 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: false,
-      spellcheck: false, devTools: isDev
+      spellcheck: false, devTools: isDev, webviewTag: false
     }
   })
   Menu.setApplicationMenu(null)
@@ -62,6 +63,7 @@ function createWindow() {
   })
   if (isDev) mainWindow.loadURL('http://localhost:3000/login')
   else mainWindow.loadURL('app://hyperfamily/login/')
+  mainWindow.webContents.on('destroyed', () => terminalService?.closeAllFor(mainWindow?.webContents))
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
@@ -78,12 +80,12 @@ else {
 
     const vault = new SecureVault(app.getPath('userData'))
     database = new AppDatabase(app.getPath('userData'), vault)
-    const guacamoleService = new GuacamoleService(database)
-    const remoteService = new RemoteService(database, guacamoleService)
+    const remoteService = new RemoteService(database)
     vpnService = new VPNService(database, app.getPath('userData'), sendEvent)
     const updateService = new UpdateService(sendEvent)
-    registerIpcHandlers({ database, remoteService, vpnService, guacamoleService, updateService, getWindow: () => mainWindow })
-    registerRemoteViewerHandlers()
+    terminalService = new TerminalService(database, sendEvent)
+    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow: () => mainWindow })
+    registerDeviceWebviewHandlers(ipcMain)
     createWindow()
     pingMonitor = new PingMonitor(database, sendEvent)
     pingMonitor.start()
@@ -93,4 +95,4 @@ else {
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('before-quit', () => { pingMonitor?.stop(); vpnService?.stop(); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })
+app.on('before-quit', () => { pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })

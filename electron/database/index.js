@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs')
 const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
 
 const BRANCH_COLUMNS = ['name', 'code', 'warehouse_code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
-const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass', 'guacamole_pass'])
+const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass'])
 const MAX_SWITCH_PORTS = 48
 
 function normalizeSwitchPorts(ports) {
@@ -465,6 +465,81 @@ class AppDatabase {
   resolveDeviceCredential(deviceId) {
     const best = this.listCredentialsForDevice(deviceId)[0]
     return best ? this.getCredential(best.id) : null
+  }
+
+  listNotes() {
+    return this.db.prepare('SELECT id, name, body, pinned, created_at, updated_at FROM notes ORDER BY pinned DESC, updated_at DESC').all()
+  }
+
+  saveNote(payload = {}, actor = 'System') {
+    const name = String(payload.name || '').trim()
+    if (!name) throw new Error('A note needs a name')
+    const body = typeof payload.body === 'string' ? payload.body : ''
+    const pinned = payload.pinned ? 1 : 0
+    if (payload.id) {
+      this.db.prepare('UPDATE notes SET name = ?, body = ?, pinned = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(name, body, pinned, Number(payload.id))
+      this.audit(actor, 'NOTE_UPDATE', name, `Note ${payload.id}`)
+      return this.db.prepare('SELECT * FROM notes WHERE id = ?').get(Number(payload.id))
+    }
+    const info = this.db.prepare('INSERT INTO notes (name, body, pinned) VALUES (?, ?, ?)').run(name, body, pinned)
+    this.audit(actor, 'NOTE_CREATE', name, `Note ${info.lastInsertRowid}`)
+    return this.db.prepare('SELECT * FROM notes WHERE id = ?').get(info.lastInsertRowid)
+  }
+
+  deleteNote(id, actor = 'System') {
+    const note = this.db.prepare('SELECT name FROM notes WHERE id = ?').get(Number(id))
+    this.db.prepare('DELETE FROM notes WHERE id = ?').run(Number(id))
+    if (note) this.audit(actor, 'NOTE_DELETE', note.name, `Note ${id}`)
+    return true
+  }
+
+  listSnippets() {
+    return this.db.prepare('SELECT id, name, command, description, created_at, updated_at FROM terminal_snippets ORDER BY name COLLATE NOCASE').all()
+  }
+
+  saveSnippet(payload = {}, actor = 'System') {
+    const name = String(payload.name || '').trim()
+    const command = String(payload.command || '').trim()
+    if (!name) throw new Error('A snippet needs a name')
+    if (!command) throw new Error('A snippet needs a command')
+    const description = String(payload.description || '').trim() || null
+    if (payload.id) {
+      this.db.prepare('UPDATE terminal_snippets SET name = ?, command = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(name, command, description, Number(payload.id))
+      this.audit(actor, 'SNIPPET_UPDATE', name, command)
+      return this.db.prepare('SELECT * FROM terminal_snippets WHERE id = ?').get(Number(payload.id))
+    }
+    const info = this.db.prepare('INSERT INTO terminal_snippets (name, command, description) VALUES (?, ?, ?)').run(name, command, description)
+    this.audit(actor, 'SNIPPET_CREATE', name, command)
+    return this.db.prepare('SELECT * FROM terminal_snippets WHERE id = ?').get(info.lastInsertRowid)
+  }
+
+  deleteSnippet(id, actor = 'System') {
+    const snippet = this.db.prepare('SELECT name FROM terminal_snippets WHERE id = ?').get(Number(id))
+    this.db.prepare('DELETE FROM terminal_snippets WHERE id = ?').run(Number(id))
+    if (snippet) this.audit(actor, 'SNIPPET_DELETE', snippet.name, `Snippet ${id}`)
+    return true
+  }
+
+  // Branch-grouped switch list used by the in-app terminal.
+  listTerminalTargets() {
+    const rows = this.db.prepare(`SELECT d.id, d.name, d.ip, d.transport, d.model, d.location,
+        b.id AS branch_id, b.name AS branch_name, b.code AS branch_code
+      FROM devices d JOIN branches b ON b.id = d.branch_id
+      WHERE d.device_type = 'Switch'
+      ORDER BY b.name COLLATE NOCASE, d.name COLLATE NOCASE`).all()
+    const branches = new Map()
+    for (const row of rows) {
+      if (!branches.has(row.branch_id)) {
+        branches.set(row.branch_id, { id: row.branch_id, name: row.branch_name, code: row.branch_code, switches: [] })
+      }
+      branches.get(row.branch_id).switches.push({
+        id: row.id, name: row.name, ip: row.ip, model: row.model, location: row.location,
+        transport: row.transport === 'telnet' ? 'telnet' : 'ssh'
+      })
+    }
+    return [...branches.values()]
   }
 
   recordPingBatch(results) {

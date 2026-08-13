@@ -1,36 +1,30 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Monitor, Eye, Box, Globe, Terminal, ChevronRight, KeyRound, MoreVertical, LoaderCircle, MonitorSmartphone } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApi } from '@/lib/api'
+import { currentPalette } from '@/lib/palette'
 
 const methods = [
-  { id: 'guacamole', label: 'Remote session', icon: MonitorSmartphone, types: ['Server', 'Client', 'Checkout', 'POS', 'Router', 'Switch'] },
+  { id: 'webview', label: 'Open with auto sign-in', icon: MonitorSmartphone, types: ['iLO', 'NVR'] },
+  { id: 'terminal', label: 'Terminal (SSH / Telnet)', icon: Terminal, types: ['Switch'] },
   { id: 'rdp', label: 'Remote Desktop', icon: Monitor, types: ['Server', 'Client', 'Checkout'] },
   { id: 'teamviewer', label: 'TeamViewer (LAN)', icon: Eye, types: ['Server', 'Client', 'Checkout', 'POS'] },
-  { id: 'winbox', label: 'Winbox', icon: Box, types: ['Router'] },
-  { id: 'browser', label: 'Open in browser', icon: Globe, types: ['Router', 'Switch', 'iLO', 'NVR', 'AccessPoint', 'Scale', 'POS'] },
-  { id: 'termius', label: 'Termius SSH', icon: Terminal, types: ['Router', 'Switch', 'Server'] }
+  { id: 'winbox', label: 'Winbox', icon: Box, types: ['Router', 'AccessPoint'] },
+  { id: 'browser', label: 'Open in browser', icon: Globe, types: ['Router', 'Switch', 'iLO', 'NVR', 'AccessPoint', 'Scale', 'POS'] }
 ]
 
-const CREDENTIAL_METHODS = ['guacamole', 'rdp', 'winbox', 'browser', 'termius']
-const PALETTE_KEYS = ['canvas', 'surface', 'border', 'text', 'muted', 'primary', 'danger', 'success']
+const CREDENTIAL_METHODS = ['webview', 'rdp', 'winbox', 'browser']
+const METHOD_LABELS = { webview: 'Auto sign-in window', browser: 'Browser', winbox: 'Winbox', rdp: 'Remote Desktop', teamviewer: 'TeamViewer' }
 
 const menuClass = 'glass z-50 min-w-56 rounded-xl p-1.5 shadow-xl'
 const itemClass = 'flex cursor-default select-none items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold outline-none data-[highlighted]:bg-[rgb(var(--border)/.55)]'
 
-/** Hands the remote-session window the palette of the active theme. */
-function currentPalette() {
-  if (typeof window === 'undefined') return {}
-  const styles = window.getComputedStyle(document.documentElement)
-  return Object.fromEntries(
-    PALETTE_KEYS.map((key) => [key, styles.getPropertyValue(`--${key}`).trim()]).filter(([, value]) => value)
-  )
-}
-
 export default function DeviceActionsMenu({ device, size = 12, className = '' }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -55,11 +49,17 @@ export default function DeviceActionsMenu({ device, size = 12, className = '' })
   }
 
   const connect = async (method, credentialId = null) => {
+    // Switches open the in-app terminal workspace instead of an external tool.
+    if (method === 'terminal') {
+      setOpen(false)
+      router.push(`/terminal?device=${device.id}`)
+      return
+    }
+
     setBusy(method)
     try {
       await getApi().remote.connect({ method, deviceId: device.id, credentialId, palette: currentPalette() })
-      const label = method === 'guacamole' ? 'Remote session' : method === 'browser' ? 'Browser' : method
-      toast.success(`${label} launched for ${device.name || device.ip}`)
+      toast.success(`${METHOD_LABELS[method] || method} launched for ${device.name || device.ip}`)
     } catch (error) {
       toast.error(error.message || 'Unable to open the connection')
     } finally {

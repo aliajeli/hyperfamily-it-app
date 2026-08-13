@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SlidersHorizontal, KeyRound, MonitorCog, Shield, Palette, MonitorSmartphone } from 'lucide-react'
+import { SlidersHorizontal, KeyRound, MonitorCog, TerminalSquare, Shield, Palette } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import GeneralSettings from '@/components/settings/GeneralSettings'
 import CredentialsSettings from '@/components/settings/CredentialsSettings'
 import DeviceSettings from '@/components/settings/DeviceSettings'
+import TerminalSettings from '@/components/settings/TerminalSettings'
 import VPNSettings from '@/components/settings/VPNSettings'
-import RemoteSettings from '@/components/settings/RemoteSettings'
 import ThemeSettings from '@/components/settings/ThemeSettings'
 import { Card, Skeleton, Tabs, TabsContent } from '@/components/ui'
 import { getApi } from '@/lib/api'
@@ -18,8 +18,8 @@ const tabs = [
   { value: 'general', label: 'General', icon: <SlidersHorizontal size={14} /> },
   { value: 'credentials', label: 'Credentials', icon: <KeyRound size={14} /> },
   { value: 'devices', label: 'Device tools', icon: <MonitorCog size={14} /> },
+  { value: 'terminal', label: 'Terminal & web', icon: <TerminalSquare size={14} /> },
   { value: 'vpn', label: 'VPN', icon: <Shield size={14} /> },
-  { value: 'remote', label: 'Remote', icon: <MonitorSmartphone size={14} /> },
   { value: 'theme', label: 'Theme', icon: <Palette size={14} /> }
 ]
 
@@ -38,7 +38,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-[1600px] space-y-3">
         <div>
           <h1 className="page-title">Application settings</h1>
-          <p className="page-subtitle">Security, monitoring intervals, remote tools, VPN profiles, and appearance.</p>
+          <p className="page-subtitle">Security, monitoring intervals, device tools, terminal defaults, VPN profiles, and appearance.</p>
         </div>
 
         {!settings ? (
@@ -51,8 +51,8 @@ export default function SettingsPage() {
               <TabsContent value="general"><GeneralSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="credentials"><CredentialsSettings /></TabsContent>
               <TabsContent value="devices"><DeviceSettings settings={settings} onSaved={setSettings} /></TabsContent>
+              <TabsContent value="terminal"><TerminalSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="vpn"><VPNSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="remote"><RemoteSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="theme"><ThemeSettings settings={settings} onSaved={setSettings} /></TabsContent>
             </Card>
           </Tabs>

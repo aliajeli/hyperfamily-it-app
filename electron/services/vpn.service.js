@@ -183,7 +183,7 @@ class VPNService {
   /**
    * Loopback proxy. Plain HTTP requests are forwarded to the portal's web-mode
    * HTTP proxy; CONNECT tunnels are relayed over a TLS socket to the gateway so
-   * that TCP services (RDP through Guacamole, Winbox, HTTPS device UIs) work.
+   * that TCP services (SSH/Telnet, Winbox, HTTPS device UIs) work.
    */
   startProxy(profile) {
     return new Promise((resolve, reject) => {

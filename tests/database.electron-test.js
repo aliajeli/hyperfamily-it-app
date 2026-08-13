@@ -193,7 +193,7 @@ test('upgrades older databases with Warehouse Code, scale serial numbers, and ma
     assert.equal(database.listBranches()[0].warehouse_code, 'LEGACY-LEGACY-1')
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'switch_ports'").pluck().get(), 1)
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_devices_one_router_per_branch'").pluck().get(), 1)
-    assert.equal(database.db.pragma('user_version', { simple: true }), 5)
+    assert.equal(database.db.pragma('user_version', { simple: true }), 6)
   } finally {
     database?.close()
     fs.rmSync(directory, { recursive: true, force: true })
