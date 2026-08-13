@@ -21,6 +21,27 @@ jobs:
       - run: npm test
       - run: npm run test:database
       - run: npm run build
+      # electron-builder uploads each artifact through its own "create the
+      # release if it is missing" call. Those calls can land in the same second
+      # and produce two releases on one tag, splitting the assets between them
+      # (2.0.1 shipped the installer on one and the blockmap on the other).
+      # Creating the release up front means every upload finds it already there.
+      - name: Reserve a single release for this tag
+        shell: bash
+        run: |
+          ids=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"${GITHUB_REF_NAME}\") | .id")
+          for id in $ids; do
+            echo "removing pre-existing release $id for ${GITHUB_REF_NAME}"
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}"
+          done
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME#v}" \
+            --notes "HyperFamily Branch Monitor ${GITHUB_REF_NAME#v}" \
+            --target "${GITHUB_SHA}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and publish GitHub release
         run: npx electron-builder --win nsis --x64 --publish always
         env:
@@ -35,6 +56,16 @@ jobs:
       - name: Publish the release so the in-app updater can see it
         shell: bash
         run: gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail if the tag ended up with more than one release
+        shell: bash
+        run: |
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq "[.[] | select(.tag_name == \"${GITHUB_REF_NAME}\")] | length")
+          echo "releases on ${GITHUB_REF_NAME}: ${count}"
+          [ "$count" = "1" ] || { echo "::error::${count} releases share this tag; the updater would read the wrong one"; exit 1; }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
