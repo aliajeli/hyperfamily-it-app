@@ -2,27 +2,40 @@
 
 import { useState } from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Monitor, Eye, Box, Globe, Terminal, ChevronRight, KeyRound, MoreVertical, LoaderCircle } from 'lucide-react'
+import { Monitor, Eye, Box, Globe, Terminal, ChevronRight, KeyRound, MoreVertical, LoaderCircle, MonitorSmartphone } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApi } from '@/lib/api'
 
 const methods = [
+  { id: 'guacamole', label: 'Remote session', icon: MonitorSmartphone, types: ['Server', 'Client', 'Checkout', 'POS', 'Router', 'Switch'] },
   { id: 'rdp', label: 'Remote Desktop', icon: Monitor, types: ['Server', 'Client', 'Checkout'] },
-  { id: 'teamviewer', label: 'TeamViewer', icon: Eye, types: ['Server', 'Client', 'Checkout', 'POS'] },
+  { id: 'teamviewer', label: 'TeamViewer (LAN)', icon: Eye, types: ['Server', 'Client', 'Checkout', 'POS'] },
   { id: 'winbox', label: 'Winbox', icon: Box, types: ['Router'] },
   { id: 'browser', label: 'Open in browser', icon: Globe, types: ['Router', 'Switch', 'iLO', 'NVR', 'AccessPoint', 'Scale', 'POS'] },
   { id: 'termius', label: 'Termius SSH', icon: Terminal, types: ['Router', 'Switch', 'Server'] }
 ]
 
+const CREDENTIAL_METHODS = ['guacamole', 'rdp', 'winbox', 'browser', 'termius']
+const PALETTE_KEYS = ['canvas', 'surface', 'border', 'text', 'muted', 'primary', 'danger', 'success']
+
 const menuClass = 'glass z-50 min-w-56 rounded-xl p-1.5 shadow-xl'
 const itemClass = 'flex cursor-default select-none items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold outline-none data-[highlighted]:bg-[rgb(var(--border)/.55)]'
 
-export default function DeviceActionsMenu({ device }) {
+/** Hands the remote-session window the palette of the active theme. */
+function currentPalette() {
+  if (typeof window === 'undefined') return {}
+  const styles = window.getComputedStyle(document.documentElement)
+  return Object.fromEntries(
+    PALETTE_KEYS.map((key) => [key, styles.getPropertyValue(`--${key}`).trim()]).filter(([, value]) => value)
+  )
+}
+
+export default function DeviceActionsMenu({ device, size = 12, className = '' }) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState([])
-  const [mappings, setMappings] = useState({})
   const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(null)
 
   const handleOpenChange = async (nextOpen) => {
     setOpen(nextOpen)
@@ -30,32 +43,30 @@ export default function DeviceActionsMenu({ device }) {
 
     setLoading(true)
     try {
-      const [credentialList, credentialMappings] = await Promise.all([
-        getApi().credentials.list(),
-        getApi().credentials.mappings()
-      ])
-      setCredentials(credentialList)
-      setMappings(credentialMappings)
+      // Resolves device-level assignments first, then type-level ones.
+      const list = await getApi().credentials.forDevice(device.id)
+      setCredentials(Array.isArray(list) ? list : [])
       setLoaded(true)
     } catch {
       setCredentials([])
-      setMappings({})
     } finally {
       setLoading(false)
     }
   }
 
   const connect = async (method, credentialId = null) => {
+    setBusy(method)
     try {
-      await getApi().remote.connect({ method, deviceId: device.id, credentialId })
-      toast.success(`${method === 'browser' ? 'Browser' : method} launched for ${device.name || device.ip}`)
+      await getApi().remote.connect({ method, deviceId: device.id, credentialId, palette: currentPalette() })
+      const label = method === 'guacamole' ? 'Remote session' : method === 'browser' ? 'Browser' : method
+      toast.success(`${label} launched for ${device.name || device.ip}`)
     } catch (error) {
       toast.error(error.message || 'Unable to open the connection')
+    } finally {
+      setBusy(null)
     }
   }
 
-  const mappedIds = mappings[device.device_type] || []
-  const mapped = credentials.filter((item) => mappedIds.includes(item.id))
   const available = methods.filter((method) => method.types.includes(device.device_type))
 
   return (
@@ -64,11 +75,11 @@ export default function DeviceActionsMenu({ device }) {
         <button
           type="button"
           onClick={(event) => event.stopPropagation()}
-          className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-[rgb(var(--muted)/.65)] transition hover:bg-[rgb(var(--border)/.65)] hover:text-[rgb(var(--text))] data-[state=open]:bg-[rgb(var(--primary)/.12)] data-[state=open]:text-[rgb(var(--primary))]"
+          className={`grid shrink-0 place-items-center rounded-md text-[rgb(var(--muted)/.65)] transition hover:bg-[rgb(var(--border)/.65)] hover:text-[rgb(var(--text))] data-[state=open]:bg-[rgb(var(--primary)/.12)] data-[state=open]:text-[rgb(var(--primary))] ${className || 'h-5 w-5'}`}
           aria-label={`Connection options for ${device.name || device.ip}`}
           title="Connection options"
         >
-          <MoreVertical size={12} />
+          {busy ? <LoaderCircle size={size} className="animate-spin" /> : <MoreVertical size={size} />}
         </button>
       </DropdownMenu.Trigger>
 
@@ -84,9 +95,9 @@ export default function DeviceActionsMenu({ device }) {
 
           {available.map((method) => {
             const Icon = method.icon
-            const supportsCredentials = ['rdp', 'winbox', 'browser', 'termius'].includes(method.id)
+            const supportsCredentials = CREDENTIAL_METHODS.includes(method.id)
 
-            if (mapped.length > 0 && supportsCredentials) {
+            if (credentials.length > 0 && supportsCredentials) {
               return (
                 <DropdownMenu.Sub key={method.id}>
                   <DropdownMenu.SubTrigger className={itemClass}>
@@ -96,7 +107,12 @@ export default function DeviceActionsMenu({ device }) {
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.Portal>
                     <DropdownMenu.SubContent className={menuClass} sideOffset={5} collisionPadding={10}>
-                      {mapped.map((credential) => (
+                      <DropdownMenu.Item className={itemClass} onSelect={() => connect(method.id)}>
+                        <KeyRound size={13} />
+                        <span>Assigned credential</span>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Separator className="my-1 h-px bg-[rgb(var(--border))]" />
+                      {credentials.map((credential) => (
                         <DropdownMenu.Item key={credential.id} className={itemClass} onSelect={() => connect(method.id, credential.id)}>
                           <KeyRound size={13} />
                           <span className="max-w-28 truncate">{credential.name}</span>
@@ -119,7 +135,13 @@ export default function DeviceActionsMenu({ device }) {
 
           {loading && (
             <div className="flex items-center gap-2 px-3 py-2 text-[10px] text-[rgb(var(--muted))]">
-              <LoaderCircle size={12} className="animate-spin" /> Loading saved credentials…
+              <LoaderCircle size={12} className="animate-spin" /> Loading assigned credentials…
+            </div>
+          )}
+
+          {!loading && loaded && credentials.length === 0 && available.length > 0 && (
+            <div className="px-3 py-1.5 text-[9px] leading-relaxed text-[rgb(var(--muted))]">
+              No credential is assigned to this device. Assign one in Settings → Credentials.
             </div>
           )}
 

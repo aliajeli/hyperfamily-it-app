@@ -75,11 +75,19 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
   )
 }
 
-export function Tabs({ value, onValueChange, tabs, children, className }) {
+export function Tabs({ value, onValueChange, tabs, children, className, listClassName }) {
   return (
     <TabsPrimitive.Root value={value} onValueChange={onValueChange} className={className}>
-      <TabsPrimitive.List className="mb-3.5 flex gap-1 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-1">
-        {tabs.map((tab) => <TabsPrimitive.Trigger key={tab.value} value={tab.value} className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-[rgb(var(--muted))] transition data-[state=active]:bg-[rgb(var(--surface))] data-[state=active]:text-[rgb(var(--text))] data-[state=active]:shadow-sm">{tab.icon}{tab.label}</TabsPrimitive.Trigger>)}
+      <TabsPrimitive.List className={cn('flex gap-1 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-1', listClassName || 'mb-3.5')}>
+        {tabs.map((tab) => (
+          <TabsPrimitive.Trigger
+            key={tab.value}
+            value={tab.value}
+            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))] data-[state=active]:bg-[rgb(var(--primary))] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-[rgb(var(--primary)/.28)]"
+          >
+            {tab.icon}{tab.label}
+          </TabsPrimitive.Trigger>
+        ))}
       </TabsPrimitive.List>
       {children}
     </TabsPrimitive.Root>

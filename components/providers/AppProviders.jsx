@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { getApi } from '@/lib/api'
-import { THEMES } from '@/lib/constants'
+import { applyTheme } from '@/lib/themes'
 import { useSettingsStore } from '@/stores/settings.store'
 
 export default function AppProviders({ children }) {
@@ -16,12 +16,9 @@ export default function AppProviders({ children }) {
         const settings = await getApi().settings.get()
         if (!alive) return
         setSettings(settings)
-        const theme = THEMES.find((item) => item.id === settings.theme) || THEMES[0]
-        document.documentElement.dataset.theme = theme.id
-        document.documentElement.dataset.colorMode = theme.mode
+        applyTheme(settings.theme)
       } catch {
-        document.documentElement.dataset.theme = 'aurora'
-        document.documentElement.dataset.colorMode = 'light'
+        applyTheme('aurora')
       }
     }
     load()

@@ -100,6 +100,14 @@ function runMigrations(db, adminHash) {
       FOREIGN KEY (credential_id) REFERENCES credentials(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS device_credential_assignments (
+      device_id INTEGER NOT NULL,
+      credential_id INTEGER NOT NULL,
+      PRIMARY KEY (device_id, credential_id),
+      FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+      FOREIGN KEY (credential_id) REFERENCES credentials(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS ping_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       device_id INTEGER NOT NULL,
@@ -143,6 +151,8 @@ function runMigrations(db, adminHash) {
     CREATE INDEX IF NOT EXISTS idx_uptime_device ON uptime_logs(device_id);
     CREATE INDEX IF NOT EXISTS idx_uptime_date ON uptime_logs(date);
     CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_device_credentials_credential ON device_credentials(credential_id);
+    CREATE INDEX IF NOT EXISTS idx_device_credential_assignments_credential ON device_credential_assignments(credential_id);
 
     CREATE TRIGGER IF NOT EXISTS validate_switch_port_number_insert
     BEFORE INSERT ON switch_ports
@@ -209,13 +219,16 @@ function runMigrations(db, adminHash) {
     dashboard_branch_mode: 'compact_over_four', dashboard_branch_details_view: 'modal',
     teamviewer_path: 'C:\\Program Files\\TeamViewer\\TeamViewer.exe', teamviewer_password: '',
     winbox_path: 'C:\\Program Files\\Winbox\\winbox64.exe', winbox_port: 8291,
-    vpn_gateway: '', vpn_port: 443, vpn_user: '', vpn_pass: '',
-    openvpn_path: 'C:\\Program Files\\OpenVPN\\bin\\openvpn.exe', openvpn_config: ''
+    teamviewer_lan_mode: true,
+    vpn_gateway: '', vpn_port: 443, vpn_user: '', vpn_pass: '', vpn_realm: '', vpn_autoconnect: false,
+    forticlient_path: 'C:\\Program Files\\Fortinet\\FortiClient\\FortiClient.exe',
+    guacamole_url: '', guacamole_user: '', guacamole_pass: '', guacamole_datasource: 'postgresql',
+    guacamole_enable_drive: true, guacamole_drive_path: 'C:\\HyperFamilyTransfer'
   }
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   const transaction = db.transaction(() => Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value))))
   transaction()
-  db.pragma('user_version = 4')
+  db.pragma('user_version = 5')
 }
 
 module.exports = { runMigrations, DEVICE_COLUMNS }

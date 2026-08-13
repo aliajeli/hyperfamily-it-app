@@ -23,16 +23,29 @@ contextBridge.exposeInMainWorld('hyperfamily', {
   credentials: {
     list: () => invoke('credentials:list'), reveal: (id) => invoke('credentials:reveal', id),
     save: (payload) => invoke('credentials:save', payload), remove: (id) => invoke('credentials:remove', id),
-    mappings: () => invoke('credentials:mappings'), saveMappings: (mappings) => invoke('credentials:save-mappings', mappings)
+    mappings: () => invoke('credentials:mappings'),
+    map: () => invoke('credentials:credential-map'),
+    forDevice: (deviceId) => invoke('credentials:for-device', deviceId),
+    saveMappings: (mappings) => invoke('credentials:save-mappings', mappings)
   },
   inventory: {
     list: () => invoke('inventory:list'),
-    export: (filters) => invoke('inventory:export', filters),
-    downloadTemplate: () => invoke('inventory:download-template'),
-    importExcel: () => invoke('inventory:import')
+    export: (filters) => invoke('inventory:export', filters)
   },
-  remote: { connect: (payload) => invoke('remote:connect', payload) },
-  vpn: { status: () => invoke('vpn:status'), connect: (mode) => invoke('vpn:connect', mode), disconnect: () => invoke('vpn:disconnect'), subscribe: (callback) => subscribe('vpn:status', callback) },
+  remote: {
+    connect: (payload) => invoke('remote:connect', payload),
+    probe: () => invoke('remote:probe'),
+    guacamole: (payload) => invoke('remote:guacamole', payload),
+    guacamoleTest: () => invoke('remote:guacamole-test'),
+    guacamoleClose: () => invoke('remote:guacamole-close')
+  },
+  vpn: {
+    status: () => invoke('vpn:status'),
+    probe: () => invoke('vpn:probe'),
+    connect: (mode) => invoke('vpn:connect', mode),
+    disconnect: () => invoke('vpn:disconnect'),
+    subscribe: (callback) => subscribe('vpn:status', callback)
+  },
   update: { check: () => invoke('update:check'), download: () => invoke('update:download'), install: () => invoke('update:install'), subscribe: (callback) => subscribe('update:event', callback) },
   audit: { list: (limit) => invoke('audit:list', limit) },
   dialog: { selectFile: (options) => invoke('dialog:select-file', options) },

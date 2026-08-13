@@ -1,6 +1,7 @@
 const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
-const { createImportTemplate, exportInventory, importDirectory } = require('../services/excel.service')
+const { exportInventory } = require('../services/excel.service')
+const { openRemoteViewer } = require('./remote-window')
 
 function friendlyError(error) {
   if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE') && String(error.message).includes('devices.branch_id')) return new Error('Only one Router can be defined for each branch')
@@ -9,7 +10,7 @@ function friendlyError(error) {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, updateService, getWindow }) {
+function registerIpcHandlers({ database, remoteService, vpnService, guacamoleService, updateService, getWindow }) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
@@ -67,16 +68,32 @@ function registerIpcHandlers({ database, remoteService, vpnService, updateServic
   ipcMain.handle('credentials:save', secure((event, payload) => database.saveCredential(payload, sessions.get(event.sender.id).username)))
   ipcMain.handle('credentials:remove', secure((event, id) => database.deleteCredential(id, sessions.get(event.sender.id).username)))
   ipcMain.handle('credentials:mappings', secure(() => database.getMappings()))
+  ipcMain.handle('credentials:credential-map', secure(() => database.getCredentialMap()))
+  ipcMain.handle('credentials:for-device', secure((_event, deviceId) => database.listCredentialsForDevice(deviceId)))
   ipcMain.handle('credentials:save-mappings', secure((event, mappings) => database.saveMappings(mappings, sessions.get(event.sender.id).username)))
 
   ipcMain.handle('inventory:list', secure(() => database.listInventory()))
   ipcMain.handle('inventory:export', secure((_event, filters) => exportInventory(database, filters || {})))
-  ipcMain.handle('inventory:download-template', secure((event) => createImportTemplate(database, null, sessions.get(event.sender.id).username)))
-  ipcMain.handle('inventory:import', secure((event) => importDirectory(database, null, sessions.get(event.sender.id).username)))
-  ipcMain.handle('remote:connect', secure((_event, payload) => remoteService.connect(payload)))
+  ipcMain.handle('remote:connect', secure(async (event, payload) => {
+    const result = await remoteService.connect(payload, sessions.get(event.sender.id).username)
+    if (result?.session) {
+      openRemoteViewer(result.session, getWindow(), payload?.palette || {})
+      return { success: true, protocol: result.session.protocol, fileTransfer: result.session.fileTransfer }
+    }
+    return result
+  }))
+  ipcMain.handle('remote:probe', secure(() => remoteService.probe()))
+  ipcMain.handle('remote:guacamole', secure(async (event, payload) => {
+    const descriptor = await guacamoleService.prepare(payload || {}, sessions.get(event.sender.id).username)
+    openRemoteViewer(descriptor, getWindow(), payload?.palette || {})
+    return { success: true, protocol: descriptor.protocol, fileTransfer: descriptor.fileTransfer }
+  }))
+  ipcMain.handle('remote:guacamole-test', secure(() => guacamoleService.test()))
+  ipcMain.handle('remote:guacamole-close', secure(() => guacamoleService.disconnect()))
   ipcMain.handle('vpn:status', secure(() => vpnService.getStatus()))
-  ipcMain.handle('vpn:connect', secure((_event, mode) => vpnService.connect(mode)))
-  ipcMain.handle('vpn:disconnect', secure(() => vpnService.disconnect()))
+  ipcMain.handle('vpn:probe', secure(() => vpnService.probe()))
+  ipcMain.handle('vpn:connect', secure((event, mode) => vpnService.connect(mode, sessions.get(event.sender.id).username)))
+  ipcMain.handle('vpn:disconnect', secure((event) => vpnService.disconnect(sessions.get(event.sender.id).username)))
   ipcMain.handle('update:check', secure(() => updateService.check()))
   ipcMain.handle('update:download', secure(() => updateService.download()))
   ipcMain.handle('update:install', secure(() => updateService.install()))
