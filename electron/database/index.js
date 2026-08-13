@@ -6,6 +6,23 @@ const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
 
 const BRANCH_COLUMNS = ['name', 'code', 'warehouse_code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
 const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass'])
+const MAX_SWITCH_PORTS = 48
+
+function normalizeSwitchPorts(ports) {
+  if (!Array.isArray(ports)) throw new Error('Switch ports must be provided as a list')
+  if (ports.length > MAX_SWITCH_PORTS) throw new Error(`A Switch can contain at most ${MAX_SWITCH_PORTS} ports`)
+
+  const seen = new Set()
+  return ports.map((port, index) => {
+    const portNumber = Number(port?.port_number)
+    if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > MAX_SWITCH_PORTS) {
+      throw new Error(`Switch port ${index + 1} must use a Port Number from 1 through ${MAX_SWITCH_PORTS}`)
+    }
+    if (seen.has(portNumber)) throw new Error(`Switch Port Number ${portNumber} is duplicated`)
+    seen.add(portNumber)
+    return { ...port, port_number: portNumber }
+  })
+}
 
 class AppDatabase {
   constructor(userDataPath, vault) {
@@ -238,6 +255,7 @@ class AppDatabase {
     normalized.checkout_number = data.checkout_number ? Number(data.checkout_number) : null
     normalized.is_dashboard_visible = data.is_dashboard_visible ? 1 : 0
     normalized.protocol = data.protocol === 'http' ? 'http' : 'https'
+    const switchPorts = normalized.device_type === 'Switch' ? normalizeSwitchPorts(data.switch_ports || []) : []
     const values = DEVICE_COLUMNS.map((key) => normalized[key] === '' || normalized[key] === undefined ? null : normalized[key])
 
     return this.db.transaction(() => {
@@ -263,7 +281,7 @@ class AppDatabase {
         this.audit(actor, 'DEVICE_ADD', String(deviceId), `${data.device_type} ${data.ip}`)
       }
 
-      this.replaceSwitchPorts(deviceId, data.device_type === 'Switch' ? data.switch_ports || [] : [])
+      this.replaceSwitchPorts(deviceId, switchPorts)
       return { ...normalized, id: deviceId, switch_ports: this.listSwitchPorts(deviceId) }
     })()
   }

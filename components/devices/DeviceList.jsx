@@ -1,8 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CreditCard, Eye, EyeOff, HardDrive, Monitor, Network, Pencil, Plus, Router, Scale, Server, ShoppingCart, Trash2, Video, Wifi } from 'lucide-react'
-import { Badge, Button, EmptyState } from '@/components/ui'
+import { CreditCard, HardDrive, Monitor, Network, Pencil, Plus, Router, Scale, Server, ShoppingCart, Trash2, Video, Wifi } from 'lucide-react'
+import { Badge, Button, EmptyState, Switch } from '@/components/ui'
 import { DEVICE_TYPE_DETAILS } from '@/lib/constants'
 
 const icons = { Router, Switch: Network, iLO: HardDrive, Server, NVR: Video, AccessPoint: Wifi, Scale, Client: Monitor, Checkout: ShoppingCart, POS: CreditCard }
@@ -32,7 +32,7 @@ function detailsFor(device) {
   return (candidates[device.device_type] || []).filter(Boolean).slice(0, 2)
 }
 
-export default function DeviceList({ devices, branch, onEdit, onDelete, onAdd }) {
+export default function DeviceList({ devices, branch, onEdit, onDelete, onAdd, onDashboardChange, dashboardSavingId }) {
   if (!devices.length) {
     return (
       <EmptyState
@@ -57,7 +57,7 @@ export default function DeviceList({ devices, branch, onEdit, onDelete, onAdd })
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(index, 10) * 0.018 }}
             whileHover={{ y: -2 }}
-            className="directory-device-card group relative min-w-0 overflow-hidden rounded-xl border bg-[rgb(var(--surface)/.7)] p-2.5 shadow-sm"
+            className="directory-device-card group relative min-w-0 overflow-hidden rounded-xl border bg-[rgb(var(--surface)/.7)] p-2 shadow-sm"
           >
             <span aria-hidden="true" className="absolute -right-9 -top-10 h-20 w-20 rounded-full bg-[rgb(var(--primary)/.07)] blur-2xl transition-transform duration-500 group-hover:scale-150" />
             <div className="relative flex min-w-0 items-start gap-2">
@@ -74,16 +74,23 @@ export default function DeviceList({ devices, branch, onEdit, onDelete, onAdd })
               </div>
             </div>
 
-            <div className="relative mt-2 flex min-h-5 flex-wrap gap-1">
+            <div className="relative mt-1.5 flex min-h-4 flex-wrap gap-1">
               {details.map((detail) => <span key={detail} className="max-w-full truncate rounded-md bg-[rgb(var(--canvas)/.8)] px-1.5 py-0.5 text-[7px] font-semibold text-[rgb(var(--muted))]">{detail}</span>)}
               {device.device_type === 'Switch' && <span className="rounded-md bg-nord-8/12 px-1.5 py-0.5 text-[7px] font-extrabold text-nord-10">{ports} ports</span>}
               {!details.length && device.device_type !== 'Switch' && <span className="text-[7px] text-[rgb(var(--muted))]">No optional details</span>}
             </div>
 
-            <div className="relative mt-2 flex items-center justify-between border-t pt-1.5">
-              <span className={`flex min-w-0 items-center gap-1 truncate text-[7px] font-bold ${device.is_dashboard_visible ? 'status-online-text' : 'text-[rgb(var(--muted))]'}`}>
-                {device.is_dashboard_visible ? <Eye size={10} /> : <EyeOff size={10} />}{device.is_dashboard_visible ? 'Dashboard' : 'Hidden'}
-              </span>
+            <div className="relative mt-1.5 flex items-center justify-between border-t pt-1">
+              <label className="flex min-w-0 items-center gap-1.5 text-[7px] font-bold text-[rgb(var(--muted))]">
+                <Switch
+                  compact
+                  checked={Boolean(device.is_dashboard_visible)}
+                  disabled={dashboardSavingId !== null}
+                  onCheckedChange={(checked) => onDashboardChange(device, checked)}
+                  aria-label={`Show ${titleFor(device)} on Dashboard`}
+                />
+                <span className={device.is_dashboard_visible ? 'status-online-text' : ''}>{dashboardSavingId === device.id ? 'Saving…' : device.is_dashboard_visible ? 'Dashboard on' : 'Dashboard off'}</span>
+              </label>
               <div className="flex gap-0.5">
                 <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(device)} aria-label={`Edit ${titleFor(device)}`} title="Edit device"><Pencil size={11} /></Button>
                 <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-nord-11" onClick={() => onDelete(device)} aria-label={`Delete ${titleFor(device)}`} title="Delete device"><Trash2 size={11} /></Button>

@@ -1,7 +1,7 @@
 const path = require('path')
 const fs = require('fs')
 const { pathToFileURL } = require('url')
-const { app, BrowserWindow, Menu, protocol, net, shell, session } = require('electron')
+const { app, BrowserWindow, Menu, protocol, net, shell, session, screen } = require('electron')
 const isDev = process.env.NODE_ENV === 'development'
 const { SecureVault } = require('../services/crypto.service')
 const { AppDatabase } = require('../database')
@@ -36,8 +36,10 @@ function registerAppProtocol() {
 }
 
 function createWindow() {
+  const workArea = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({
-    width: 1500, height: 940, minWidth: 1180, minHeight: 720,
+    width: Math.min(1500, workArea.width), height: Math.min(940, workArea.height),
+    minWidth: Math.min(360, workArea.width), minHeight: Math.min(560, workArea.height),
     show: false, backgroundColor: '#2E3440', title: 'HyperFamily Branch Monitor',
     icon: path.join(__dirname, '../../public/electron/icon.ico'),
     webPreferences: {

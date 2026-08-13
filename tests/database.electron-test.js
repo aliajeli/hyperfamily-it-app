@@ -137,6 +137,39 @@ test('persists device-specific fields, edits devices, and replaces managed switc
   } finally { cleanup() }
 })
 
+test('enforces the 48-port Switch boundary in service validation and SQLite triggers', () => {
+  const { database, cleanup } = fixture()
+  try {
+    const branch = database.saveBranch({ name: 'Boundary Branch', code: 'LIMIT-01', warehouse_code: 'WH-LIMIT-01' })
+    const ports = Array.from({ length: 48 }, (_, index) => ({
+      port_number: index + 1, vlan: String(100 + index), status: 'up', ip: '', details: `Port ${index + 1}`
+    }))
+    const fullSwitch = database.saveDevice({ branch_id: branch.id, device_type: 'Switch', name: 'Full Switch', ip: '10.22.1.2', switch_ports: ports })
+    assert.equal(fullSwitch.switch_ports.length, 48)
+
+    assert.throws(() => database.saveDevice({
+      ...fullSwitch,
+      switch_ports: [...ports, { port_number: 1, vlan: '', status: 'up', ip: '', details: '49th row' }]
+    }), /at most 48 ports/)
+    assert.throws(() => database.saveDevice({ ...fullSwitch, switch_ports: [{ port_number: 49, status: 'up' }] }), /from 1 through 48/)
+    assert.throws(() => database.saveDevice({ ...fullSwitch, switch_ports: [{ port_number: 1, status: 'up' }, { port_number: 1, status: 'down' }] }), /duplicated|unique/)
+
+    const otherSwitch = database.saveDevice({
+      branch_id: branch.id, device_type: 'Switch', name: 'Other Switch', ip: '10.22.1.3',
+      switch_ports: [{ port_number: 1, vlan: '', status: 'up', ip: '', details: '' }]
+    })
+    assert.throws(() => database.db.prepare(`
+      INSERT INTO switch_ports (device_id, port_number, status) VALUES (?, 49, 'up')
+    `).run(otherSwitch.id), /from 1 through 48|CHECK constraint failed/)
+    assert.throws(() => database.db.prepare(`
+      INSERT INTO switch_ports (device_id, port_number, status) VALUES (?, 1, 'up')
+    `).run(fullSwitch.id), /at most 48 ports/)
+    assert.throws(() => database.db.prepare(`
+      UPDATE switch_ports SET device_id = ? WHERE device_id = ? AND port_number = 1
+    `).run(fullSwitch.id, otherSwitch.id), /at most 48 ports/)
+  } finally { cleanup() }
+})
+
 test('upgrades older databases with Warehouse Code, scale serial numbers, and managed switch ports', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperfamily-schema-upgrade-'))
   const vault = new TestVault(directory)
@@ -160,7 +193,7 @@ test('upgrades older databases with Warehouse Code, scale serial numbers, and ma
     assert.equal(database.listBranches()[0].warehouse_code, 'LEGACY-LEGACY-1')
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'switch_ports'").pluck().get(), 1)
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_devices_one_router_per_branch'").pluck().get(), 1)
-    assert.equal(database.db.pragma('user_version', { simple: true }), 3)
+    assert.equal(database.db.pragma('user_version', { simple: true }), 4)
   } finally {
     database?.close()
     fs.rmSync(directory, { recursive: true, force: true })
@@ -230,28 +263,81 @@ test('requires Device Name and enforces one Router per branch during add and edi
   } finally { cleanup() }
 })
 
-test('creates the official template and atomically imports branches, devices, and Switch ports', async () => {
+test('creates the official type-specific template and atomically imports branches, devices, and Switch ports', async () => {
   const { database, cleanup } = fixture()
   const templatePath = path.join(os.tmpdir(), `hyperfamily-template-${Date.now()}.xlsx`)
+  const setValues = (sheet, rowNumber, values) => {
+    const headers = sheet.getRow(1).values.map((value) => String(value || ''))
+    for (const [header, value] of Object.entries(values)) {
+      const column = headers.indexOf(header)
+      assert.notEqual(column, -1, `${sheet.name} must contain ${header}`)
+      sheet.getRow(rowNumber).getCell(column).value = value
+    }
+  }
   try {
     const template = await createImportTemplate(database, templatePath)
     assert.equal(template.success, true)
 
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.readFile(templatePath)
-    assert.ok(workbook.getWorksheet('Instructions'))
-    assert.deepEqual(workbook.getWorksheet('Branches').getRow(1).values.slice(1), ['Name', 'Code', 'Warehouse Code', 'Link1', 'IP Link1', 'Link2', 'IP Link2', 'Manager Name', 'Manager Tell', 'Deputy Name', 'Deputy Tell'])
-    assert.equal(workbook.getWorksheet('Devices').getCell('B2').dataValidation.type, 'list')
+    const expectedSheets = ['Instructions', 'Branches', 'Router', 'Switch', 'iLO', 'Server', 'NVR', 'AccessPoint', 'Scale', 'Client', 'Checkout', 'POS']
+    const expectedEquipmentHeaders = {
+      Router: ['Branch Code', 'Device Name', 'Model', 'IP', 'Port', 'Asset Code', 'Dashboard'],
+      Switch: ['Branch Code', 'Device Name', 'Model', 'Location', 'IP', 'Connection Type', 'Connection Port', 'Asset Code', 'Dashboard'],
+      iLO: ['Branch Code', 'Device Name', 'IP', 'ESXI Version', 'Server Model', 'Asset Code', 'Dashboard'],
+      Server: ['Branch Code', 'Device Name', 'Hostname', 'IP', 'Dashboard'],
+      NVR: ['Branch Code', 'Device Name', 'IP', 'Model', 'Asset Code', 'Dashboard'],
+      AccessPoint: ['Branch Code', 'Device Name', 'Model', 'Location', 'IP', 'Port', 'Asset Code', 'Dashboard'],
+      Scale: ['Branch Code', 'Device Name', 'Model', 'Location', 'IP', 'Serial Number', 'Asset Code', 'Dashboard'],
+      Client: ['Branch Code', 'Device Name', 'Hostname', 'User', 'IP', 'Domain', 'Dashboard'],
+      Checkout: ['Branch Code', 'Device Name', 'Checkout Number', 'Hostname', 'IP', 'Dashboard'],
+      POS: ['Branch Code', 'Device Name', 'Checkout Number', 'Brand', 'Model', 'Software Version', 'IP', 'Terminal ID', 'Acceptance ID', 'Asset Code', 'Dashboard']
+    }
+    assert.deepEqual(workbook.worksheets.map((sheet) => sheet.name), expectedSheets)
+    assert.deepEqual(workbook.getWorksheet('Branches').getRow(1).values.slice(1), ['Branch Name', 'Branch Code', 'Warehouse Code', 'Link1', 'IP Link1', 'Link2', 'IP Link2', 'Manager Name', 'Manager Tell', 'Deputy Name', 'Deputy Tell'])
+    for (const type of expectedSheets.slice(2)) {
+      const sheet = workbook.getWorksheet(type)
+      assert.equal(sheet.getRow(1).values.includes('Branch Code'), true)
+      assert.equal(sheet.getRow(1).values.includes('Device Name'), true)
+      assert.equal(sheet.getRow(1).values.includes('Dashboard'), true)
+      const headers = sheet.getRow(1).values.slice(1)
+      if (type === 'Switch') {
+        assert.deepEqual(headers.slice(0, expectedEquipmentHeaders.Switch.length), expectedEquipmentHeaders.Switch)
+        assert.equal(headers.length, expectedEquipmentHeaders.Switch.length + (48 * 5))
+      } else assert.deepEqual(headers, expectedEquipmentHeaders[type])
+      const dashboardColumn = sheet.getRow(1).values.indexOf('Dashboard')
+      assert.equal(sheet.getRow(2).getCell(dashboardColumn).dataValidation.type, 'list')
+    }
+    const switchSheet = workbook.getWorksheet('Switch')
+    assert.equal(switchSheet.getRow(1).values.includes('Port 48 Number'), true)
+    assert.equal(switchSheet.getRow(1).values.includes('Port 48 VLAN'), true)
+    assert.equal(switchSheet.getRow(1).values.includes('Port 48 Status'), true)
+    assert.equal(switchSheet.getRow(1).values.includes('Port 48 IP'), true)
+    assert.equal(switchSheet.getRow(1).values.includes('Port 48 Details'), true)
+    assert.equal(switchSheet.getRow(2).getCell(switchSheet.getRow(1).values.indexOf('Port 48 Number')).dataValidation.formulae[1], 48)
 
-    workbook.getWorksheet('Branches').getRow(2).values = ['Imported Branch', 'IMP-01', 'WH-IMP-01', 'Fiber', '10.50.1.1', 'LTE', '10.50.1.2', 'Manager', '100', 'Deputy', '101']
-    workbook.getWorksheet('Devices').getRow(2).values = ['IMP-01', 'Router', 'Imported Gateway', 'CCR2004', 'Network Room', '10.50.1.1', '8291', 'RTR-001', '', '', '', '', '', '', '', '', '', '', '', '', 'Yes']
-    workbook.getWorksheet('Devices').getRow(3).values = ['IMP-01', 'Switch', 'Imported Core', 'CBS350', 'Network Room', '10.50.1.2', '', 'SW-001', 'Fiber', 'Gi1/0/24', '', '', '', '', '', '', '', '', '', '', 'Yes']
-    workbook.getWorksheet('Devices').getRow(4).values = ['IMP-01', 'Scale', 'Deli Scale', 'Mettler', 'Deli', '10.50.1.40', '', 'SC-001', '', '', '', '', '', '', '', '', '', '', '', 'SN-IMPORT-1', 'No']
-    workbook.getWorksheet('Switch Ports').getRow(2).values = ['IMP-01', 'Imported Core', '10.50.1.2', '1', '10', 'up', '10.50.10.1', 'Server uplink']
-    workbook.getWorksheet('Switch Ports').getRow(3).values = ['IMP-01', 'Imported Core', '10.50.1.2', '2', '20', 'disabled', '', 'Reserved']
+    setValues(workbook.getWorksheet('Branches'), 2, {
+      'Branch Name': 'Imported Branch', 'Branch Code': 'IMP-01', 'Warehouse Code': 'WH-IMP-01',
+      Link1: 'Fiber', 'IP Link1': '10.50.1.1', Link2: 'LTE', 'IP Link2': '10.50.1.2',
+      'Manager Name': 'Manager', 'Manager Tell': '100', 'Deputy Name': 'Deputy', 'Deputy Tell': '101'
+    })
+    setValues(workbook.getWorksheet('Router'), 2, {
+      'Branch Code': 'IMP-01', 'Device Name': 'Imported Gateway', Model: 'CCR2004', IP: '10.50.1.1', Port: 8291, 'Asset Code': 'RTR-001', Dashboard: 'Show'
+    })
+    setValues(switchSheet, 2, {
+      'Branch Code': 'IMP-01', 'Device Name': 'Imported Core', Model: 'CBS350', Location: 'Network Room', IP: '10.50.1.2',
+      'Connection Type': 'Fiber', 'Connection Port': 'Gi1/0/24', 'Asset Code': 'SW-001', Dashboard: 'Show',
+      'Port 1 Number': 1, 'Port 1 VLAN': '10', 'Port 1 Status': 'Up', 'Port 1 IP': '10.50.10.1', 'Port 1 Details': 'Server uplink',
+      'Port 2 Number': 2, 'Port 2 VLAN': '20', 'Port 2 Status': 'Disabled', 'Port 2 Details': 'Reserved'
+    })
+    setValues(workbook.getWorksheet('Scale'), 2, {
+      'Branch Code': 'IMP-01', 'Device Name': 'Deli Scale', Model: 'Mettler', Location: 'Deli', IP: '10.50.1.40',
+      'Serial Number': 'SN-IMPORT-1', 'Asset Code': 'SC-001', Dashboard: 'Hide'
+    })
     await workbook.xlsx.writeFile(templatePath)
 
     const imported = await importDirectory(database, templatePath, 'ImportAdmin')
+    assert.equal(imported.layout, 'type-specific')
     assert.equal(imported.branches_added, 1)
     assert.equal(imported.devices_added, 3)
     assert.equal(imported.switch_ports_imported, 2)
@@ -259,9 +345,8 @@ test('creates the official template and atomically imports branches, devices, an
     assert.equal(database.listDevices().find((device) => device.device_type === 'Switch').switch_ports.length, 2)
     assert.equal(database.listDevices().find((device) => device.device_type === 'Scale').serial_number, 'SN-IMPORT-1')
 
-    workbook.getWorksheet('Devices').getRow(2).getCell(3).value = 'Updated Gateway'
-    workbook.getWorksheet('Devices').getRow(2).getCell(4).value = 'CCR2116'
-    workbook.getWorksheet('Branches').getRow(2).getCell(1).value = 'Updated Branch'
+    setValues(workbook.getWorksheet('Router'), 2, { 'Device Name': 'Updated Gateway', Model: 'CCR2116' })
+    setValues(workbook.getWorksheet('Branches'), 2, { 'Branch Name': 'Updated Branch' })
     await workbook.xlsx.writeFile(templatePath)
     const updated = await importDirectory(database, templatePath, 'ImportAdmin')
     assert.equal(updated.branches_updated, 1)
@@ -275,6 +360,34 @@ test('creates the official template and atomically imports branches, devices, an
   }
 })
 
+test('continues to import legacy Devices and Switch Ports workbooks', async () => {
+  const { database, cleanup } = fixture()
+  const filePath = path.join(os.tmpdir(), `hyperfamily-legacy-import-${Date.now()}.xlsx`)
+  try {
+    const workbook = new ExcelJS.Workbook()
+    const branches = workbook.addWorksheet('Branches')
+    branches.addRow(['Name', 'Code', 'Warehouse Code', 'Link1', 'IP Link1', 'Link2', 'IP Link2', 'Manager Name', 'Manager Tell', 'Deputy Name', 'Deputy Tell'])
+    branches.addRow(['Legacy Import', 'LEG-01', 'WH-LEG-01'])
+    const devices = workbook.addWorksheet('Devices')
+    devices.addRow(['Branch Code', 'Device Type', 'Device Name', 'Model', 'Location', 'IP', 'Port', 'Asset Code', 'Connection Type', 'Connection Port', 'Hostname', 'User', 'Domain', 'ESXI Version', 'Software Version', 'Terminal ID', 'Acceptance ID', 'Brand', 'Checkout Number', 'Serial Number', 'Dashboard'])
+    devices.addRow(['LEG-01', 'Switch', 'Legacy Switch', 'CBS350', 'Network Room', '10.70.1.2', '', 'LEG-SW-1', 'Fiber', 'Gi1/0/24', '', '', '', '', '', '', '', '', '', '', 'Yes'])
+    const ports = workbook.addWorksheet('Switch Ports')
+    ports.addRow(['Branch Code', 'Device Name', 'Device IP', 'Port Number', 'VLAN', 'Status', 'IP', 'Details'])
+    ports.addRow(['LEG-01', 'Legacy Switch', '10.70.1.2', 48, '480', 'up', '10.70.48.1', 'Legacy boundary port'])
+    await workbook.xlsx.writeFile(filePath)
+
+    const result = await importDirectory(database, filePath, 'LegacyAdmin')
+    assert.equal(result.layout, 'legacy')
+    assert.equal(result.branches_added, 1)
+    assert.equal(result.devices_added, 1)
+    assert.equal(result.switch_ports_imported, 1)
+    assert.equal(database.listDevices()[0].switch_ports[0].port_number, 48)
+  } finally {
+    cleanup()
+    fs.rmSync(filePath, { force: true })
+  }
+})
+
 test('rejects an invalid Excel import without partially saving valid rows', async () => {
   const { database, cleanup } = fixture()
   const templatePath = path.join(os.tmpdir(), `hyperfamily-invalid-import-${Date.now()}.xlsx`)
@@ -283,11 +396,18 @@ test('rejects an invalid Excel import without partially saving valid rows', asyn
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.readFile(templatePath)
     workbook.getWorksheet('Branches').getRow(2).values = ['Atomic Branch', 'ATM-01', 'WH-ATM-01']
-    workbook.getWorksheet('Devices').getRow(2).values = ['ATM-01', 'Router', 'Router One', '', '', '10.60.1.1', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Yes']
-    workbook.getWorksheet('Devices').getRow(3).values = ['ATM-01', 'Router', 'Router Two', '', '', '10.60.1.2', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Yes']
+    workbook.getWorksheet('Router').getRow(2).values = ['ATM-01', 'Router One', '', '10.60.1.1', '', '', 'Show']
+    workbook.getWorksheet('Router').getRow(3).values = ['ATM-01', 'Router Two', '', '10.60.1.2', '', '', 'Show']
     await workbook.xlsx.writeFile(templatePath)
 
-    await assert.rejects(importDirectory(database, templatePath), /only one Router is allowed/)
+    await assert.rejects(importDirectory(database, templatePath), /only one Router/)
+    assert.equal(database.listBranches().length, 0)
+    assert.equal(database.listDevices().length, 0)
+
+    workbook.getWorksheet('Router').getRow(3).values = []
+    workbook.getWorksheet('Switch').getRow(2).values = ['ATM-01', 'Out of Range Switch', '', '', '10.60.1.2', '', '', '', 'Hide', 49]
+    await workbook.xlsx.writeFile(templatePath)
+    await assert.rejects(importDirectory(database, templatePath), /1 through 48/)
     assert.equal(database.listBranches().length, 0)
     assert.equal(database.listDevices().length, 0)
 

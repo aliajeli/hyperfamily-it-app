@@ -28,16 +28,16 @@ export default function InventoryTable({ devices }) {
       <table className="w-full min-w-[1380px] text-left text-xs">
         <thead className="sticky top-0 bg-[rgb(var(--surface))]">
           <tr className="border-b text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">
-            <th className="px-4 py-3">Branch</th>
-            <th className="px-4 py-3">Type</th>
-            <th className="px-4 py-3">Device</th>
-            <th className="px-4 py-3">IP</th>
-            <th className="px-4 py-3">Model / version</th>
-            <th className="px-4 py-3">Location</th>
-            <th className="px-4 py-3">Asset / serial</th>
-            <th className="px-4 py-3">Connection</th>
-            <th className="px-4 py-3">Dashboard</th>
-            <th className="px-4 py-3">Status</th>
+            <th className="px-3 py-2">Branch</th>
+            <th className="px-3 py-2">Type</th>
+            <th className="px-3 py-2">Device</th>
+            <th className="px-3 py-2">IP</th>
+            <th className="px-3 py-2">Model / version</th>
+            <th className="px-3 py-2">Location</th>
+            <th className="px-3 py-2">Asset / serial</th>
+            <th className="px-3 py-2">Connection</th>
+            <th className="px-3 py-2">Dashboard</th>
+            <th className="px-3 py-2">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -45,16 +45,16 @@ export default function InventoryTable({ devices }) {
             const connection = connectionDetails(device)
             return (
               <tr key={device.id} className="border-b last:border-0 hover:bg-[rgb(var(--border)/.22)]">
-                <td className="px-4 py-4"><b>{device.branch_name}</b><p className="mt-1 font-mono text-[9px] text-[rgb(var(--muted))]">{device.branch_code}{device.branch_warehouse_code ? ` · WH ${device.branch_warehouse_code}` : ''}</p></td>
-                <td className="px-4 py-4"><span className="rounded-md bg-[rgb(var(--primary)/.1)] px-2 py-1 font-bold text-[rgb(var(--primary))]">{typeLabel(device.device_type)}</span></td>
-                <td className="px-4 py-4"><b>{deviceTitle(device)}</b>{device.hostname && device.hostname !== deviceTitle(device) && <p className="mt-1 font-mono text-[9px] text-[rgb(var(--muted))]">{device.hostname}</p>}{device.user && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">{device.domain ? `${device.domain}\\` : ''}{device.user}</p>}</td>
-                <td className="px-4 py-4 font-mono">{device.ip}{device.port ? `:${device.port}` : ''}</td>
-                <td className="px-4 py-4">{device.model || '—'}{device.esxi_version && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">ESXI {device.esxi_version}</p>}{device.version && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">Software {device.version}</p>}</td>
-                <td className="px-4 py-4">{device.location || '—'}</td>
-                <td className="px-4 py-4 font-mono">{device.asset_code || '—'}{device.serial_number && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">SN {device.serial_number}</p>}{device.terminal_id && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">Terminal {device.terminal_id}</p>}{device.acceptance_id && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">Acceptance {device.acceptance_id}</p>}</td>
-                <td className="px-4 py-4">{connection.length ? connection.map((detail) => <p key={detail} className="mb-1 last:mb-0">{detail}</p>) : '—'}</td>
-                <td className="px-4 py-4"><span className={`inline-flex items-center gap-1.5 font-bold ${device.is_dashboard_visible ? 'status-online-text' : 'text-[rgb(var(--muted))]'}`}>{device.is_dashboard_visible ? <Eye size={13} /> : <EyeOff size={13} />}{device.is_dashboard_visible ? 'Shown' : 'Hidden'}</span></td>
-                <td className="px-4 py-4"><Badge status={device.status || 'unknown'}>{device.status || 'unknown'}</Badge></td>
+                <td className="px-3 py-2.5"><b>{device.branch_name}</b><p className="mt-1 font-mono text-[9px] text-[rgb(var(--muted))]">{device.branch_code}{device.branch_warehouse_code ? ` · WH ${device.branch_warehouse_code}` : ''}</p></td>
+                <td className="px-3 py-2.5"><span className="rounded-md bg-[rgb(var(--primary)/.1)] px-2 py-1 font-bold text-[rgb(var(--primary))]">{typeLabel(device.device_type)}</span></td>
+                <td className="px-3 py-2.5"><b>{deviceTitle(device)}</b>{device.hostname && device.hostname !== deviceTitle(device) && <p className="mt-1 font-mono text-[9px] text-[rgb(var(--muted))]">{device.hostname}</p>}{device.user && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">{device.domain ? `${device.domain}\\` : ''}{device.user}</p>}</td>
+                <td className="px-3 py-2.5 font-mono">{device.ip}{device.port ? `:${device.port}` : ''}</td>
+                <td className="px-3 py-2.5">{device.model || '—'}{device.esxi_version && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">ESXI {device.esxi_version}</p>}{device.version && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">Software {device.version}</p>}</td>
+                <td className="px-3 py-2.5">{device.location || '—'}</td>
+                <td className="px-3 py-2.5 font-mono">{device.asset_code || '—'}{device.serial_number && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">SN {device.serial_number}</p>}{device.terminal_id && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">Terminal {device.terminal_id}</p>}{device.acceptance_id && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">Acceptance {device.acceptance_id}</p>}</td>
+                <td className="px-3 py-2.5">{connection.length ? connection.map((detail) => <p key={detail} className="mb-1 last:mb-0">{detail}</p>) : '—'}</td>
+                <td className="px-3 py-2.5"><span className={`inline-flex items-center gap-1.5 font-bold ${device.is_dashboard_visible ? 'status-online-text' : 'text-[rgb(var(--muted))]'}`}>{device.is_dashboard_visible ? <Eye size={13} /> : <EyeOff size={13} />}{device.is_dashboard_visible ? 'Shown' : 'Hidden'}</span></td>
+                <td className="px-3 py-2.5"><Badge status={device.status || 'unknown'}>{device.status || 'unknown'}</Badge></td>
               </tr>
             )
           })}

@@ -45,7 +45,7 @@ export default function RouterChartCard({ branch, gateway, expanded = false }) {
       transition={{ type: 'spring', stiffness: 360, damping: 24 }}
       className={`router-monitor-card group relative overflow-visible rounded-2xl border shadow-sm hover:z-30 ${gatewayTreatment[gatewayStatus] || gatewayTreatment.unknown}`}
     >
-      <span aria-hidden="true" className={`absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl transition-all duration-500 group-hover:scale-150 ${gatewayGlow[gatewayStatus] || gatewayGlow.unknown}`} />
+      <span aria-hidden="true" className={`pointer-events-none absolute -right-1 -top-1 h-24 w-24 rounded-full blur-2xl transition-all duration-500 group-hover:scale-150 ${gatewayGlow[gatewayStatus] || gatewayGlow.unknown}`} />
       <button type="button" onClick={openGatewayDetails} className={`relative block w-full text-left ${expanded ? 'p-4' : 'p-2.5'}`} aria-label={`Open detailed Router chart for ${branch.name}`}>
         <div className="flex min-w-0 items-center gap-2 pr-7">
           <motion.div whileHover={{ rotate: -8, scale: 1.08 }} className={`${expanded ? 'h-10 w-10' : 'h-8 w-8'} grid shrink-0 place-items-center rounded-xl bg-[rgb(var(--surface))] text-nord-8 shadow-sm ring-1 ring-[rgb(var(--border)/.7)]`}>
