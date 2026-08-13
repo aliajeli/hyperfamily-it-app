@@ -1,5 +1,21 @@
 const net = require('node:net')
-const { Client } = require('ssh2')
+
+/**
+ * ssh2 is loaded on demand instead of at require time. A missing or unbuilt
+ * dependency used to surface as an "Uncaught Exception" dialog that killed the
+ * whole main process before any window appeared; now only SSH sessions fail,
+ * with a message that says exactly what to do about it.
+ */
+let sshClientFactory
+function loadSshClient() {
+  if (sshClientFactory) return sshClientFactory
+  try {
+    sshClientFactory = require('ssh2').Client
+  } catch (error) {
+    throw new Error(`The SSH engine is not installed. Run "npm install" in the project folder and start the app again. (${error.message})`)
+  }
+  return sshClientFactory
+}
 
 const safeHost = /^[a-zA-Z0-9.-]{1,253}$/
 const MAX_SESSIONS = 12
@@ -124,14 +140,22 @@ class TerminalService {
     const target = `${meta.name} (${meta.host}:${port})`
     this.database.audit(actor, `${transport.toUpperCase()}_OPEN`, target, `Credential: ${credential.name}`)
 
-    if (transport === 'telnet') this.openTelnet(meta, credential)
-    else this.openSsh(meta, credential)
+    try {
+      if (transport === 'telnet') this.openTelnet(meta, credential)
+      else this.openSsh(meta, credential)
+    } catch (error) {
+      // Never leave a half-registered session behind when the transport itself
+      // refuses to start (missing engine, bad socket options, ...).
+      this.sessions.delete(sessionId)
+      throw error
+    }
 
     return { sessionId, transport, host: meta.host, port, name: meta.name, username: credential.username }
   }
 
   openSsh(meta, credential) {
-    const client = new Client()
+    const SshClient = loadSshClient()
+    const client = new SshClient()
     meta.client = client
 
     client.on('ready', () => {

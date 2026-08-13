@@ -15,6 +15,16 @@ const { registerDeviceWebviewHandlers } = require('./webview-window')
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false } }])
 
+// Electron kills the process and shows a raw "A JavaScript error occurred in
+// the main process" dialog for anything unhandled. Log it and keep the app
+// alive instead: a broken optional feature should never take the window down.
+process.on('uncaughtException', (error) => {
+  console.error('[main] uncaught exception:', error)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[main] unhandled rejection:', reason)
+})
+
 let mainWindow = null
 let database = null
 let pingMonitor = null

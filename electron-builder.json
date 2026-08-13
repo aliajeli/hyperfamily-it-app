@@ -4,7 +4,9 @@
   "asar": true,
   "asarUnpack": [
     "node_modules/better-sqlite3-multiple-ciphers/**/*",
-    "node_modules/keytar/**/*"
+    "node_modules/keytar/**/*",
+    "node_modules/ssh2/**/*",
+    "node_modules/cpu-features/**/*"
   ],
   "directories": {
     "output": "dist"
@@ -27,9 +29,7 @@
     ],
     "icon": "public/electron/icon.ico",
     "artifactName": "HyperFamily-Branch-Monitor-Setup-${version}.${ext}",
-    "signtoolOptions": {
-      "publisherName": "HyperFamily Stores"
-    }
+    "verifyUpdateCodeSignature": false
   },
   "nsis": {
     "oneClick": false,

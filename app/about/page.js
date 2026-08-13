@@ -19,7 +19,7 @@ const technologies = [
 const REPO = 'https://github.com/aliajeli/hyperfamily-it-app'
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.1', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.2', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
