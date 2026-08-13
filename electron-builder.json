@@ -2,14 +2,34 @@
   "appId": "com.hyperfamily.branchmonitor",
   "productName": "HyperFamily Branch Monitor",
   "asar": true,
-  "asarUnpack": ["node_modules/better-sqlite3-multiple-ciphers/**/*", "node_modules/keytar/**/*"],
-  "directories": { "output": "dist" },
-  "files": ["electron/**/*", "out/**/*", "public/**/*", "package.json", "node_modules/**/*"],
+  "asarUnpack": [
+    "node_modules/better-sqlite3-multiple-ciphers/**/*",
+    "node_modules/keytar/**/*"
+  ],
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "electron/**/*",
+    "out/**/*",
+    "public/**/*",
+    "package.json",
+    "node_modules/**/*"
+  ],
   "win": {
-    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
     "icon": "public/electron/icon.ico",
     "artifactName": "HyperFamily-Branch-Monitor-Setup-${version}.${ext}",
-    "signtoolOptions": { "publisherName": "HyperFamily Stores" }
+    "signtoolOptions": {
+      "publisherName": "HyperFamily Stores"
+    }
   },
   "nsis": {
     "oneClick": false,
@@ -20,5 +40,12 @@
     "installerIcon": "public/electron/icon.ico",
     "uninstallerIcon": "public/electron/icon.ico"
   },
-  "publish": [{ "provider": "github", "owner": "aliajeli", "repo": "hyperfamily-it-app" }]
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "aliajeli",
+      "repo": "hyperfamily-it-app",
+      "releaseType": "release"
+    }
+  ]
 }
