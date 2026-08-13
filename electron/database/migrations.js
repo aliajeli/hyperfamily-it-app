@@ -1,6 +1,6 @@
 const DEVICE_COLUMNS = [
   'branch_id', 'device_type', 'model', 'name', 'location', 'ip', 'port', 'asset_code',
-  'connection_type', 'connection_port', 'hostname', 'user', 'domain', 'esxi_version',
+  'connection_type', 'transport', 'connection_port', 'hostname', 'user', 'domain', 'esxi_version',
   'version', 'terminal_id', 'acceptance_id', 'brand', 'checkout_number', 'serial_number',
   'remote_id', 'protocol', 'is_dashboard_visible'
 ]
@@ -52,6 +52,7 @@ function runMigrations(db, adminHash) {
       port INTEGER CHECK (port IS NULL OR (port BETWEEN 1 AND 65535)),
       asset_code TEXT,
       connection_type TEXT,
+      transport TEXT CHECK (transport IS NULL OR transport IN ('ssh','telnet')),
       connection_port TEXT,
       hostname TEXT,
       user TEXT,
@@ -184,8 +185,33 @@ function runMigrations(db, adminHash) {
     END;
   `)
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      pinned INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS terminal_snippets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      command TEXT NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_terminal_snippets_name ON terminal_snippets(name COLLATE NOCASE);
+  `)
+
   // Upgrade databases made by early development builds without these optional fields.
   if (!hasColumn(db, 'devices', 'remote_id')) db.exec('ALTER TABLE devices ADD COLUMN remote_id TEXT')
+  if (!hasColumn(db, 'devices', 'transport')) db.exec('ALTER TABLE devices ADD COLUMN transport TEXT')
   if (!hasColumn(db, 'devices', 'protocol')) db.exec("ALTER TABLE devices ADD COLUMN protocol TEXT DEFAULT 'https'")
   if (!hasColumn(db, 'devices', 'serial_number')) db.exec('ALTER TABLE devices ADD COLUMN serial_number TEXT')
   if (!hasColumn(db, 'branches', 'warehouse_code')) db.exec('ALTER TABLE branches ADD COLUMN warehouse_code TEXT')
@@ -222,13 +248,31 @@ function runMigrations(db, adminHash) {
     teamviewer_lan_mode: true,
     vpn_gateway: '', vpn_port: 443, vpn_user: '', vpn_pass: '', vpn_realm: '', vpn_autoconnect: false,
     forticlient_path: 'C:\\Program Files\\Fortinet\\FortiClient\\FortiClient.exe',
-    guacamole_url: '', guacamole_user: '', guacamole_pass: '', guacamole_datasource: 'postgresql',
-    guacamole_enable_drive: true, guacamole_drive_path: 'C:\\HyperFamilyTransfer'
+    terminal_font_size: 14, terminal_ssh_port: 22, terminal_telnet_port: 23,
+    webview_autologin: true
   }
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   const transaction = db.transaction(() => Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value))))
   transaction()
-  db.pragma('user_version = 5')
+
+  // The in-app remote session (Guacamole) was removed in 2.0.1; drop its stored settings.
+  db.exec("DELETE FROM settings WHERE key LIKE 'guacamole_%'")
+
+  const snippetCount = db.prepare('SELECT COUNT(*) AS count FROM terminal_snippets').get().count
+  if (!snippetCount) {
+    const insertSnippet = db.prepare('INSERT INTO terminal_snippets (name, command, description) VALUES (?, ?, ?)')
+    const seedSnippets = db.transaction(() => {
+      insertSnippet.run('Show interfaces', 'show interfaces status', 'Port status overview')
+      insertSnippet.run('Show VLANs', 'show vlan brief', 'Configured VLANs and member ports')
+      insertSnippet.run('Show MAC table', 'show mac address-table', 'Learned MAC addresses')
+      insertSnippet.run('Show running config', 'show running-config', 'Active configuration')
+      insertSnippet.run('Save config', 'write memory', 'Persist the running configuration')
+      insertSnippet.run('Show uptime', 'show version | include uptime', 'Device uptime')
+    })
+    seedSnippets()
+  }
+
+  db.pragma('user_version = 6')
 }
 
 module.exports = { runMigrations, DEVICE_COLUMNS }

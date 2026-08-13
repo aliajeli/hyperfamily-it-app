@@ -13,13 +13,13 @@ const technologies = [
   ['Next.js 15', 'Static App Router UI'], ['Electron 41', 'Secure Windows shell'], ['Encrypted SQLite', 'Local operational data'],
   ['Framer Motion 11', 'Interface motion'], ['shadcn/ui', 'Accessible components'], ['Recharts', 'Live response charts'],
   ['Zustand', 'Focused client state'], ['Tailwind CSS', 'Themeable design system'], ['Lucide Icons', 'Interface iconography'],
-  ['Apache Guacamole', 'Clientless remote sessions'], ['ExcelJS', 'Inventory workbooks'], ['Windows DPAPI', 'Secret encryption']
+  ['ssh2', 'In-app SSH terminal'], ['ExcelJS', 'Inventory workbooks'], ['Windows DPAPI', 'Secret encryption']
 ]
 
 const REPO = 'https://github.com/aliajeli/hyperfamily-it-app'
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.0', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.1', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)

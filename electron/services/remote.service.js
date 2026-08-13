@@ -26,9 +26,8 @@ function resolveExecutable(configured, candidates) {
 }
 
 class RemoteService {
-  constructor(database, guacamole = null) {
+  constructor(database) {
     this.database = database
-    this.guacamole = guacamole
   }
 
   requireWindows(method) {
@@ -55,8 +54,7 @@ class RemoteService {
       else if (method === 'teamviewer') this.teamviewer(device)
       else if (method === 'winbox') this.winbox(device, credential)
       else if (method === 'browser') await this.browser(device, credential)
-      else if (method === 'termius') await this.termius(device, credential)
-      else if (method === 'guacamole') result = await this.guacamoleSession(device, credential, actor)
+      else if (method === 'webview') result = { success: true, webview: this.webviewSession(device, credential) }
       else throw new Error('Unsupported remote connection method')
 
       this.database.audit(actor, `${method.toUpperCase()}_CONNECT`, target, credential ? `Credential: ${credential.name}` : 'No mapped credential')
@@ -121,16 +119,23 @@ class RemoteService {
     await shell.openExternal(`${protocol}://${authority}${port}`, { activate: true })
   }
 
-  async termius(device, credential) {
-    const username = credential?.username ? `${encodeURIComponent(credential.username)}@` : ''
-    await shell.openExternal(`termius://${username}${device.ip}:${device.port || 22}`)
-  }
-
-  /** Guacamole session descriptor consumed by the in-app remote viewer. */
-  async guacamoleSession(device, credential, actor) {
-    if (!this.guacamole) throw new Error('The Guacamole service is not available')
-    const session = await this.guacamole.prepare({ deviceId: device.id, credentialId: credential?.id || null }, actor)
-    return { success: true, session }
+  /**
+   * Descriptor for the embedded <webview> window used by iLO and NVR devices.
+   * The credential travels to the main process only, which injects it into the
+   * guest page; it is never exposed to the renderer that requested the window.
+   */
+  webviewSession(device, credential) {
+    if (!credential) throw new Error('Assign a credential to this device in Settings \u2192 Credentials so it can sign in automatically')
+    const protocol = device.protocol === 'http' ? 'http' : 'https'
+    const port = device.port ? `:${device.port}` : ''
+    return {
+      deviceId: device.id,
+      title: `${device.name || device.device_type} \u00b7 ${device.ip}`,
+      kind: device.device_type === 'NVR' ? 'nvr' : 'ilo',
+      url: `${protocol}://${device.ip}${port}/`,
+      username: credential.username,
+      password: credential.password
+    }
   }
 
   probe() {

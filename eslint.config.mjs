@@ -21,7 +21,12 @@ export default [
     languageOptions: { globals: { require: 'readonly', module: 'readonly', process: 'readonly', __dirname: 'readonly', Buffer: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Response: 'readonly', AbortController: 'readonly', FormData: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly' } }
   },
   {
+    // Runs inside the themed device-webview window, not in the main process.
+    files: ['electron/main/device-webview-renderer.js'],
+    languageOptions: { globals: { window: 'readonly', document: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', requestAnimationFrame: 'readonly', URL: 'readonly' } }
+  },
+  {
     files: ['app/**/*.{js,jsx}', 'components/**/*.{js,jsx}', 'stores/**/*.js', 'lib/**/*.js'],
-    languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', sessionStorage: 'readonly', navigator: 'readonly', CustomEvent: 'readonly', Event: 'readonly', FileReader: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', confirm: 'readonly' } }
+    languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', sessionStorage: 'readonly', navigator: 'readonly', CustomEvent: 'readonly', Event: 'readonly', FileReader: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', confirm: 'readonly', requestAnimationFrame: 'readonly', cancelAnimationFrame: 'readonly', ResizeObserver: 'readonly', Blob: 'readonly', URL: 'readonly' } }
   }
 ]

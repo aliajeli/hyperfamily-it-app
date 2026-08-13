@@ -15,6 +15,46 @@
   --focus: 191 97 106;
 }
 
+:root {
+  /* Terminal palette. lib/terminal-emulator.js emits these identifiers for SGR
+     colours; the dark override below keeps output legible on dark themes. */
+  --ansi-black: #3B4252;
+  --ansi-red: #BF616A;
+  --ansi-green: #6E9B57;
+  --ansi-yellow: #B58900;
+  --ansi-blue: #5E81AC;
+  --ansi-magenta: #9A6DA0;
+  --ansi-cyan: #4C93A4;
+  --ansi-white: #4C566A;
+  --ansi-bright-black: #6B7793;
+  --ansi-bright-red: #D0616A;
+  --ansi-bright-green: #7FAF62;
+  --ansi-bright-yellow: #C79A22;
+  --ansi-bright-blue: #6C90BE;
+  --ansi-bright-magenta: #B07EB6;
+  --ansi-bright-cyan: #57A5B8;
+  --ansi-bright-white: #2E3440;
+}
+
+:root[data-color-mode='dark'] {
+  --ansi-black: #3B4252;
+  --ansi-red: #BF616A;
+  --ansi-green: #A3BE8C;
+  --ansi-yellow: #EBCB8B;
+  --ansi-blue: #81A1C1;
+  --ansi-magenta: #B48EAD;
+  --ansi-cyan: #88C0D0;
+  --ansi-white: #E5E9F0;
+  --ansi-bright-black: #4C566A;
+  --ansi-bright-red: #D08770;
+  --ansi-bright-green: #B9D2A1;
+  --ansi-bright-yellow: #F0D399;
+  --ansi-bright-blue: #9DB8D4;
+  --ansi-bright-magenta: #C7A5C2;
+  --ansi-bright-cyan: #A3D5E0;
+  --ansi-bright-white: #ECEFF4;
+}
+
 /* Every other palette is applied at runtime from lib/themes.js as inline
    custom properties on <html>, so new themes need no CSS changes. */
 

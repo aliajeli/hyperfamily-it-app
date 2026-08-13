@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Network, Boxes, Settings, Info, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LayoutDashboard, Network, Boxes, TerminalSquare, NotebookPen, Settings, Info, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import BrandMark from './BrandMark'
@@ -11,7 +11,9 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/devices', label: 'Branches & devices', icon: Network },
   { href: '/inventory', label: 'Inventory', icon: Boxes },
+  { href: '/terminal', label: 'Terminal', icon: TerminalSquare },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/notes', label: 'Notes', icon: NotebookPen },
   { href: '/about', label: 'About', icon: Info }
 ]
 

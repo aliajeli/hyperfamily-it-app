@@ -141,7 +141,7 @@ export default function VPNSettings({ settings, onSaved }) {
             <div className="rounded-xl bg-[rgb(var(--primary)/.18)] p-2 text-[rgb(var(--primary))]"><Route size={17} /></div>
             <div>
               <b className="text-xs">How the in-app tunnel works</b>
-              <p className="mt-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">A loopback proxy is started inside the app. Pings, device web UIs, and Guacamole sessions are forwarded through the SSL-VPN portal, so nothing else on the machine is re-routed.</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">A loopback proxy is started inside the app. Pings, device web UIs, and terminal sessions are forwarded through the SSL-VPN portal, so nothing else on the machine is re-routed.</p>
             </div>
           </div>
         </Card>

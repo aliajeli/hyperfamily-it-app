@@ -31,6 +31,7 @@ const schema = z.object({
   port: optionalPort,
   asset_code: z.string().trim().optional(),
   connection_type: z.string().trim().optional(),
+  transport: z.enum(['', 'ssh', 'telnet']).optional(),
   connection_port: z.string().trim().optional(),
   hostname: z.string().trim().optional(),
   user: z.string().trim().optional(),
@@ -57,7 +58,7 @@ const schema = z.object({
 
 const defaults = {
   branch_id: '', device_type: 'Router', model: '', name: '', location: '', ip: '', port: '', asset_code: '',
-  connection_type: '', connection_port: '', hostname: '', user: '', domain: '', esxi_version: '', version: '',
+  connection_type: '', transport: '', connection_port: '', hostname: '', user: '', domain: '', esxi_version: '', version: '',
   terminal_id: '', acceptance_id: '', brand: '', checkout_number: '', serial_number: '', switch_ports: [],
   is_dashboard_visible: false
 }
@@ -66,7 +67,7 @@ const emptySwitchPort = (portNumber = 1) => ({ port_number: portNumber, vlan: ''
 
 const fieldSets = {
   Router: ['name', 'model', 'ip', 'port', 'asset_code'],
-  Switch: ['name', 'model', 'location', 'ip', 'connection_type', 'connection_port', 'asset_code'],
+  Switch: ['name', 'model', 'location', 'ip', 'transport', 'connection_type', 'connection_port', 'asset_code'],
   iLO: ['name', 'ip', 'esxi_version', 'model', 'asset_code'],
   Server: ['name', 'hostname', 'ip'],
   NVR: ['name', 'ip', 'model', 'asset_code'],
@@ -85,6 +86,11 @@ const fieldMeta = {
   port: { label: 'Port', placeholder: '443', type: 'number', min: 1, max: 65535 },
   asset_code: { label: 'Asset Code', placeholder: 'HF-BER-001' },
   connection_type: { label: 'Connection Type', placeholder: 'Fiber / Copper / Uplink' },
+  transport: {
+    label: 'Terminal Protocol',
+    hint: 'Used by the in-app terminal when connecting to this switch',
+    options: [{ value: '', label: 'SSH (default)' }, { value: 'ssh', label: 'SSH' }, { value: 'telnet', label: 'Telnet' }]
+  },
   connection_port: { label: 'Connection Port', placeholder: 'Gi1/0/24' },
   hostname: { label: 'Hostname', placeholder: 'BRANCH-SRV-01' },
   user: { label: 'User', placeholder: 'Local or domain user' },
@@ -135,7 +141,14 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
     return (
       <div key={name}>
         <Label htmlFor={inputId}>{label}</Label>
-        <Input id={inputId} placeholder={meta.placeholder} type={meta.type} min={meta.min} max={meta.max} autoComplete="off" aria-required={name === 'name' || name === 'ip'} {...register(name)} />
+        {meta.options ? (
+          <Select id={inputId} {...register(name)}>
+            {meta.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </Select>
+        ) : (
+          <Input id={inputId} placeholder={meta.placeholder} type={meta.type} min={meta.min} max={meta.max} autoComplete="off" aria-required={name === 'name' || name === 'ip'} {...register(name)} />
+        )}
+        {meta.hint && <p className="mt-1 text-[10px] leading-relaxed text-[rgb(var(--muted))]">{meta.hint}</p>}
         {errors[name] && <p className="mt-1 text-[11px] font-semibold text-nord-11">{errors[name].message}</p>}
       </div>
     )

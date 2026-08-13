@@ -35,9 +35,26 @@ contextBridge.exposeInMainWorld('hyperfamily', {
   remote: {
     connect: (payload) => invoke('remote:connect', payload),
     probe: () => invoke('remote:probe'),
-    guacamole: (payload) => invoke('remote:guacamole', payload),
-    guacamoleTest: () => invoke('remote:guacamole-test'),
-    guacamoleClose: () => invoke('remote:guacamole-close')
+    palette: (palette) => invoke('remote:palette', palette)
+  },
+  terminal: {
+    targets: () => invoke('terminal:targets'),
+    open: (payload) => invoke('terminal:open', payload),
+    write: (payload) => invoke('terminal:write', payload),
+    resize: (payload) => invoke('terminal:resize', payload),
+    close: (sessionId) => invoke('terminal:close', sessionId),
+    onData: (callback) => subscribe('terminal:data', callback),
+    onStatus: (callback) => subscribe('terminal:status', callback)
+  },
+  snippets: {
+    list: () => invoke('snippets:list'),
+    save: (payload) => invoke('snippets:save', payload),
+    remove: (id) => invoke('snippets:remove', id)
+  },
+  notes: {
+    list: () => invoke('notes:list'),
+    save: (payload) => invoke('notes:save', payload),
+    remove: (id) => invoke('notes:remove', id)
   },
   vpn: {
     status: () => invoke('vpn:status'),
