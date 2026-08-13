@@ -11,6 +11,12 @@ class UpdateService {
     this.sendEvent = sendEvent
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
+    // The installer is not code signed yet, so Authenticode verification would
+    // reject every download with ERR_UPDATER_INVALID_SIGNATURE. Skip it until a
+    // certificate is configured (CSC_LINK / CSC_KEY_PASSWORD).
+    if (typeof autoUpdater.verifyUpdateCodeSignature !== 'undefined') {
+      autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null)
+    }
     autoUpdater.on('download-progress', (progress) => this.sendEvent('update:event', { type: 'progress', percent: progress.percent, transferred: progress.transferred, total: progress.total }))
     autoUpdater.on('update-downloaded', (info) => this.sendEvent('update:event', { type: 'downloaded', version: info.version }))
     autoUpdater.on('error', (error) => this.sendEvent('update:event', { type: 'error', message: error.message }))
