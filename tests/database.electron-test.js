@@ -193,7 +193,7 @@ test('upgrades older databases with Warehouse Code, scale serial numbers, and ma
     assert.equal(database.listBranches()[0].warehouse_code, 'LEGACY-LEGACY-1')
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'switch_ports'").pluck().get(), 1)
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_devices_one_router_per_branch'").pluck().get(), 1)
-    assert.equal(database.db.pragma('user_version', { simple: true }), 4)
+    assert.equal(database.db.pragma('user_version', { simple: true }), 5)
   } finally {
     database?.close()
     fs.rmSync(directory, { recursive: true, force: true })
@@ -429,11 +429,28 @@ test('rejects an invalid Excel import without partially saving valid rows', asyn
 test('credential mappings cascade when a credential is deleted', () => {
   const { database, cleanup } = fixture()
   try {
+    const branch = database.saveBranch({ name: 'Mapping Branch', code: 'MAP-01', warehouse_code: 'WH-MAP-01' })
+    const device = database.saveDevice({ branch_id: branch.id, device_type: 'Checkout', name: 'Checkout 2', ip: '10.40.1.2' })
     const credential = database.saveCredential({ name: 'Admin set', username: 'DOMAIN\\admin', password: 'secret' })
+
+    // Legacy call shape (types only) must keep working.
     database.saveMappings({ Router: [credential.id], Server: [credential.id] })
     assert.deepEqual(database.getMappings(), { Router: [credential.id], Server: [credential.id] })
+
+    // Unified shape assigns one credential to device types AND individual devices.
+    database.saveMappings({ types: { Checkout: [credential.id] }, devices: { [device.id]: [credential.id] } })
+    assert.deepEqual(database.getCredentialMap(), {
+      types: { Checkout: [credential.id] },
+      devices: { [device.id]: [credential.id] }
+    })
+
+    const resolved = database.listCredentialsForDevice(device.id)
+    assert.equal(resolved[0].id, credential.id)
+    assert.equal(resolved[0].scope, 'device')
+
+    // Deleting the credential cascades through both mapping tables.
     database.deleteCredential(credential.id)
-    assert.deepEqual(database.getMappings(), {})
+    assert.deepEqual(database.getCredentialMap(), { types: {}, devices: {} })
   } finally { cleanup() }
 })
 
