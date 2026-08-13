@@ -4,7 +4,7 @@ const Database = require('better-sqlite3-multiple-ciphers')
 const bcrypt = require('bcryptjs')
 const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
 
-const BRANCH_COLUMNS = ['name', 'code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
+const BRANCH_COLUMNS = ['name', 'code', 'warehouse_code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
 const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass'])
 
 class AppDatabase {
@@ -154,6 +154,13 @@ class AppDatabase {
   listBranches() { return this.db.prepare('SELECT * FROM branches ORDER BY name COLLATE NOCASE').all() }
 
   saveBranch(data, actor = 'Admin') {
+    const name = String(data.name || '').trim()
+    const code = String(data.code || '').trim()
+    const warehouseCode = String(data.warehouse_code || '').trim()
+    if (!name || !code) throw new Error('Branch name and code are required')
+    if (!warehouseCode) throw new Error('Warehouse Code is required')
+    if (!/^[A-Za-z0-9_-]+$/.test(code) || code.length > 20) throw new Error('Branch Code must use no more than 20 letters, numbers, dashes, or underscores')
+    if (!/^[A-Za-z0-9_-]+$/.test(warehouseCode) || warehouseCode.length > 40) throw new Error('Warehouse Code must use no more than 40 letters, numbers, dashes, or underscores')
     const values = BRANCH_COLUMNS.map((key) => String(data[key] || '').trim() || null)
     let result
     if (data.id) {
@@ -224,6 +231,8 @@ class AppDatabase {
   saveDevice(data, actor = 'Admin') {
     const normalized = { ...data }
     normalized.branch_id = Number(data.branch_id)
+    normalized.name = String(data.name || '').trim()
+    if (!normalized.name) throw new Error('Device Name is required')
     normalized.port = data.port ? Number(data.port) : null
     normalized.connection_port = String(data.connection_port || '').trim() || null
     normalized.checkout_number = data.checkout_number ? Number(data.checkout_number) : null
@@ -232,6 +241,16 @@ class AppDatabase {
     const values = DEVICE_COLUMNS.map((key) => normalized[key] === '' || normalized[key] === undefined ? null : normalized[key])
 
     return this.db.transaction(() => {
+      if (normalized.device_type === 'Router') {
+        const deviceId = Number(data.id) || 0
+        const existingRouter = this.db.prepare(`SELECT id FROM devices
+          WHERE branch_id = ? AND device_type = 'Router' AND id <> ? LIMIT 1`)
+          .get(normalized.branch_id, deviceId)
+        const current = deviceId ? this.db.prepare('SELECT branch_id, device_type FROM devices WHERE id = ?').get(deviceId) : null
+        const editingLegacyRouterInPlace = current?.device_type === 'Router' && current.branch_id === normalized.branch_id
+        if (existingRouter && !editingLegacyRouterInPlace) throw new Error('Only one Router can be defined for each branch')
+      }
+
       let deviceId
       if (data.id) {
         deviceId = Number(data.id)
@@ -246,6 +265,46 @@ class AppDatabase {
 
       this.replaceSwitchPorts(deviceId, data.device_type === 'Switch' ? data.switch_ports || [] : [])
       return { ...normalized, id: deviceId, switch_ports: this.listSwitchPorts(deviceId) }
+    })()
+  }
+
+  importDirectory(payload = {}, actor = 'Admin') {
+    const branchRows = Array.isArray(payload.branches) ? payload.branches : []
+    const deviceRows = Array.isArray(payload.devices) ? payload.devices : []
+
+    return this.db.transaction(() => {
+      const summary = {
+        branches_added: 0,
+        branches_updated: 0,
+        devices_added: 0,
+        devices_updated: 0,
+        switch_ports_imported: 0
+      }
+
+      for (const branch of branchRows) {
+        const existing = this.db.prepare('SELECT id FROM branches WHERE code = ? COLLATE NOCASE').get(branch.code)
+        this.saveBranch({ ...branch, id: existing?.id }, actor)
+        if (existing) summary.branches_updated += 1
+        else summary.branches_added += 1
+      }
+
+      for (const device of deviceRows) {
+        const branch = this.db.prepare('SELECT id FROM branches WHERE code = ? COLLATE NOCASE').get(device.branch_code)
+        if (!branch) throw new Error(`Branch Code "${device.branch_code}" does not exist`)
+
+        const existing = device.device_type === 'Router'
+          ? this.db.prepare("SELECT id FROM devices WHERE branch_id = ? AND device_type = 'Router' LIMIT 1").get(branch.id)
+          : this.db.prepare('SELECT id FROM devices WHERE branch_id = ? AND device_type = ? AND ip = ? COLLATE NOCASE LIMIT 1').get(branch.id, device.device_type, device.ip)
+        const saved = this.saveDevice({ ...device, id: existing?.id, branch_id: branch.id }, actor)
+        if (existing) summary.devices_updated += 1
+        else summary.devices_added += 1
+        if (saved.device_type === 'Switch') summary.switch_ports_imported += saved.switch_ports.length
+      }
+
+      const branchChanges = summary.branches_added + summary.branches_updated
+      const deviceChanges = summary.devices_added + summary.devices_updated
+      this.audit(actor, 'DIRECTORY_IMPORT', 'Excel workbook', `${branchChanges} branches, ${deviceChanges} devices, ${summary.switch_ports_imported} switch ports processed`)
+      return { success: true, ...summary }
     })()
   }
 
@@ -359,7 +418,7 @@ class AppDatabase {
   }
 
   listInventory() {
-    const rows = this.db.prepare(`SELECT d.*, b.name AS branch_name, b.code AS branch_code, p.status, p.ping_time
+    const rows = this.db.prepare(`SELECT d.*, b.name AS branch_name, b.code AS branch_code, b.warehouse_code AS branch_warehouse_code, p.status, p.ping_time
       FROM devices d JOIN branches b ON b.id = d.branch_id
       LEFT JOIN ping_history p ON p.id = (SELECT id FROM ping_history WHERE device_id = d.id ORDER BY id DESC LIMIT 1)
       ORDER BY b.name, d.device_type, d.name`).all()

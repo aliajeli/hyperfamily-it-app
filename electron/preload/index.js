@@ -25,7 +25,12 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     save: (payload) => invoke('credentials:save', payload), remove: (id) => invoke('credentials:remove', id),
     mappings: () => invoke('credentials:mappings'), saveMappings: (mappings) => invoke('credentials:save-mappings', mappings)
   },
-  inventory: { list: () => invoke('inventory:list'), export: (filters) => invoke('inventory:export', filters) },
+  inventory: {
+    list: () => invoke('inventory:list'),
+    export: (filters) => invoke('inventory:export', filters),
+    downloadTemplate: () => invoke('inventory:download-template'),
+    importExcel: () => invoke('inventory:import')
+  },
   remote: { connect: (payload) => invoke('remote:connect', payload) },
   vpn: { status: () => invoke('vpn:status'), connect: (mode) => invoke('vpn:connect', mode), disconnect: () => invoke('vpn:disconnect'), subscribe: (callback) => subscribe('vpn:status', callback) },
   update: { check: () => invoke('update:check'), download: () => invoke('update:download'), install: () => invoke('update:install'), subscribe: (callback) => subscribe('update:event', callback) },

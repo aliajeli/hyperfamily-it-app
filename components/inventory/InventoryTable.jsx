@@ -45,7 +45,7 @@ export default function InventoryTable({ devices }) {
             const connection = connectionDetails(device)
             return (
               <tr key={device.id} className="border-b last:border-0 hover:bg-[rgb(var(--border)/.22)]">
-                <td className="px-4 py-4"><b>{device.branch_name}</b><p className="mt-1 font-mono text-[9px] text-[rgb(var(--muted))]">{device.branch_code}</p></td>
+                <td className="px-4 py-4"><b>{device.branch_name}</b><p className="mt-1 font-mono text-[9px] text-[rgb(var(--muted))]">{device.branch_code}{device.branch_warehouse_code ? ` · WH ${device.branch_warehouse_code}` : ''}</p></td>
                 <td className="px-4 py-4"><span className="rounded-md bg-[rgb(var(--primary)/.1)] px-2 py-1 font-bold text-[rgb(var(--primary))]">{typeLabel(device.device_type)}</span></td>
                 <td className="px-4 py-4"><b>{deviceTitle(device)}</b>{device.hostname && device.hostname !== deviceTitle(device) && <p className="mt-1 font-mono text-[9px] text-[rgb(var(--muted))]">{device.hostname}</p>}{device.user && <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">{device.domain ? `${device.domain}\\` : ''}{device.user}</p>}</td>
                 <td className="px-4 py-4 font-mono">{device.ip}{device.port ? `:${device.port}` : ''}</td>
