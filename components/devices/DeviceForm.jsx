@@ -24,7 +24,7 @@ const schema = z.object({
   branch_id: z.coerce.number().int().positive('Select a branch'),
   device_type: z.enum(DEVICE_TYPES),
   model: z.string().trim().optional(),
-  name: z.string().trim().optional(),
+  name: z.string().trim().min(1, 'Device Name is required'),
   location: z.string().trim().optional(),
   ip: z.string().trim().refine(isValidHost, 'Enter a valid IPv4 address or hostname'),
   port: optionalPort,
@@ -64,16 +64,16 @@ const defaults = {
 const emptySwitchPort = (portNumber = 1) => ({ port_number: portNumber, vlan: '', status: 'up', ip: '', details: '' })
 
 const fieldSets = {
-  Router: ['model', 'ip', 'port', 'asset_code'],
-  Switch: ['model', 'name', 'location', 'ip', 'connection_type', 'connection_port', 'asset_code'],
-  iLO: ['ip', 'esxi_version', 'model', 'asset_code'],
-  Server: ['hostname', 'ip', 'name'],
-  NVR: ['ip', 'model', 'name', 'asset_code'],
-  AccessPoint: ['model', 'name', 'location', 'ip', 'port', 'asset_code'],
-  Scale: ['model', 'location', 'ip', 'serial_number', 'asset_code'],
-  Client: ['hostname', 'user', 'ip', 'domain'],
-  Checkout: ['checkout_number', 'hostname', 'ip'],
-  POS: ['checkout_number', 'brand', 'model', 'version', 'ip', 'terminal_id', 'acceptance_id', 'asset_code']
+  Router: ['name', 'model', 'ip', 'port', 'asset_code'],
+  Switch: ['name', 'model', 'location', 'ip', 'connection_type', 'connection_port', 'asset_code'],
+  iLO: ['name', 'ip', 'esxi_version', 'model', 'asset_code'],
+  Server: ['name', 'hostname', 'ip'],
+  NVR: ['name', 'ip', 'model', 'asset_code'],
+  AccessPoint: ['name', 'model', 'location', 'ip', 'port', 'asset_code'],
+  Scale: ['name', 'model', 'location', 'ip', 'serial_number', 'asset_code'],
+  Client: ['name', 'hostname', 'user', 'ip', 'domain'],
+  Checkout: ['name', 'checkout_number', 'hostname', 'ip'],
+  POS: ['name', 'checkout_number', 'brand', 'model', 'version', 'ip', 'terminal_id', 'acceptance_id', 'asset_code']
 }
 
 const fieldMeta = {
@@ -107,9 +107,12 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
   useEffect(() => {
     const type = value?.device_type || deviceType || 'Router'
     const sourcePorts = Array.isArray(value?.switch_ports) ? value.switch_ports : []
+    // SQLite returns null for unused device-specific columns. Keep those values out of
+    // form state so optional string validators receive an empty string instead of null.
+    const populated = value ? Object.fromEntries(Object.entries(value).filter(([, fieldValue]) => fieldValue !== null && fieldValue !== undefined)) : {}
     reset({
       ...defaults,
-      ...(value || {}),
+      ...populated,
       branch_id: value?.branch_id || branch?.id || '',
       device_type: type,
       port: value?.port || '',
@@ -131,7 +134,7 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
     return (
       <div key={name}>
         <Label htmlFor={inputId}>{label}</Label>
-        <Input id={inputId} placeholder={meta.placeholder} type={meta.type} min={meta.min} max={meta.max} autoComplete="off" aria-required={name === 'ip'} {...register(name)} />
+        <Input id={inputId} placeholder={meta.placeholder} type={meta.type} min={meta.min} max={meta.max} autoComplete="off" aria-required={name === 'name' || name === 'ip'} {...register(name)} />
         {errors[name] && <p className="mt-1 text-[11px] font-semibold text-nord-11">{errors[name].message}</p>}
       </div>
     )
@@ -145,11 +148,11 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="device-directory-form space-y-3.5">
       <input type="hidden" {...register('branch_id')} />
       <input type="hidden" {...register('device_type')} />
 
-      <div className="flex flex-col gap-3 rounded-2xl border bg-[rgb(var(--canvas)/.55)] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-xl border bg-[rgb(var(--canvas)/.55)] p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-[rgb(var(--muted))]">Selected branch</p>
           <p className="mt-1 truncate text-sm font-black">{branch?.name || 'Unknown branch'} <span className="font-mono text-[10px] text-[rgb(var(--muted))]">· {branch?.code}</span></p>
@@ -160,10 +163,10 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">{fields.map(renderField)}</div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{fields.map(renderField)}</div>
 
       {type === 'Switch' && (
-        <fieldset className="rounded-2xl border bg-[rgb(var(--canvas)/.34)] p-4">
+        <fieldset className="rounded-xl border bg-[rgb(var(--canvas)/.34)] p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="flex items-center gap-2 text-sm font-black"><Network size={16} className="text-[rgb(var(--primary))]" /> Managed switch ports</h3>
@@ -172,9 +175,9 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
             <Button type="button" variant="secondary" size="sm" onClick={addSwitchPort}><Plus size={14} />Add port</Button>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 space-y-2">
             {switchPorts.map((port, index) => (
-              <div key={port.id} className="relative rounded-2xl border bg-[rgb(var(--surface)/.72)] p-3.5 pr-12 shadow-sm">
+              <div key={port.id} className="relative rounded-xl border bg-[rgb(var(--surface)/.72)] p-2.5 pr-10 shadow-sm">
                 <span className="absolute right-3 top-3 grid h-6 min-w-6 place-items-center rounded-lg bg-[rgb(var(--primary)/.1)] px-1.5 text-[9px] font-black text-[rgb(var(--primary))]">#{index + 1}</span>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <div><Label htmlFor={`switch-port-${index}-number`}>Port Number</Label><Input id={`switch-port-${index}-number`} type="number" min="1" aria-required="true" {...register(`switch_ports.${index}.port_number`)} />{errors.switch_ports?.[index]?.port_number && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].port_number.message}</p>}</div>
@@ -191,17 +194,23 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
         </fieldset>
       )}
 
-      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border bg-[rgb(var(--surface)/.7)] p-4 transition hover:border-[rgb(var(--primary)/.35)] hover:shadow-sm">
+      <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border bg-[rgb(var(--surface)/.7)] p-3 transition hover:border-[rgb(var(--primary)/.35)] hover:shadow-sm">
         <span className="flex min-w-0 items-center gap-3">
-          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${visible ? 'bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]' : 'bg-[rgb(var(--border)/.55)] text-[rgb(var(--muted))]'}`}>{visible ? <Eye size={18} /> : <EyeOff size={18} />}</span>
+          <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${visible ? 'bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]' : 'bg-[rgb(var(--border)/.55)] text-[rgb(var(--muted))]'}`}>{visible ? <Eye size={18} /> : <EyeOff size={18} />}</span>
           <span><b className="block text-sm">Show on Dashboard</b><small className="mt-0.5 block text-[10px] text-[rgb(var(--muted))]">Monitor this device and include it in the selected branch&apos;s Dashboard view.</small></span>
         </span>
         <Switch checked={visible} onCheckedChange={(checked) => setValue('is_dashboard_visible', checked, { shouldDirty: true })} />
       </label>
 
+      {Object.keys(errors).length > 0 && (
+        <div role="alert" className="rounded-xl border border-nord-11/35 bg-nord-11/10 px-3 py-2 text-[11px] font-semibold text-nord-11">
+          Some fields need attention. Review the highlighted inputs and try saving again.
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-t pt-4">
         {onBack ? <Button type="button" variant="ghost" onClick={onBack}><ArrowLeft size={15} />Back to device types</Button> : <span />}
-        <Button disabled={saving}>{saving ? 'Saving…' : value ? 'Save changes' : `Add ${typeDetail?.label || type}`}</Button>
+        <Button type="submit" disabled={saving}>{saving ? 'Saving…' : value ? 'Save changes' : `Add ${typeDetail?.label || type}`}</Button>
       </div>
     </form>
   )

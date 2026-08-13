@@ -7,8 +7,8 @@
   --primary: 191 97 106;
   --secondary: 208 135 112;
   --accent: 235 203 139;
-  --canvas: 236 239 244;
-  --surface: 255 255 255;
+  --canvas: 229 233 240;
+  --surface: 236 239 244;
   --text: 46 52 64;
   --muted: 76 86 106;
   --border: 216 222 233;
@@ -19,8 +19,8 @@
   --primary: 94 129 172;
   --secondary: 136 192 208;
   --accent: 143 188 187;
-  --canvas: 236 239 244;
-  --surface: 255 255 255;
+  --canvas: 229 233 240;
+  --surface: 236 239 244;
   --text: 46 52 64;
   --muted: 76 86 106;
   --border: 216 222 233;
@@ -30,25 +30,76 @@
 [data-theme='snow'] {
   --primary: 76 86 106;
   --secondary: 216 222 233;
-  --accent: 136 192 208;
-  --canvas: 246 248 251;
-  --surface: 255 255 255;
+  --accent: 129 161 193;
+  --canvas: 229 233 240;
+  --surface: 236 239 244;
   --text: 46 52 64;
-  --muted: 94 104 126;
-  --border: 229 233 240;
+  --muted: 76 86 106;
+  --border: 216 222 233;
   --focus: 129 161 193;
+}
+
+[data-theme='tundra'] {
+  --primary: 94 129 172;
+  --secondary: 163 190 140;
+  --accent: 180 142 173;
+  --canvas: 229 233 240;
+  --surface: 236 239 244;
+  --text: 46 52 64;
+  --muted: 76 86 106;
+  --border: 216 222 233;
+  --focus: 163 190 140;
 }
 
 [data-theme='polar'] {
   --primary: 136 192 208;
   --secondary: 67 76 94;
   --accent: 180 142 173;
-  --canvas: 36 41 51;
-  --surface: 46 52 64;
+  --canvas: 46 52 64;
+  --surface: 59 66 82;
   --text: 236 239 244;
   --muted: 216 222 233;
   --border: 76 86 106;
   --focus: 136 192 208;
+  color-scheme: dark;
+}
+
+[data-theme='arctic-night'] {
+  --primary: 129 161 193;
+  --secondary: 136 192 208;
+  --accent: 143 188 187;
+  --canvas: 46 52 64;
+  --surface: 67 76 94;
+  --text: 236 239 244;
+  --muted: 216 222 233;
+  --border: 76 86 106;
+  --focus: 136 192 208;
+  color-scheme: dark;
+}
+
+[data-theme='fjord-night'] {
+  --primary: 143 188 187;
+  --secondary: 136 192 208;
+  --accent: 163 190 140;
+  --canvas: 59 66 82;
+  --surface: 67 76 94;
+  --text: 236 239 244;
+  --muted: 216 222 233;
+  --border: 76 86 106;
+  --focus: 143 188 187;
+  color-scheme: dark;
+}
+
+[data-theme='aurora-night'] {
+  --primary: 180 142 173;
+  --secondary: 191 97 106;
+  --accent: 208 135 112;
+  --canvas: 46 52 64;
+  --surface: 59 66 82;
+  --text: 236 239 244;
+  --muted: 216 222 233;
+  --border: 76 86 106;
+  --focus: 180 142 173;
   color-scheme: dark;
 }
 
@@ -92,11 +143,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .gradient-text { background: linear-gradient(110deg, rgb(var(--primary)), rgb(var(--secondary))); background-clip: text; -webkit-background-clip: text; color: transparent; }
 }
 
-[data-theme='polar'] .glass { box-shadow: 0 22px 60px rgb(0 0 0 / .22); }
+:root[data-color-mode='dark'] .glass { box-shadow: 0 22px 60px rgb(0 0 0 / .22); }
 .status-online-text { color: #5f7f4d; }
 .status-warning-text { color: #806823; }
-[data-theme='polar'] .status-online-text { color: #A3BE8C; }
-[data-theme='polar'] .status-warning-text { color: #EBCB8B; }
+:root[data-color-mode='dark'] .status-online-text { color: #A3BE8C; }
+:root[data-color-mode='dark'] .status-warning-text { color: #EBCB8B; }
 
 .login-card {
   box-shadow:
@@ -154,7 +205,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .login-code-caret { animation: none; }
 }
 
-[data-theme='polar'] .login-card {
+:root[data-color-mode='dark'] .login-card {
   box-shadow: 0 30px 86px rgb(0 0 0 / .38), inset 0 1px 0 rgb(255 255 255 / .06);
 }
 
@@ -201,6 +252,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 .directory-step { transition: border-color .3s ease, background .3s ease, opacity .3s ease; }
+.device-directory-form .field-label,
+.branch-directory-form .field-label { margin-bottom: .25rem; font-size: .56rem; letter-spacing: .075em; }
+.device-directory-form input,
+.device-directory-form select,
+.branch-directory-form input { height: 2.25rem; border-radius: .625rem; font-size: .7rem; }
+.device-directory-form button,
+.branch-directory-form button { font-size: .7rem; }
+.device-directory-form h3 { font-size: .75rem; }
 .directory-branch-card,
 .directory-device-card,
 .device-type-option {
@@ -231,13 +290,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .dialog-content[data-state='open'] { animation: dashboard-modal-in .4s cubic-bezier(.16, 1, .3, 1) both; }
 .dialog-content[data-state='closed'] { animation: dashboard-modal-out .18s ease-in both; }
 
-[data-theme='polar'] .branch-card:hover,
-[data-theme='polar'] .device-card:hover,
-[data-theme='polar'] .router-monitor-card:hover,
-[data-theme='polar'] .directory-branch-card:hover,
-[data-theme='polar'] .directory-device-card:hover,
-[data-theme='polar'] .device-type-option:hover { box-shadow: 0 18px 42px rgb(0 0 0 / .3); }
-[data-theme='polar'] .notification-popup { box-shadow: 0 30px 80px rgb(0 0 0 / .46), inset 0 1px 0 rgb(255 255 255 / .06); }
+:root[data-color-mode='dark'] .branch-card:hover,
+:root[data-color-mode='dark'] .device-card:hover,
+:root[data-color-mode='dark'] .router-monitor-card:hover,
+:root[data-color-mode='dark'] .directory-branch-card:hover,
+:root[data-color-mode='dark'] .directory-device-card:hover,
+:root[data-color-mode='dark'] .device-type-option:hover { box-shadow: 0 18px 42px rgb(0 0 0 / .3); }
+:root[data-color-mode='dark'] .notification-popup { box-shadow: 0 30px 80px rgb(0 0 0 / .46), inset 0 1px 0 rgb(255 255 255 / .06); }
 
 @keyframes ambient-background {
   from { background-position: 100% 0, 0 100%, 0 0; }

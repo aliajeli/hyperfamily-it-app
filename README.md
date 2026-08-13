@@ -8,12 +8,12 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 
 - **Real-time monitoring** — parallel pings, live status cards, Router charts, active-alert notifications, and daily uptime aggregation.
 - **Adaptive branch dashboard** — four-column branch cards, configurable compact behavior, and animated modal or side-panel equipment views.
-- **Branch-first device directory** — select or define a branch before adding equipment, choose from 10 device-type cards, edit saved devices reliably, and manage normalized Switch port records.
+- **Branch-first device directory** — compact branch and equipment cards, required Device Names and Warehouse Codes, one Router per branch, reliable editing, and normalized Switch port records.
 - **Encrypted local database** — SQLCipher-compatible AES-256 SQLite encryption; database key protected with Windows DPAPI. Passwords are additionally encrypted at field level.
 - **Secure remote actions** — RDP, TeamViewer, Winbox, browser management, and Termius SSH with audit logging.
-- **Inventory export** — filtered, formatted `.xlsx` workbooks via ExcelJS.
+- **Complete Excel workflow** — download the official Template with three data sheets, atomically import branches, devices, and Switch ports, or export a filtered inventory workbook.
 - **VPN controls** — FortiClient full VPN and reviewed OpenVPN split-tunnel profiles.
-- **Four Nord themes** — Aurora, Frost, Snow, and Polar Night.
+- **Eight Nord themes** — four light and four dark palettes built entirely from Nord colors.
 - **Signed update path** — GitHub release discovery and `electron-updater` integration.
 - **JavaScript only** — no TypeScript source files.
 
@@ -23,8 +23,8 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 | --- | --- |
 | `/login` | Local bcryptjs authentication (`Admin` / `Admin` on a fresh install) |
 | `/dashboard` | Live branch health, Router charts, alert notifications, expandable equipment, and three-dot remote actions |
-| `/devices` | Branch-first location and equipment workflow with type-specific forms and managed Switch ports |
-| `/inventory` | Search, filter, status snapshot, and Excel export |
+| `/devices` | Compact branch-first workflow, type-specific forms, managed Switch ports, and complete Excel import |
+| `/inventory` | Search, filter, Warehouse Code, Template download, atomic import, and Excel export |
 | `/settings` | General, Dashboard display, credentials, device tools, VPN, and theme settings |
 | `/about` | Build information, updates, stack, and support links |
 
@@ -91,7 +91,9 @@ The browser preview uses seeded local demo data and does **not** execute OS oper
 4. Complete only the fields shown for that equipment type, choose whether it appears on the Dashboard, and save.
 5. Use the device card's edit action to revise the saved record later.
 
-Branch records contain Name, Code, Link1, IP Link1, Link2, IP Link2, Manager Name, Manager Tell, Deputy Name, and Deputy Tell. Equipment forms are deliberately type-specific. Switches additionally support any number of managed port records containing Port Number, VLAN, Status, IP, and Details. Scale serial numbers and Switch ports are included in encrypted persistence and Excel inventory exports.
+Branch records require Name, Code, and a case-insensitively unique Warehouse Code, with optional network-link and contact information. Every Device requires a saved Device Name, and each Branch can contain at most one Router. Equipment forms are deliberately type-specific. Switches additionally support any number of managed port records containing Port Number, VLAN, Status, IP, and Details. Scale serial numbers, Warehouse Codes, and Switch ports are included in encrypted persistence and Excel inventory exports.
+
+To bulk-load a directory, select **Download Import Template**, complete the `Branches`, `Devices`, and `Switch Ports` worksheets, then select **Import Excel**. The entire workbook is validated before a transaction starts; any invalid row cancels the complete import so no partial directory is saved.
 
 ## Scripts
 

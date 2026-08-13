@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Download, Search, SlidersHorizontal, Boxes } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Boxes, Download, FileSpreadsheet, Search, SlidersHorizontal, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import InventoryTable from '@/components/inventory/InventoryTable'
@@ -16,7 +16,7 @@ function matchesQuery(device, query) {
     device.name, device.hostname, device.ip, device.port, device.model, device.asset_code, device.serial_number,
     device.location, device.connection_type, device.connection_port, device.esxi_version, device.version,
     device.user, device.domain, device.checkout_number, device.brand, device.terminal_id, device.acceptance_id,
-    device.branch_name, device.branch_code,
+    device.branch_name, device.branch_code, device.branch_warehouse_code,
     ...(device.switch_ports || []).flatMap((port) => [port.port_number, port.vlan, port.status, port.ip, port.details])
   ]
   return values.some((value) => String(value || '').toLowerCase().includes(needle))
@@ -28,13 +28,78 @@ export default function InventoryPage() {
   const [filters, setFilters] = useState({ branch: 'all', type: 'all', query: '' })
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  useEffect(() => { Promise.all([getApi().inventory.list(), getApi().branches.list()]).then(([d, b]) => { setDevices(d); setBranches(b) }).catch((e) => toast.error(e.message)).finally(() => setLoading(false)) }, [])
-  const filtered = useMemo(() => devices.filter((d) => (filters.branch === 'all' || String(d.branch_id) === filters.branch) && (filters.type === 'all' || d.device_type === filters.type) && matchesQuery(d, filters.query)), [devices, filters])
-  const exportExcel = async () => { setExporting(true); try { const result = await getApi().inventory.export({ branch: filters.branch, type: filters.type, query: filters.query }); if (result?.path) toast.success(`Export saved to ${result.path}`) } catch (error) { toast.error(error.message) } finally { setExporting(false) } }
+  const [importing, setImporting] = useState(false)
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
+
+  const loadInventory = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true)
+    try {
+      const [nextDevices, nextBranches] = await Promise.all([getApi().inventory.list(), getApi().branches.list()])
+      setDevices(nextDevices)
+      setBranches(nextBranches)
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      if (showLoading) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadInventory(true) }, [loadInventory])
+
+  const filtered = useMemo(() => devices.filter((device) => (
+    (filters.branch === 'all' || String(device.branch_id) === filters.branch)
+    && (filters.type === 'all' || device.device_type === filters.type)
+    && matchesQuery(device, filters.query)
+  )), [devices, filters])
+
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      const result = await getApi().inventory.export({ branch: filters.branch, type: filters.type, query: filters.query })
+      if (result?.path) toast.success(`Export saved to ${result.path}`)
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const downloadTemplate = async () => {
+    setDownloadingTemplate(true)
+    try {
+      const result = await getApi().inventory.downloadTemplate()
+      if (result?.path) toast.success(`Import Template saved to ${result.path}`)
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setDownloadingTemplate(false)
+    }
+  }
+
+  const importExcel = async () => {
+    setImporting(true)
+    try {
+      const result = await getApi().inventory.importExcel()
+      if (!result || result.canceled) return
+      await loadInventory()
+      toast.success(`Import complete: ${result.branches_added} branches added, ${result.branches_updated} updated, ${result.devices_added} devices added, and ${result.devices_updated} updated.`)
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setImporting(false)
+    }
+  }
 
   return <AppShell><div className="mx-auto max-w-[1700px] space-y-6">
-    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h1 className="page-title">Asset inventory</h1><p className="page-subtitle">Filter hardware across stores and export an Excel-ready operational snapshot.</p></div><Button onClick={exportExcel} disabled={!filtered.length || exporting}><Download size={16} />{exporting ? 'Exporting…' : `Export ${filtered.length} to Excel`}</Button></div>
-    <div className="grid gap-3 sm:grid-cols-3"><Card className="flex items-center gap-3 p-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-nord-8/15 text-nord-10"><Boxes size={19} /></div><div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Total assets</p><b className="text-xl">{devices.length}</b></div></Card><Card className="flex items-center gap-3 p-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-nord-14/15 text-[#66834e]"><SlidersHorizontal size={19} /></div><div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Filtered results</p><b className="text-xl">{filtered.length}</b></div></Card><Card className="flex items-center gap-3 p-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-nord-15/15 text-nord-15"><Download size={19} /></div><div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Export format</p><b className="text-sm">Microsoft Excel .xlsx</b></div></Card></div>
-    <Card className="overflow-hidden"><div className="grid gap-3 border-b p-4 md:grid-cols-[1fr_220px_220px]"><label className="relative"><Search size={16} className="absolute left-3.5 top-3.5 text-[rgb(var(--muted))]" /><Input className="pl-10" placeholder="Search device, branch, port, or identifier…" value={filters.query} onChange={(e) => setFilters({ ...filters, query: e.target.value })} /></label><Select value={filters.branch} onChange={(e) => setFilters({ ...filters, branch: e.target.value })}><option value="all">All branches</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select><Select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}><option value="all">All device types</option>{DEVICE_TYPES.map((type) => <option key={type}>{type}</option>)}</Select></div>{loading ? <div className="space-y-3 p-4">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-12" />)}</div> : <InventoryTable devices={filtered} />}</Card>
+    <div className="flex flex-col justify-between gap-3 xl:flex-row xl:items-end">
+      <div><h1 className="page-title">Asset inventory</h1><p className="page-subtitle">Filter hardware, import a complete directory, or export an operational snapshot.</p></div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={downloadTemplate} disabled={downloadingTemplate || importing}><FileSpreadsheet size={16} />{downloadingTemplate ? 'Preparing…' : 'Download Import Template'}</Button>
+        <Button variant="secondary" onClick={importExcel} disabled={importing || downloadingTemplate}><Upload size={16} />{importing ? 'Importing…' : 'Import Excel'}</Button>
+        <Button onClick={exportExcel} disabled={!filtered.length || exporting || importing}><Download size={16} />{exporting ? 'Exporting…' : `Export ${filtered.length} to Excel`}</Button>
+      </div>
+    </div>
+    <div className="grid gap-3 sm:grid-cols-3"><Card className="flex items-center gap-3 p-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-nord-8/15 text-nord-10"><Boxes size={19} /></div><div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Total assets</p><b className="text-xl">{devices.length}</b></div></Card><Card className="flex items-center gap-3 p-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-nord-14/15 text-[#66834e]"><SlidersHorizontal size={19} /></div><div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Filtered results</p><b className="text-xl">{filtered.length}</b></div></Card><Card className="flex items-center gap-3 p-4"><div className="grid h-10 w-10 place-items-center rounded-xl bg-nord-15/15 text-nord-15"><Download size={19} /></div><div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Workbook format</p><b className="text-sm">Microsoft Excel .xlsx</b></div></Card></div>
+    <Card className="overflow-hidden"><div className="grid gap-3 border-b p-4 md:grid-cols-[1fr_220px_220px]"><label className="relative"><Search size={16} className="absolute left-3.5 top-3.5 text-[rgb(var(--muted))]" /><Input className="pl-10" placeholder="Search device, branch, port, or identifier…" value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} /></label><Select value={filters.branch} onChange={(event) => setFilters({ ...filters, branch: event.target.value })}><option value="all">All branches</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</Select><Select value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="all">All device types</option>{DEVICE_TYPES.map((type) => <option key={type}>{type}</option>)}</Select></div>{loading ? <div className="space-y-3 p-4">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-12" />)}</div> : <InventoryTable devices={filtered} />}</Card>
   </div></AppShell>
 }

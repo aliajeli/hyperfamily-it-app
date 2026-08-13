@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CreditCard, HardDrive, Monitor, Network, Router, Scale, Server, ShoppingCart, Video, Wifi } from 'lucide-react'
+import { CreditCard, HardDrive, LockKeyhole, Monitor, Network, Router, Scale, Server, ShoppingCart, Video, Wifi } from 'lucide-react'
 import { DEVICE_TYPES, DEVICE_TYPE_DETAILS } from '@/lib/constants'
 
 const icons = {
@@ -30,38 +30,40 @@ const tones = {
   POS: 'bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]'
 }
 
-export default function DeviceTypePicker({ branch, onSelect }) {
+export default function DeviceTypePicker({ branch, onSelect, unavailableTypes = [] }) {
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border bg-[rgb(var(--canvas)/.55)] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border bg-[rgb(var(--canvas)/.55)] px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-[rgb(var(--muted))]">Add equipment to</p>
-          <p className="mt-1 truncate text-sm font-black">{branch.name} <span className="font-mono text-[10px] text-[rgb(var(--muted))]">· {branch.code}</span></p>
+          <p className="text-[8px] font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">Add equipment to</p>
+          <p className="truncate text-xs font-black">{branch.name} <span className="font-mono text-[9px] text-[rgb(var(--muted))]">· {branch.code}</span></p>
         </div>
-        <span className="rounded-full border bg-[rgb(var(--surface)/.72)] px-3 py-1.5 text-[9px] font-extrabold text-[rgb(var(--muted))]">Choose one type</span>
+        <span className="shrink-0 rounded-full border bg-[rgb(var(--surface)/.72)] px-2.5 py-1 text-[8px] font-extrabold text-[rgb(var(--muted))]">Choose one type</span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {DEVICE_TYPES.map((type, index) => {
           const Icon = icons[type]
           const detail = DEVICE_TYPE_DETAILS[type]
+          const unavailable = unavailableTypes.includes(type)
           return (
             <motion.button
               key={type}
               type="button"
-              onClick={() => onSelect(type)}
-              initial={{ opacity: 0, y: 10 }}
+              disabled={unavailable}
+              onClick={() => !unavailable && onSelect(type)}
+              initial={{ opacity: 0, y: 7 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.025 }}
-              whileHover={{ y: -4, scale: 1.012 }}
-              whileTap={{ scale: 0.98 }}
-              className="device-type-option group relative overflow-hidden rounded-2xl border bg-[rgb(var(--surface)/.7)] p-4 text-left shadow-sm transition-colors hover:border-[rgb(var(--primary)/.34)] hover:bg-[rgb(var(--surface))]"
+              transition={{ delay: index * 0.018 }}
+              whileHover={unavailable ? undefined : { y: -2, scale: 1.008 }}
+              whileTap={unavailable ? undefined : { scale: 0.98 }}
+              className="device-type-option group relative min-h-28 overflow-hidden rounded-xl border bg-[rgb(var(--surface)/.7)] p-2.5 text-left shadow-sm transition-colors hover:border-[rgb(var(--primary)/.34)] hover:bg-[rgb(var(--surface))] disabled:cursor-not-allowed disabled:opacity-55"
             >
-              <span aria-hidden="true" className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-[rgb(var(--primary)/.07)] blur-2xl transition-transform duration-500 group-hover:scale-150" />
-              <span className={`relative grid h-11 w-11 place-items-center rounded-2xl ${tones[type]}`}><Icon size={20} /></span>
-              <span className="relative mt-3 block text-sm font-black tracking-[0.025em]">{detail.label}</span>
-              <span className="relative mt-1 block min-h-8 text-[10px] leading-4 text-[rgb(var(--muted))]">{detail.description}</span>
-              <span className="relative mt-3 inline-flex text-[9px] font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--primary))] transition-transform group-hover:translate-x-1">Select device →</span>
+              <span aria-hidden="true" className="absolute -right-8 -top-10 h-20 w-20 rounded-full bg-[rgb(var(--primary)/.07)] blur-2xl transition-transform duration-500 group-hover:scale-150" />
+              <span className={`relative grid h-8 w-8 place-items-center rounded-xl ${tones[type]}`}>{unavailable ? <LockKeyhole size={14} /> : <Icon size={15} />}</span>
+              <span className="relative mt-2 block text-xs font-black tracking-[0.02em]">{detail.label}</span>
+              <span className="relative mt-0.5 block text-[8px] leading-3 text-[rgb(var(--muted))]">{unavailable ? 'One Router is already defined for this branch.' : detail.description}</span>
+              <span className="relative mt-1.5 inline-flex text-[8px] font-extrabold uppercase tracking-[0.1em] text-[rgb(var(--primary))]">{unavailable ? 'Unavailable' : 'Select →'}</span>
             </motion.button>
           )
         })}

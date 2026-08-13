@@ -28,6 +28,7 @@ function runMigrations(db, adminHash) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       code TEXT UNIQUE NOT NULL COLLATE NOCASE,
+      warehouse_code TEXT NOT NULL,
       link1 TEXT,
       ip_link1 TEXT,
       link2 TEXT,
@@ -45,7 +46,7 @@ function runMigrations(db, adminHash) {
       branch_id INTEGER NOT NULL,
       device_type TEXT NOT NULL CHECK (device_type IN ('Router','Switch','iLO','Server','NVR','AccessPoint','Scale','Client','Checkout','POS')),
       model TEXT,
-      name TEXT,
+      name TEXT NOT NULL,
       location TEXT,
       ip TEXT NOT NULL,
       port INTEGER CHECK (port IS NULL OR (port BETWEEN 1 AND 65535)),
@@ -148,6 +149,28 @@ function runMigrations(db, adminHash) {
   if (!hasColumn(db, 'devices', 'remote_id')) db.exec('ALTER TABLE devices ADD COLUMN remote_id TEXT')
   if (!hasColumn(db, 'devices', 'protocol')) db.exec("ALTER TABLE devices ADD COLUMN protocol TEXT DEFAULT 'https'")
   if (!hasColumn(db, 'devices', 'serial_number')) db.exec('ALTER TABLE devices ADD COLUMN serial_number TEXT')
+  if (!hasColumn(db, 'branches', 'warehouse_code')) db.exec('ALTER TABLE branches ADD COLUMN warehouse_code TEXT')
+  db.exec(`
+    UPDATE branches
+    SET warehouse_code = 'LEGACY-' || code
+    WHERE warehouse_code IS NULL OR trim(warehouse_code) = '';
+    UPDATE devices
+    SET name = device_type || ' ' || id
+    WHERE name IS NULL OR trim(name) = '';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_branches_warehouse_code_unique
+      ON branches(warehouse_code COLLATE NOCASE)
+      WHERE warehouse_code IS NOT NULL AND trim(warehouse_code) <> '';
+  `)
+
+  // Preserve legacy records if an older build allowed multiple Routers. New and
+  // already-compliant databases receive a database-level invariant; a legacy
+  // database receives it automatically after its extra Routers are removed.
+  const duplicateRouterBranches = db.prepare(`SELECT COUNT(*) AS count FROM (
+    SELECT branch_id FROM devices WHERE device_type = 'Router' GROUP BY branch_id HAVING COUNT(*) > 1
+  )`).get().count
+  if (!duplicateRouterBranches) {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_one_router_per_branch ON devices(branch_id) WHERE device_type = 'Router'")
+  }
 
   const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count
   if (!userCount) db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('Admin', adminHash)
@@ -163,7 +186,7 @@ function runMigrations(db, adminHash) {
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   const transaction = db.transaction(() => Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value))))
   transaction()
-  db.pragma('user_version = 2')
+  db.pragma('user_version = 3')
 }
 
 module.exports = { runMigrations, DEVICE_COLUMNS }

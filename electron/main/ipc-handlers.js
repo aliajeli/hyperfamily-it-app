@@ -1,9 +1,10 @@
 const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
-const { exportInventory } = require('../services/excel.service')
+const { createImportTemplate, exportInventory, importDirectory } = require('../services/excel.service')
 
 function friendlyError(error) {
-  if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE')) return new Error('That name or code already exists')
+  if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE') && String(error.message).includes('devices.branch_id')) return new Error('Only one Router can be defined for each branch')
+  if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE')) return new Error('That name, Branch Code, Warehouse Code, or device identity already exists')
   if (String(error.code).includes('SQLITE_CONSTRAINT_FOREIGNKEY')) return new Error('The selected related record no longer exists')
   return error instanceof Error ? error : new Error(String(error))
 }
@@ -70,6 +71,8 @@ function registerIpcHandlers({ database, remoteService, vpnService, updateServic
 
   ipcMain.handle('inventory:list', secure(() => database.listInventory()))
   ipcMain.handle('inventory:export', secure((_event, filters) => exportInventory(database, filters || {})))
+  ipcMain.handle('inventory:download-template', secure((event) => createImportTemplate(database, null, sessions.get(event.sender.id).username)))
+  ipcMain.handle('inventory:import', secure((event) => importDirectory(database, null, sessions.get(event.sender.id).username)))
   ipcMain.handle('remote:connect', secure((_event, payload) => remoteService.connect(payload)))
   ipcMain.handle('vpn:status', secure(() => vpnService.getStatus()))
   ipcMain.handle('vpn:connect', secure((_event, mode) => vpnService.connect(mode)))
