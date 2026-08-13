@@ -26,7 +26,10 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     mappings: () => invoke('credentials:mappings'),
     map: () => invoke('credentials:credential-map'),
     forDevice: (deviceId) => invoke('credentials:for-device', deviceId),
-    saveMappings: (mappings) => invoke('credentials:save-mappings', mappings)
+    saveMappings: (mappings) => invoke('credentials:save-mappings', mappings),
+    overview: () => invoke('credentials:overview'),
+    assignDevice: (deviceId, credentialId) => invoke('credentials:assign-device', { deviceId, credentialId }),
+    assignType: (deviceType, credentialId) => invoke('credentials:assign-type', { deviceType, credentialId })
   },
   inventory: {
     list: () => invoke('inventory:list'),

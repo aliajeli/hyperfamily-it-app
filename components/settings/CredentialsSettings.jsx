@@ -1,47 +1,64 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Eye, EyeOff, KeyRound, Trash2, Plus, Link2, Save, Search, Layers, MonitorSmartphone } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Eye, EyeOff, KeyRound, Trash2, Plus, Search, Layers, MonitorSmartphone, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label, EmptyState, Select } from '@/components/ui'
 import { DEVICE_TYPES } from '@/lib/constants'
 import { getApi } from '@/lib/api'
 
-const emptyMap = { types: {}, devices: {} }
-
+/**
+ * Credential assignment, simplified.
+ *
+ * The previous screen asked the operator to pick a credential, toggle it across
+ * two separate grids, then remember to press "Save assignments" — and anything
+ * not re-selected was wiped on save. Now every row carries its own dropdown and
+ * writes immediately through a single-device IPC call, so an assignment can
+ * never be lost by forgetting a button, and nothing else is ever touched.
+ */
 export default function CredentialsSettings() {
   const [credentials, setCredentials] = useState([])
-  const [devices, setDevices] = useState([])
+  const [rows, setRows] = useState([])
+  const [typeDefaults, setTypeDefaults] = useState({})
   const [branches, setBranches] = useState([])
-  const [mappings, setMappings] = useState(emptyMap)
   const [form, setForm] = useState({ name: '', username: '', password: '' })
   const [revealed, setRevealed] = useState({})
-  const [selected, setSelected] = useState(null)
   const [branchFilter, setBranchFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
   const [query, setQuery] = useState('')
-  const [savingMap, setSavingMap] = useState(false)
+  const [busyKey, setBusyKey] = useState(null)
+  const [savedKey, setSavedKey] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const api = getApi()
-      const [credentialList, deviceList, branchList, map] = await Promise.all([
+      if (!api) return
+      const [credentialList, branchList, overview, map] = await Promise.all([
         api.credentials.list(),
-        api.devices.list(),
         api.branches.list(),
-        api.credentials.mappings()
+        api.credentials.overview(),
+        api.credentials.map()
       ])
       setCredentials(credentialList)
-      setDevices(deviceList)
       setBranches(branchList)
-      setMappings({ types: map?.types || {}, devices: map?.devices || {} })
-      setSelected((current) => current && credentialList.some((item) => item.id === current) ? current : credentialList[0]?.id ?? null)
+      setRows(overview)
+      const defaults = {}
+      for (const [type, ids] of Object.entries(map?.types || {})) if (ids?.length) defaults[type] = ids[0]
+      setTypeDefaults(defaults)
     } catch (error) {
       toast.error(error.message)
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
+
+  const flash = (key) => {
+    setSavedKey(key)
+    setTimeout(() => setSavedKey((current) => (current === key ? null : current)), 1600)
+  }
 
   const add = async (event) => {
     event.preventDefault()
@@ -54,7 +71,7 @@ export default function CredentialsSettings() {
   }
 
   const remove = async (credential) => {
-    if (!window.confirm(`Delete credential “${credential.name}”? Any device or type assigned to it loses that assignment.`)) return
+    if (!window.confirm(`Delete credential “${credential.name}”? Any device using it falls back to its device-type credential.`)) return
     try {
       await getApi().credentials.remove(credential.id)
       await load()
@@ -71,59 +88,63 @@ export default function CredentialsSettings() {
     } catch (error) { toast.error(error.message) }
   }
 
-  /* ---------------------------------------------------------------- mapping */
+  /* ------------------------------------------------------- instant assignment */
 
-  const assignedTypes = useMemo(
-    () => DEVICE_TYPES.filter((type) => (mappings.types[type] || []).includes(selected)),
-    [mappings, selected]
-  )
-  const assignedDeviceIds = useMemo(
-    () => Object.entries(mappings.devices).filter(([, ids]) => (ids || []).includes(selected)).map(([id]) => Number(id)),
-    [mappings, selected]
-  )
-
-  const toggleType = (type) => {
-    setMappings((current) => {
-      const ids = current.types[type] || []
-      const next = ids.includes(selected) ? ids.filter((id) => id !== selected) : [...ids, selected]
-      return { ...current, types: { ...current.types, [type]: next } }
-    })
-  }
-
-  const toggleDevice = (deviceId) => {
-    setMappings((current) => {
-      const ids = current.devices[deviceId] || []
-      const next = ids.includes(selected) ? ids.filter((id) => id !== selected) : [...ids, selected]
-      return { ...current, devices: { ...current.devices, [deviceId]: next } }
-    })
-  }
-
-  const saveMappings = async () => {
-    setSavingMap(true)
+  const assignDevice = async (device, rawValue) => {
+    const credentialId = rawValue === '' ? null : Number(rawValue)
+    const key = `device-${device.device_id}`
+    setBusyKey(key)
+    // Optimistic update so the dropdown never snaps back while saving.
+    setRows((current) => current.map((row) => row.device_id === device.device_id
+      ? { ...row, credential_id: credentialId } : row))
     try {
-      await getApi().credentials.saveMappings(mappings)
-      toast.success('Credential assignments saved')
+      await getApi().credentials.assignDevice(device.device_id, credentialId)
+      await load()
+      flash(key)
     } catch (error) {
       toast.error(error.message)
-    } finally {
-      setSavingMap(false)
-    }
+      await load()
+    } finally { setBusyKey(null) }
   }
 
-  const branchName = (id) => branches.find((branch) => branch.id === id)?.name || '—'
+  const assignType = async (type, rawValue) => {
+    const credentialId = rawValue === '' ? null : Number(rawValue)
+    const key = `type-${type}`
+    setBusyKey(key)
+    setTypeDefaults((current) => {
+      const next = { ...current }
+      if (credentialId === null) delete next[type]
+      else next[type] = credentialId
+      return next
+    })
+    try {
+      await getApi().credentials.assignType(type, credentialId)
+      await load()
+      flash(key)
+    } catch (error) {
+      toast.error(error.message)
+      await load()
+    } finally { setBusyKey(null) }
+  }
 
-  const visibleDevices = useMemo(() => {
+  const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    return devices.filter((device) => {
-      if (branchFilter !== 'all' && String(device.branch_id) !== branchFilter) return false
-      if (typeFilter !== 'all' && device.device_type !== typeFilter) return false
+    return rows.filter((row) => {
+      if (branchFilter !== 'all' && String(row.branch_id) !== branchFilter) return false
+      if (typeFilter !== 'all' && row.device_type !== typeFilter) return false
       if (!needle) return true
-      return [device.name, device.ip, device.device_type, branchName(device.branch_id)]
+      return [row.device_name, row.ip, row.device_type, row.branch_name, row.effective_name]
         .filter(Boolean).some((field) => String(field).toLowerCase().includes(needle))
     })
-  }, [devices, branchFilter, typeFilter, query, branches])
+  }, [rows, branchFilter, typeFilter, query])
 
-  const selectedCredential = credentials.find((item) => item.id === selected)
+  const unassignedCount = rows.filter((row) => row.source === 'none').length
+
+  const statusCell = (row) => {
+    if (row.source === 'device') return <span className="rounded bg-[rgb(var(--primary)/.16)] px-1.5 py-0.5 text-[9.5px] font-bold text-[rgb(var(--primary))]">Set for this device</span>
+    if (row.source === 'type') return <span className="rounded bg-[rgb(var(--border)/.6)] px-1.5 py-0.5 text-[9.5px] font-medium text-[rgb(var(--muted))]">From {row.device_type} default</span>
+    return <span className="rounded bg-nord-11/15 px-1.5 py-0.5 text-[9.5px] font-bold text-nord-11">Not set</span>
+  }
 
   return (
     <div className="space-y-3.5">
@@ -146,7 +167,7 @@ export default function CredentialsSettings() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Saved credentials</CardTitle>
-            <CardDescription className="text-xs">Select a row to manage its assignments. Revealed passwords hide again after 15 seconds.</CardDescription>
+            <CardDescription className="text-xs">Revealed passwords hide again after 15 seconds.</CardDescription>
           </CardHeader>
           <CardContent>
             {credentials.length ? (
@@ -157,29 +178,27 @@ export default function CredentialsSettings() {
                       <th className="py-2.5">Name</th>
                       <th className="py-2.5">Username</th>
                       <th className="py-2.5">Password</th>
-                      <th className="py-2.5">Assigned to</th>
+                      <th className="py-2.5">In use by</th>
                       <th className="py-2.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {credentials.map((credential) => {
-                      const types = DEVICE_TYPES.filter((type) => (mappings.types[type] || []).includes(credential.id)).length
-                      const deviceCount = Object.values(mappings.devices).filter((ids) => (ids || []).includes(credential.id)).length
-                      const active = selected === credential.id
+                      const deviceCount = rows.filter((row) => row.credential_id === credential.id).length
+                      const typeCount = Object.values(typeDefaults).filter((id) => id === credential.id).length
                       return (
-                        <tr
-                          key={credential.id}
-                          onClick={() => setSelected(credential.id)}
-                          className={`cursor-pointer border-b transition last:border-0 ${active ? 'bg-[rgb(var(--primary)/.1)]' : 'hover:bg-[rgb(var(--border)/.3)]'}`}
-                        >
+                        <tr key={credential.id} className="border-b transition last:border-0 hover:bg-[rgb(var(--border)/.3)]">
                           <td className="py-2.5 font-bold">{credential.name}</td>
                           <td className="py-2.5 font-mono">{credential.username}</td>
                           <td className="py-2.5 font-mono">{revealed[credential.id] || '••••••••'}</td>
                           <td className="py-2.5 text-[11px] text-[rgb(var(--muted))]">
-                            {types || deviceCount ? `${types} type${types === 1 ? '' : 's'} · ${deviceCount} device${deviceCount === 1 ? '' : 's'}` : 'Not assigned'}
+                            {deviceCount || typeCount
+                              ? [deviceCount ? `${deviceCount} device${deviceCount === 1 ? '' : 's'}` : null,
+                                 typeCount ? `${typeCount} type default${typeCount === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')
+                              : 'Not assigned'}
                           </td>
                           <td className="py-2.5">
-                            <div className="flex justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+                            <div className="flex justify-end gap-1">
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleReveal(credential)}>{revealed[credential.id] ? <EyeOff size={15} /> : <Eye size={15} />}</Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-nord-11" onClick={() => remove(credential)}><Trash2 size={15} /></Button>
                             </div>
@@ -197,129 +216,127 @@ export default function CredentialsSettings() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base"><Link2 size={16} />Credential mapping</CardTitle>
-          <CardDescription className="text-xs">
-            {selectedCredential
-              ? <>Assign <b className="text-[rgb(var(--text))]">{selectedCredential.name}</b> to whole device types, to individual devices, or to any combination of both.</>
-              : 'Create a credential first, then assign it to device types and individual devices.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!credentials.length ? (
-            <p className="rounded-xl border border-dashed p-6 text-center text-sm text-[rgb(var(--muted))]">Add a credential above to start mapping.</p>
-          ) : (
-            <div className="space-y-3.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">Credential</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {credentials.map((credential) => (
-                    <button
-                      key={credential.id}
-                      type="button"
-                      onClick={() => setSelected(credential.id)}
-                      className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${selected === credential.id ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))] text-white shadow-sm' : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.4)]'}`}
-                    >
-                      {credential.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-3.5 lg:grid-cols-[320px_1fr]">
-                <div className="rounded-xl border p-3">
-                  <b className="flex items-center gap-1.5 text-xs"><Layers size={13} />Device types</b>
-                  <p className="mt-1 text-[10.5px] leading-relaxed text-[rgb(var(--muted))]">Every device of a selected type inherits this credential.</p>
-                  <div className="mt-2.5 grid grid-cols-2 gap-1.5">
-                    {DEVICE_TYPES.map((type) => {
-                      const active = assignedTypes.includes(type)
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => toggleType(type)}
-                          className={`rounded-lg border px-2 py-1.5 text-left text-[11px] font-semibold transition ${active ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.14)] text-[rgb(var(--primary))]' : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.4)]'}`}
-                        >
-                          {type}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <b className="flex items-center gap-1.5 text-xs"><MonitorSmartphone size={13} />Individual devices</b>
-                    <span className="rounded-md bg-[rgb(var(--border)/.5)] px-1.5 py-0.5 text-[10px] font-semibold text-[rgb(var(--muted))]">{assignedDeviceIds.length} selected</span>
-                    <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                      <div className="relative">
-                        <Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))]" />
-                        <Input className="h-8 w-44 pl-7 text-[11px]" placeholder="Search devices" value={query} onChange={(e) => setQuery(e.target.value)} />
+      {credentials.length > 0 && (
+        <>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base"><Layers size={16} />Default per device type</CardTitle>
+              <CardDescription className="text-xs">
+                Pick one credential per type and every device of that type uses it automatically. Changes save instantly.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {DEVICE_TYPES.map((type) => {
+                  const key = `type-${type}`
+                  return (
+                    <div key={type} className="rounded-xl border p-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <b className="text-[11px]">{type}</b>
+                        {busyKey === key && <Loader2 size={12} className="animate-spin text-[rgb(var(--muted))]" />}
+                        {savedKey === key && <Check size={13} className="text-nord-14" />}
                       </div>
-                      <Select className="h-8 w-36 text-[11px]" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
-                        <option value="all">All branches</option>
-                        {branches.map((branch) => <option key={branch.id} value={String(branch.id)}>{branch.name}</option>)}
-                      </Select>
-                      <Select className="h-8 w-32 text-[11px]" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                        <option value="all">All types</option>
-                        {DEVICE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                      <Select
+                        aria-label={`Default credential for ${type}`}
+                        className="mt-1.5 h-8 w-full text-[11px]"
+                        value={typeDefaults[type] ?? ''}
+                        onChange={(event) => assignType(type, event.target.value)}
+                      >
+                        <option value="">No default</option>
+                        {credentials.map((credential) => (
+                          <option key={credential.id} value={credential.id}>{credential.name}</option>
+                        ))}
                       </Select>
                     </div>
-                  </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
-                  <div className="mt-2.5 max-h-72 overflow-y-auto rounded-lg border">
-                    {visibleDevices.length ? (
-                      <table className="w-full text-left text-[11px]">
-                        <thead className="sticky top-0 bg-[rgb(var(--surface))]">
-                          <tr className="border-b text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">
-                            <th className="w-9 py-2 pl-2.5"></th>
-                            <th className="py-2">Device</th>
-                            <th className="py-2">Type</th>
-                            <th className="py-2">Branch</th>
-                            <th className="py-2 pr-2.5">IP</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {visibleDevices.map((device) => {
-                            const direct = assignedDeviceIds.includes(device.id)
-                            const inherited = assignedTypes.includes(device.device_type)
-                            return (
-                              <tr
-                                key={device.id}
-                                onClick={() => toggleDevice(device.id)}
-                                className={`cursor-pointer border-b transition last:border-0 ${direct ? 'bg-[rgb(var(--primary)/.1)]' : 'hover:bg-[rgb(var(--border)/.3)]'}`}
-                              >
-                                <td className="py-1.5 pl-2.5">
-                                  <input type="checkbox" readOnly className="accent-[rgb(var(--primary))]" checked={direct} />
-                                </td>
-                                <td className="py-1.5 font-semibold">
-                                  {device.name}
-                                  {inherited && !direct && <span className="ml-1.5 rounded bg-[rgb(var(--border)/.6)] px-1 py-px text-[9px] font-medium text-[rgb(var(--muted))]">via type</span>}
-                                </td>
-                                <td className="py-1.5 text-[rgb(var(--muted))]">{device.device_type}</td>
-                                <td className="py-1.5 text-[rgb(var(--muted))]">{branchName(device.branch_id)}</td>
-                                <td className="py-1.5 pr-2.5 font-mono text-[10px] text-[rgb(var(--muted))]">{device.ip}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <p className="p-6 text-center text-[11px] text-[rgb(var(--muted))]">No devices match these filters.</p>
-                    )}
-                  </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base"><MonitorSmartphone size={16} />Per-device credential</CardTitle>
+              <CardDescription className="text-xs">
+                Only for exceptions — a device set here overrides its type default. Every change saves immediately.
+                {unassignedCount > 0 && <> <b className="text-nord-11">{unassignedCount} device{unassignedCount === 1 ? '' : 's'} still have no credential.</b></>}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="relative">
+                  <Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))]" />
+                  <Input className="h-8 w-52 pl-7 text-[11px]" placeholder="Search devices" value={query} onChange={(e) => setQuery(e.target.value)} />
                 </div>
+                <Select aria-label="Filter by branch" className="h-8 w-40 text-[11px]" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+                  <option value="all">All branches</option>
+                  {branches.map((branch) => <option key={branch.id} value={String(branch.id)}>{branch.name}</option>)}
+                </Select>
+                <Select aria-label="Filter by device type" className="h-8 w-36 text-[11px]" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                  <option value="all">All types</option>
+                  {DEVICE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                </Select>
+                <span className="ml-auto text-[10.5px] text-[rgb(var(--muted))]">{visibleRows.length} shown</span>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Button onClick={saveMappings} disabled={savingMap}><Save size={15} />{savingMap ? 'Saving…' : 'Save assignments'}</Button>
-                <p className="text-[11px] text-[rgb(var(--muted))]">Device assignments take priority over type assignments when a connection is launched.</p>
+              <div className="mt-2.5 max-h-[26rem] overflow-y-auto rounded-lg border">
+                {loading ? (
+                  <p className="p-6 text-center text-[11px] text-[rgb(var(--muted))]">Loading devices…</p>
+                ) : visibleRows.length ? (
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="sticky top-0 z-10 bg-[rgb(var(--surface))]">
+                      <tr className="border-b text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">
+                        <th className="py-2 pl-2.5">Device</th>
+                        <th className="py-2">Type</th>
+                        <th className="py-2">Branch</th>
+                        <th className="py-2">Status</th>
+                        <th className="py-2 pr-2.5">Credential</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleRows.map((row) => {
+                        const key = `device-${row.device_id}`
+                        return (
+                          <tr key={row.device_id} className="border-b transition last:border-0 hover:bg-[rgb(var(--border)/.25)]">
+                            <td className="py-1.5 pl-2.5">
+                              <div className="font-semibold">{row.device_name}</div>
+                              <div className="font-mono text-[9.5px] text-[rgb(var(--muted))]">{row.ip}</div>
+                            </td>
+                            <td className="py-1.5 text-[rgb(var(--muted))]">{row.device_type}</td>
+                            <td className="py-1.5 text-[rgb(var(--muted))]">{row.branch_name}</td>
+                            <td className="py-1.5">{statusCell(row)}</td>
+                            <td className="py-1.5 pr-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <Select
+                                  aria-label={`Credential for ${row.device_name} (${row.ip})`}
+                                  className="h-8 w-48 text-[11px]"
+                                  value={row.credential_id ?? ''}
+                                  onChange={(event) => assignDevice(row, event.target.value)}
+                                >
+                                  <option value="">
+                                    {row.source === 'type' ? `Use ${row.device_type} default` : 'Not set'}
+                                  </option>
+                                  {credentials.map((credential) => (
+                                    <option key={credential.id} value={credential.id}>{credential.name}</option>
+                                  ))}
+                                </Select>
+                                {busyKey === key && <Loader2 size={12} className="animate-spin text-[rgb(var(--muted))]" />}
+                                {savedKey === key && <Check size={13} className="text-nord-14" />}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="p-6 text-center text-[11px] text-[rgb(var(--muted))]">No devices match these filters.</p>
+                )}
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }
