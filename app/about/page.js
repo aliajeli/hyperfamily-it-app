@@ -19,18 +19,36 @@ const technologies = [
 const REPO = 'https://github.com/aliajeli/hyperfamily-it-app'
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.2', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.3', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [downloading, setDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
+  const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
-    getApi().app.info().then(setInfo).catch(() => {})
-    const unsubscribe = getApi().update.subscribe((event) => {
-      if (event.type === 'progress') setProgress(Math.round(event.percent))
-      if (event.type === 'downloaded') { setDownloaded(true); setProgress(100); toast.success('Update ready to install') }
-      if (event.type === 'error') { setProgress(0); toast.error(event.message) }
+    const api = getApi()
+    if (!api) return undefined
+    api.app.info().then(setInfo).catch(() => {})
+    // A previous visit may already have finished the download; restore the
+    // button straight into its Install state instead of offering Download again.
+    api.update.state?.().then((state) => {
+      if (!state) return
+      setDownloading(Boolean(state.downloading))
+      setDownloaded(Boolean(state.downloaded))
+      setProgress(Number(state.percent) || 0)
+    }).catch(() => {})
+
+    const unsubscribe = api.update.subscribe((event) => {
+      if (event.type === 'progress') { setDownloading(true); setProgress(Math.round(event.percent || 0)) }
+      if (event.type === 'downloaded') {
+        setDownloading(false)
+        setDownloaded(true)
+        setProgress(100)
+        toast.success('Update downloaded — press Install to restart on the new version')
+      }
+      if (event.type === 'error') { setDownloading(false); setProgress(0); toast.error(event.message) }
     })
     return () => unsubscribe?.()
   }, [])
@@ -50,16 +68,37 @@ export default function AboutPage() {
 
   const external = (url) => getApi().app.openExternal(url).catch((e) => toast.error(e.message))
 
-  /** In-app download; falls back to the GitHub release asset when unavailable. */
+  /**
+   * Downloads the installer in the background. The service already falls back
+   * to the plain GitHub asset internally, so only a total failure opens the
+   * release page in the browser.
+   */
   const download = async () => {
+    setDownloading(true)
+    setProgress(1)
     try {
-      setProgress(1)
-      await getApi().update.download()
+      const state = await getApi().update.download()
+      if (state?.downloaded) { setDownloaded(true); setProgress(100) }
     } catch (error) {
+      setDownloading(false)
       setProgress(0)
       const target = update?.downloadUrl || `${REPO}/releases/latest`
-      toast.message('Opening the GitHub release', { description: error.message })
+      toast.message('Opening the GitHub release instead', { description: error.message })
       external(target)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  /** Applies the downloaded update and relaunches on the new version. */
+  const install = async () => {
+    setInstalling(true)
+    try {
+      toast.message('Installing the update', { description: 'The application will close and reopen on the new version.' })
+      await getApi().update.install()
+    } catch (error) {
+      setInstalling(false)
+      toast.error(error.message)
     }
   }
 
@@ -118,9 +157,9 @@ export default function AboutPage() {
                 {update && !update.hasUpdate && (
                   <p className="mt-2 flex items-center gap-1.5 text-[11px] status-online-text"><CheckCircle2 size={12} />You are running the latest version.</p>
                 )}
-                {progress > 0 && (
+                {(progress > 0 || downloaded) && (
                   <div className="mt-3">
-                    <div className="mb-1 flex justify-between text-[9.5px]"><span>Downloading update</span><b>{progress}%</b></div>
+                    <div className="mb-1 flex justify-between text-[9.5px]"><span>{downloaded ? 'Update ready to install' : 'Downloading update'}</span><b>{progress}%</b></div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-[rgb(var(--border))]">
                       <motion.div animate={{ width: `${progress}%` }} className="h-full bg-[rgb(var(--primary))]" />
                     </div>
@@ -132,8 +171,17 @@ export default function AboutPage() {
                 <Button size="sm" onClick={check} disabled={checking} variant="secondary">
                   <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />{checking ? 'Checking…' : 'Check for updates'}
                 </Button>
-                {update?.hasUpdate && !downloaded && <Button size="sm" onClick={download}><Download size={14} />Download v{update.latestVersion}</Button>}
-                {downloaded && <Button size="sm" variant="success" onClick={() => getApi().update.install()}><Rocket size={14} />Restart and install</Button>}
+                {update?.hasUpdate && !downloaded && (
+                  <Button size="sm" onClick={download} disabled={downloading}>
+                    {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                    {downloading ? `Downloading ${progress}%` : `Download v${update.latestVersion}`}
+                  </Button>
+                )}
+                {downloaded && (
+                  <Button size="sm" variant="success" onClick={install} disabled={installing}>
+                    <Rocket size={14} />{installing ? 'Installing…' : 'Install and restart'}
+                  </Button>
+                )}
                 {update?.hasUpdate && (
                   <Button size="sm" variant="ghost" onClick={() => external(update.downloadUrl || `${REPO}/releases/latest`)}>
                     <Github size={14} />Get it from GitHub

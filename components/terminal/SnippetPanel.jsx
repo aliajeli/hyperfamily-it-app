@@ -4,9 +4,12 @@ import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Code2, Plus, Search, Send, Trash2, Pencil, X, Check } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Input, Label } from '@/components/ui'
+import { Button, Input, Label, Textarea } from '@/components/ui'
 
 const emptyDraft = { id: null, name: '', command: '', description: '' }
+
+/** Snippets may hold a whole block of commands, so the list shows a preview. */
+const commandLines = (command) => String(command || '').replace(/\r\n?/g, '\n').split('\n').filter((line) => line.trim().length)
 
 /** Saved command library shown along the right edge of the terminal workspace. */
 export default function SnippetPanel({ snippets, onSave, onDelete, onRun, disabled }) {
@@ -49,7 +52,9 @@ export default function SnippetPanel({ snippets, onSave, onDelete, onRun, disabl
 
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-0.5">
         <AnimatePresence initial={false}>
-          {filtered.map((snippet) => (
+          {filtered.map((snippet) => {
+            const lines = commandLines(snippet.command)
+            return (
             <motion.div
               key={snippet.id}
               layout
@@ -63,11 +68,15 @@ export default function SnippetPanel({ snippets, onSave, onDelete, onRun, disabl
                   type="button"
                   disabled={disabled}
                   onClick={() => onRun(snippet)}
-                  title={disabled ? 'Connect to a switch first' : `Run: ${snippet.command}`}
+                  title={disabled ? 'Connect to a switch first' : `Run:\n${lines.join('\n')}`}
                   className="min-w-0 flex-1 text-left disabled:opacity-50"
                 >
-                  <div className="truncate text-[11px] font-extrabold">{snippet.name}</div>
-                  <div className="truncate font-mono text-[10px] text-[rgb(var(--primary))]">{snippet.command}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-[11px] font-extrabold">{snippet.name}</span>
+                    {lines.length > 1 && <span className="shrink-0 rounded bg-[rgb(var(--primary)/.16)] px-1 py-px text-[8.5px] font-bold text-[rgb(var(--primary))]">{lines.length} lines</span>}
+                  </div>
+                  <div className="truncate font-mono text-[10px] text-[rgb(var(--primary))]">{lines[0] || snippet.command}</div>
+                  {lines.length > 1 && <div className="truncate font-mono text-[9.5px] text-[rgb(var(--muted))]">{lines[1]}{lines.length > 2 ? ' …' : ''}</div>}
                   {snippet.description && <div className="truncate text-[9px] text-[rgb(var(--muted))]">{snippet.description}</div>}
                 </button>
                 <div className="flex shrink-0 flex-col gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
@@ -77,7 +86,7 @@ export default function SnippetPanel({ snippets, onSave, onDelete, onRun, disabl
                 </div>
               </div>
             </motion.div>
-          ))}
+          )})}
         </AnimatePresence>
 
         {!filtered.length && (
@@ -106,14 +115,26 @@ export default function SnippetPanel({ snippets, onSave, onDelete, onRun, disabl
               <Input id="snippet-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Show interfaces" className="text-[11px]" autoFocus />
             </div>
             <div>
-              <Label htmlFor="snippet-command">Command</Label>
-              <Input id="snippet-command" value={draft.command} onChange={(event) => setDraft({ ...draft, command: event.target.value })} placeholder="show interfaces status" className="font-mono text-[11px]" />
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="snippet-command">Command</Label>
+                <span className="text-[9px] text-[rgb(var(--muted))]">One command per line</span>
+              </div>
+              <Textarea
+                id="snippet-command"
+                rows={4}
+                value={draft.command}
+                onChange={(event) => setDraft({ ...draft, command: event.target.value })}
+                onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); submit(event) } }}
+                placeholder={'configure terminal\ninterface Gi1/0/1\n description Uplink\nend'}
+                spellCheck={false}
+                className="min-h-[76px] p-2 font-mono text-[11px] leading-relaxed"
+              />
             </div>
             <div>
               <Label htmlFor="snippet-description">Description</Label>
               <Input id="snippet-description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Optional note" className="text-[11px]" />
             </div>
-            <Button type="submit" size="sm" className="w-full" disabled={saving}><Check size={13} /> {saving ? 'Saving…' : 'Save snippet'}</Button>
+            <Button type="submit" size="sm" className="w-full" disabled={saving}><Check size={13} /> {saving ? 'Saving…' : `Save snippet${commandLines(draft.command).length > 1 ? ` (${commandLines(draft.command).length} lines)` : ''}`}</Button>
           </motion.form>
         ) : (
           <Button key="add" type="button" variant="secondary" size="sm" className="w-full" onClick={() => setDraft(emptyDraft)}>

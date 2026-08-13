@@ -2,7 +2,9 @@ import nextPlugin from '@next/eslint-plugin-next'
 import reactPlugin from 'eslint-plugin-react'
 
 export default [
-  { ignores: ['node_modules/**', '.next/**', 'out/**', 'dist/**'] },
+  // electron/vendor holds verbatim upstream library sources (ssh2 and its pure
+  // JavaScript dependencies). They are third-party code and are not linted.
+  { ignores: ['node_modules/**', '.next/**', 'out/**', 'dist/**', 'electron/vendor/**'] },
   {
     files: ['**/*.{js,jsx,mjs}'],
     languageOptions: { parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } } },
@@ -18,7 +20,7 @@ export default [
   },
   {
     files: ['electron/**/*.js', 'tests/**/*.js', 'next.config.js', 'tailwind.config.js', 'postcss.config.js'],
-    languageOptions: { globals: { require: 'readonly', module: 'readonly', process: 'readonly', __dirname: 'readonly', Buffer: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Response: 'readonly', AbortController: 'readonly', FormData: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly' } }
+    languageOptions: { globals: { require: 'readonly', module: 'readonly', process: 'readonly', __dirname: 'readonly', Buffer: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', setImmediate: 'readonly', fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Response: 'readonly', AbortController: 'readonly', FormData: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly' } }
   },
   {
     // Runs inside the themed device-webview window, not in the main process.

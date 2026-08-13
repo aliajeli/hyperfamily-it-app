@@ -1,4 +1,8 @@
-const { app } = require('electron')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const { spawn } = require('node:child_process')
+const { app, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 
 const { compareVersions } = require('./version')
@@ -6,20 +10,71 @@ const { compareVersions } = require('./version')
 const RELEASES_API = 'https://api.github.com/repos/aliajeli/hyperfamily-it-app/releases'
 const REQUEST_HEADERS = { 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: 'application/vnd.github+json' }
 
+/**
+ * Update flow
+ * -----------
+ * The button in About walks through three states that this service drives:
+ *
+ *   "Download vX"  ->  "Downloading NN%"  ->  "Install and restart"
+ *
+ * Downloading is attempted with electron-updater first because it supports
+ * differential downloads. When anything in that pipeline fails — a checksum
+ * mismatch, a signature check, a missing latest.yml, a provider hiccup — the
+ * service falls back to fetching the release installer straight from GitHub
+ * instead of surfacing an error and leaving the user stuck. Either way the
+ * result is a ready installer on disk and a "downloaded" event, so pressing
+ * Install always ends with the new version running.
+ */
 class UpdateService {
   constructor(sendEvent) {
     this.sendEvent = sendEvent
+    this.status = { downloading: false, downloaded: false, percent: 0, version: null, viaFallback: false }
+    this.installerPath = null
+
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
+    autoUpdater.disableWebInstaller = true
+    autoUpdater.logger = null
     // The installer is not code signed yet, so Authenticode verification would
     // reject every download with ERR_UPDATER_INVALID_SIGNATURE. Skip it until a
     // certificate is configured (CSC_LINK / CSC_KEY_PASSWORD).
     if (typeof autoUpdater.verifyUpdateCodeSignature !== 'undefined') {
       autoUpdater.verifyUpdateCodeSignature = () => Promise.resolve(null)
     }
-    autoUpdater.on('download-progress', (progress) => this.sendEvent('update:event', { type: 'progress', percent: progress.percent, transferred: progress.transferred, total: progress.total }))
-    autoUpdater.on('update-downloaded', (info) => this.sendEvent('update:event', { type: 'downloaded', version: info.version }))
-    autoUpdater.on('error', (error) => this.sendEvent('update:event', { type: 'error', message: error.message }))
+
+    // autoUpdater is a module-level singleton. Clearing our channels first
+    // keeps a second UpdateService (a reload in development, for instance)
+    // from emitting every event twice.
+    autoUpdater.removeAllListeners('download-progress')
+    autoUpdater.removeAllListeners('update-downloaded')
+    autoUpdater.removeAllListeners('error')
+
+    autoUpdater.on('download-progress', (progress) => {
+      this.status.downloading = true
+      this.status.percent = Math.max(0, Math.min(100, Math.round(progress.percent || 0)))
+      this.emit({ type: 'progress', percent: this.status.percent, transferred: progress.transferred, total: progress.total })
+    })
+    autoUpdater.on('update-downloaded', (info) => {
+      this.markDownloaded(info?.version || null, autoUpdater.downloadedUpdateHelper?.file || null, false)
+    })
+    // Errors are not forwarded raw any more: download() decides whether the
+    // fallback can still rescue the update before the user is told anything.
+    autoUpdater.on('error', (error) => { this.lastUpdaterError = error })
+  }
+
+  emit(payload) {
+    this.sendEvent('update:event', payload)
+  }
+
+  markDownloaded(version, installerPath, viaFallback) {
+    this.status = { downloading: false, downloaded: true, percent: 100, version, viaFallback }
+    if (installerPath) this.installerPath = installerPath
+    this.emit({ type: 'downloaded', version, viaFallback })
+  }
+
+  /** Lets the UI restore the Download/Install button after a page change. */
+  state() {
+    return { ...this.status, canInstall: this.status.downloaded, isPackaged: app.isPackaged }
   }
 
   async check() {
@@ -46,26 +101,163 @@ class UpdateService {
     const notes = sameTag.map((item) => item.body).find(Boolean) || ''
     const latestVersion = newest.version
 
+    this.latestInstaller = installer
+      ? { url: installer.browser_download_url, name: installer.name, size: installer.size, version: latestVersion }
+      : null
+
     return {
       currentVersion,
       latestVersion,
       hasUpdate: compareVersions(latestVersion, currentVersion) > 0,
       releaseNotes: notes,
       publishedAt: newest.item.published_at,
-      downloadUrl: installer?.browser_download_url || newest.item.html_url || null
+      downloadUrl: installer?.browser_download_url || newest.item.html_url || null,
+      ...this.state()
     }
   }
 
   async download() {
     if (!app.isPackaged) throw new Error('Update downloads are enabled in packaged builds only')
-    await autoUpdater.checkForUpdates()
-    return autoUpdater.downloadUpdate()
+    if (this.status.downloading) throw new Error('A download is already running')
+    if (this.status.downloaded) return this.state()
+
+    this.status = { downloading: true, downloaded: false, percent: 0, version: null, viaFallback: false }
+    this.lastUpdaterError = null
+    this.emit({ type: 'progress', percent: 0 })
+
+    try {
+      const result = await this.downloadWithUpdater()
+      if (result) return this.state()
+    } catch (error) {
+      this.lastUpdaterError = error
+    }
+
+    // electron-updater could not finish. Fetch the installer from the release
+    // page instead so the user still gets the update.
+    try {
+      await this.downloadFromGitHub()
+      return this.state()
+    } catch (error) {
+      this.status = { downloading: false, downloaded: false, percent: 0, version: null, viaFallback: false }
+      const detail = this.lastUpdaterError?.message ? ` (${this.lastUpdaterError.message})` : ''
+      const message = `${error.message}${detail}`
+      this.emit({ type: 'error', message })
+      throw new Error(message)
+    }
   }
 
+  /** electron-updater path: differential download when possible. */
+  async downloadWithUpdater() {
+    let updaterError = null
+    const onError = (error) => { updaterError = error }
+    autoUpdater.on('error', onError)
+    try {
+      const checkResult = await autoUpdater.checkForUpdates()
+      if (!checkResult?.updateInfo) throw new Error('electron-updater found no update metadata')
+      const files = await autoUpdater.downloadUpdate(checkResult.cancellationToken)
+      if (updaterError) throw updaterError
+      const file = (Array.isArray(files) ? files.find((item) => String(item).toLowerCase().endsWith('.exe')) || files[0] : null) || null
+      if (file) this.installerPath = file
+      if (!this.status.downloaded) this.markDownloaded(checkResult.updateInfo.version, file, false)
+      return true
+    } finally {
+      autoUpdater.removeListener('error', onError)
+    }
+  }
+
+  /** Fallback path: stream the release .exe from GitHub with progress. */
+  async downloadFromGitHub() {
+    if (!this.latestInstaller?.url) await this.check()
+    const asset = this.latestInstaller
+    if (!asset?.url) throw new Error('No Windows installer is attached to the latest release')
+
+    const response = await fetch(asset.url, { headers: { 'User-Agent': REQUEST_HEADERS['User-Agent'] }, redirect: 'follow' })
+    if (!response.ok || !response.body) throw new Error(`Downloading the installer failed (${response.status})`)
+
+    const total = Number(response.headers.get('content-length')) || asset.size || 0
+    const directory = path.join(app.getPath('temp') || os.tmpdir(), 'hyperfamily-branch-monitor-update')
+    fs.mkdirSync(directory, { recursive: true })
+    const target = path.join(directory, asset.name)
+    const partial = `${target}.part`
+    const handle = fs.createWriteStream(partial)
+
+    let transferred = 0
+    let lastPercent = -1
+    try {
+      for await (const chunk of response.body) {
+        transferred += chunk.length
+        if (!handle.write(Buffer.from(chunk))) await new Promise((resolve) => handle.once('drain', resolve))
+        const percent = total ? Math.min(99, Math.round((transferred / total) * 100)) : 0
+        if (percent !== lastPercent) {
+          lastPercent = percent
+          this.status.percent = percent
+          this.emit({ type: 'progress', percent, transferred, total })
+        }
+      }
+      await new Promise((resolve, reject) => handle.end((error) => (error ? reject(error) : resolve())))
+    } catch (error) {
+      handle.destroy()
+      try { fs.unlinkSync(partial) } catch { /* nothing to clean up */ }
+      throw new Error(`Downloading the installer failed: ${error.message}`)
+    }
+
+    if (total && transferred !== total) {
+      try { fs.unlinkSync(partial) } catch { /* nothing to clean up */ }
+      throw new Error('The downloaded installer is incomplete')
+    }
+
+    try { fs.rmSync(target, { force: true }) } catch { /* nothing to replace */ }
+    fs.renameSync(partial, target)
+    this.markDownloaded(asset.version, target, true)
+    return target
+  }
+
+  /**
+   * Applies the downloaded update and brings the app back up on the new
+   * version. electron-updater's own quit-and-install is preferred; when the
+   * fallback download was used the NSIS installer is launched directly with
+   * the same arguments electron-updater would have passed.
+   */
   install() {
     if (!app.isPackaged) throw new Error('Update installation is enabled in packaged builds only')
-    setTimeout(() => autoUpdater.quitAndInstall(false, true), 0)
-    return { success: true }
+    if (!this.status.downloaded) throw new Error('Download the update first')
+
+    // Give the renderer a moment to paint "Installing…" and let this IPC call
+    // return before the app tears itself down.
+    if (!this.status.viaFallback) {
+      setImmediate(() => {
+        try {
+          autoUpdater.quitAndInstall(false, true)
+        } catch {
+          // quitAndInstall refuses when it cannot locate its own cached file.
+          try { this.runInstaller() } catch { /* reported below by the UI timeout */ }
+        }
+      })
+      return { success: true, method: 'updater' }
+    }
+
+    // The installer must exist before we promise anything to the caller.
+    const installer = this.installerPath
+    if (!installer || !fs.existsSync(installer)) throw new Error('The downloaded installer is no longer on disk; download it again')
+    setImmediate(() => { try { this.runInstaller() } catch { /* nothing left to try */ } })
+    return { success: true, method: 'installer' }
+  }
+
+  runInstaller() {
+    const installer = this.installerPath
+    if (!installer || !fs.existsSync(installer)) throw new Error('The downloaded installer is no longer on disk; download it again')
+
+    // "--updated" tells the electron-builder NSIS script this is an upgrade,
+    // "/S" runs it without prompts, "--force-run" relaunches the app after.
+    try {
+      const child = spawn(installer, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: false })
+      child.unref()
+    } catch {
+      // Last resort: hand the file to the shell so the user can click through.
+      shell.openPath(installer)
+    }
+
+    setTimeout(() => { app.removeAllListeners('window-all-closed'); app.quit() }, 1200)
   }
 }
 

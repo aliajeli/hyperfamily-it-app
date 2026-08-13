@@ -119,13 +119,26 @@ function TerminalWorkspaceInner() {
   const activeBranch = branches.find((branch) => branch.id === activeBranchId) || null
   const live = session && (status.state === 'connecting' || status.state === 'connected')
 
+  // Snippets may hold a whole block of configuration. Lines are sent one at a
+  // time with a short pause so slow switch CLIs do not drop characters.
   const runSnippet = async (snippet) => {
     if (!session || status.state !== 'connected') { toast.error('Connect to a switch first'); return }
-    await terminalApi.write({ sessionId: session.sessionId, data: `${snippet.command}\r` })
+    const lines = String(snippet.command || '').replace(/\r\n?/g, '\n').split('\n').filter((line) => line.trim().length)
+    if (!lines.length) return
+    const { sessionId } = session
+    for (const [index, line] of lines.entries()) {
+      if (sessionRef.current?.sessionId !== sessionId) return
+      await terminalApi.write({ sessionId, data: `${line}\r` })
+      if (index < lines.length - 1) await new Promise((resolve) => setTimeout(resolve, 120))
+    }
+    if (lines.length > 1) toast.success(`Sent ${lines.length} lines`)
   }
 
   const saveSnippet = async (draft) => {
-    await api.snippets.save({ id: draft.id || undefined, name: draft.name.trim(), command: draft.command.trim(), description: draft.description?.trim() || '' })
+    // Normalise line endings but keep the internal newlines: multi-line
+    // snippets are stored verbatim so a whole config block can be replayed.
+    const command = String(draft.command || '').replace(/\r\n?/g, '\n').replace(/^\n+|\s+$/g, '')
+    await api.snippets.save({ id: draft.id || undefined, name: draft.name.trim(), command, description: draft.description?.trim() || '' })
     await loadSnippets()
     toast.success(draft.id ? 'Snippet updated' : 'Snippet saved')
   }

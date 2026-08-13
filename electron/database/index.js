@@ -500,18 +500,24 @@ class AppDatabase {
 
   saveSnippet(payload = {}, actor = 'System') {
     const name = String(payload.name || '').trim()
-    const command = String(payload.command || '').trim()
+    // Multi-line snippets are supported: only the line endings are normalised
+    // and the outer blank space trimmed, so a whole configuration block keeps
+    // its internal newlines and can be replayed line by line.
+    const command = String(payload.command || '').replace(/\r\n?/g, '\n').replace(/^\s+|\s+$/g, '')
     if (!name) throw new Error('A snippet needs a name')
     if (!command) throw new Error('A snippet needs a command')
+    if (command.length > 20000) throw new Error('A snippet cannot be longer than 20000 characters')
     const description = String(payload.description || '').trim() || null
+    const lineCount = command.split('\n').filter((line) => line.trim().length).length
+    const summary = lineCount > 1 ? `${lineCount} lines` : command
     if (payload.id) {
       this.db.prepare('UPDATE terminal_snippets SET name = ?, command = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         .run(name, command, description, Number(payload.id))
-      this.audit(actor, 'SNIPPET_UPDATE', name, command)
+      this.audit(actor, 'SNIPPET_UPDATE', name, summary)
       return this.db.prepare('SELECT * FROM terminal_snippets WHERE id = ?').get(Number(payload.id))
     }
     const info = this.db.prepare('INSERT INTO terminal_snippets (name, command, description) VALUES (?, ?, ?)').run(name, command, description)
-    this.audit(actor, 'SNIPPET_CREATE', name, command)
+    this.audit(actor, 'SNIPPET_CREATE', name, summary)
     return this.db.prepare('SELECT * FROM terminal_snippets WHERE id = ?').get(info.lastInsertRowid)
   }
 
