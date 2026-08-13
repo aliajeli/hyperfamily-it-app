@@ -28,3 +28,22 @@ jobs:
           # Configure CSC_LINK and CSC_KEY_PASSWORD as repository secrets before production use.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      # electron-builder creates the GitHub release as a draft by default, and a
+      # draft is invisible to electron-updater. Force it public so the in-app
+      # updater can see this version and download the installer.
+      - name: Publish the release so the in-app updater can see it
+        shell: bash
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify the installer is attached
+        shell: bash
+        run: |
+          assets=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
+          echo "$assets"
+          echo "$assets" | grep -q '\.exe$'   || { echo "::error::no .exe asset on the release"; exit 1; }
+          echo "$assets" | grep -q '^latest\.yml$' || { echo "::error::latest.yml missing, the updater cannot detect this release"; exit 1; }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
