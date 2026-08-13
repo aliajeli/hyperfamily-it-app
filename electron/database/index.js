@@ -412,8 +412,15 @@ class AppDatabase {
   saveMappings(mappings, actor = 'Admin') {
     // Accepts either the legacy shape ({ [device_type]: [ids] }) or the new
     // unified shape ({ types: {...}, devices: {...} }).
-    const unified = mappings && (mappings.types || mappings.devices)
-      ? mappings
+    //
+    // `null`/absent means "leave this scope untouched"; an object (even an
+    // empty one) means "replace this scope". A caller that only knows about
+    // device types must never be able to delete every per-device assignment,
+    // which is exactly how assignments used to disappear on their own.
+    const hasUnifiedShape = mappings && typeof mappings === 'object'
+      && ('types' in mappings || 'devices' in mappings)
+    const unified = hasUnifiedShape
+      ? { types: mappings.types ?? null, devices: mappings.devices ?? null }
       : { types: mappings || {}, devices: null }
 
     const clearTypes = this.db.prepare('DELETE FROM device_credentials')
@@ -438,6 +445,106 @@ class AppDatabase {
 
     this.audit(actor, 'CREDENTIAL_MAPPING_UPDATE', 'Devices and device types', 'Credential mappings updated')
     return this.getCredentialMap()
+  }
+
+  /**
+   * Assign (or clear) the credential of a single device in one atomic call.
+   *
+   * This is the primitive behind the simplified assignment flow: the UI no
+   * longer has to send back the whole mapping table just to change one device,
+   * which is what made assignments easy to lose. `credentialId = null` clears
+   * the device-level assignment and lets the device-type default apply again.
+   */
+  setDeviceCredential(deviceId, credentialId, actor = 'Admin') {
+    const device = this.db.prepare('SELECT id, name, device_type FROM devices WHERE id = ?').get(Number(deviceId))
+    if (!device) throw new Error('Device not found')
+
+    const id = credentialId === null || credentialId === undefined || credentialId === '' ? null : Number(credentialId)
+    if (id !== null) {
+      const credential = this.db.prepare('SELECT id, name FROM credentials WHERE id = ?').get(id)
+      if (!credential) throw new Error('Credential not found')
+      this.db.transaction(() => {
+        this.db.prepare('DELETE FROM device_credential_assignments WHERE device_id = ?').run(device.id)
+        this.db.prepare('INSERT OR IGNORE INTO device_credential_assignments (device_id, credential_id) VALUES (?, ?)').run(device.id, id)
+      })()
+      this.audit(actor, 'CREDENTIAL_ASSIGN', String(device.id), `${credential.name} → ${device.name}`)
+    } else {
+      this.db.prepare('DELETE FROM device_credential_assignments WHERE device_id = ?').run(device.id)
+      this.audit(actor, 'CREDENTIAL_UNASSIGN', String(device.id), `Cleared the credential of ${device.name}`)
+    }
+
+    return this.getDeviceCredentialState(device.id)
+  }
+
+  /** Assign one credential to every device of a type, in one call. */
+  setTypeCredential(deviceType, credentialId, actor = 'Admin') {
+    const type = String(deviceType || '').trim()
+    if (!type) throw new Error('A device type is required')
+    const id = credentialId === null || credentialId === undefined || credentialId === '' ? null : Number(credentialId)
+
+    if (id !== null) {
+      const credential = this.db.prepare('SELECT id, name FROM credentials WHERE id = ?').get(id)
+      if (!credential) throw new Error('Credential not found')
+      this.db.transaction(() => {
+        this.db.prepare('DELETE FROM device_credentials WHERE device_type = ?').run(type)
+        this.db.prepare('INSERT OR IGNORE INTO device_credentials (device_type, credential_id) VALUES (?, ?)').run(type, id)
+      })()
+      this.audit(actor, 'CREDENTIAL_ASSIGN_TYPE', type, `${credential.name} → every ${type}`)
+    } else {
+      this.db.prepare('DELETE FROM device_credentials WHERE device_type = ?').run(type)
+      this.audit(actor, 'CREDENTIAL_UNASSIGN_TYPE', type, `Cleared the default credential for ${type}`)
+    }
+    return { device_type: type, credential_id: id }
+  }
+
+  /** What a single device currently resolves to, for the simplified UI. */
+  getDeviceCredentialState(deviceId) {
+    const device = this.db.prepare('SELECT id, device_type FROM devices WHERE id = ?').get(Number(deviceId))
+    if (!device) return null
+    const direct = this.db.prepare(`SELECT c.id, c.name, c.username
+      FROM device_credential_assignments a JOIN credentials c ON c.id = a.credential_id
+      WHERE a.device_id = ? LIMIT 1`).get(device.id) || null
+    const inherited = this.db.prepare(`SELECT c.id, c.name, c.username
+      FROM device_credentials t JOIN credentials c ON c.id = t.credential_id
+      WHERE t.device_type = ? LIMIT 1`).get(device.device_type) || null
+    return {
+      device_id: device.id,
+      device_type: device.device_type,
+      credential_id: direct?.id ?? null,
+      effective: direct || inherited,
+      source: direct ? 'device' : inherited ? 'type' : 'none'
+    }
+  }
+
+  /**
+   * One row per device with its effective credential — everything the
+   * simplified assignment screen needs in a single round trip.
+   */
+  listDeviceCredentialOverview() {
+    return this.db.prepare(`
+      SELECT d.id AS device_id, d.name AS device_name, d.device_type, d.ip,
+             b.name AS branch_name, b.id AS branch_id,
+             dc.id AS direct_id, dc.name AS direct_name,
+             tc.id AS type_id, tc.name AS type_name
+      FROM devices d
+      LEFT JOIN branches b ON b.id = d.branch_id
+      LEFT JOIN device_credential_assignments a ON a.device_id = d.id
+      LEFT JOIN credentials dc ON dc.id = a.credential_id
+      LEFT JOIN device_credentials t ON t.device_type = d.device_type
+      LEFT JOIN credentials tc ON tc.id = t.credential_id
+      GROUP BY d.id
+      ORDER BY b.name COLLATE NOCASE, d.name COLLATE NOCASE
+    `).all().map((row) => ({
+      device_id: row.device_id,
+      device_name: row.device_name,
+      device_type: row.device_type,
+      ip: row.ip,
+      branch_id: row.branch_id,
+      branch_name: row.branch_name || '—',
+      credential_id: row.direct_id ?? null,
+      effective_name: row.direct_name || row.type_name || null,
+      source: row.direct_id ? 'device' : row.type_id ? 'type' : 'none'
+    }))
   }
 
   // Credentials that may be used with a device: explicit per-device assignments

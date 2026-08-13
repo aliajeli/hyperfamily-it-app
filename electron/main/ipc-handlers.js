@@ -67,10 +67,19 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('credentials:reveal', secure((_event, id) => database.revealCredential(id)))
   ipcMain.handle('credentials:save', secure((event, payload) => database.saveCredential(payload, sessions.get(event.sender.id).username)))
   ipcMain.handle('credentials:remove', secure((event, id) => database.deleteCredential(id, sessions.get(event.sender.id).username)))
-  ipcMain.handle('credentials:mappings', secure(() => database.getMappings()))
+  // Must return the unified { types, devices } shape. Returning the legacy
+  // types-only map made every per-device assignment invisible after a reload,
+  // and the next save then wrote that empty set back — silently erasing them.
+  ipcMain.handle('credentials:mappings', secure(() => database.getCredentialMap()))
   ipcMain.handle('credentials:credential-map', secure(() => database.getCredentialMap()))
   ipcMain.handle('credentials:for-device', secure((_event, deviceId) => database.listCredentialsForDevice(deviceId)))
   ipcMain.handle('credentials:save-mappings', secure((event, mappings) => database.saveMappings(mappings, sessions.get(event.sender.id).username)))
+  // Simplified assignment flow: one device (or one whole type) at a time.
+  ipcMain.handle('credentials:assign-device', secure((event, payload) =>
+    database.setDeviceCredential(payload?.deviceId, payload?.credentialId ?? null, sessions.get(event.sender.id).username)))
+  ipcMain.handle('credentials:assign-type', secure((event, payload) =>
+    database.setTypeCredential(payload?.deviceType, payload?.credentialId ?? null, sessions.get(event.sender.id).username)))
+  ipcMain.handle('credentials:overview', secure(() => database.listDeviceCredentialOverview()))
 
   ipcMain.handle('inventory:list', secure(() => database.listInventory()))
   ipcMain.handle('inventory:export', secure((_event, filters) => exportInventory(database, filters || {})))

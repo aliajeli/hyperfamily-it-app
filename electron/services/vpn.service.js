@@ -182,17 +182,51 @@ class VPNService {
       let settled = false
       const chunks = []
       let cookie = ''
+      let allCookies = []
+
+      // FortiGate reports the *outcome* in the body, not in the cookie jar:
+      //   ret=1  -> credentials accepted (often with redir=... to the portal)
+      //   ret=0  -> credentials rejected
+      //   ret=2 / redir=/remote/twofactor -> a second factor is required
+      // The SVPNCOOKIE is frequently issued only on the follow-up redirect, and
+      // several FortiOS builds send a placeholder `SVPNCOOKIE=` on the login
+      // response itself. Treating "no cookie yet" as "wrong password" is what
+      // rejected valid credentials, so the body verdict now wins and the cookie
+      // is only a fallback signal.
       const finish = (text) => {
         if (settled) return
         settled = true
-        if (cookie && (!text || !/ret=0|permission_denied|login_failed/i.test(text))) return resolve(cookie)
-        if (/ret=2|redir=%2fremote%2ftwofactor/i.test(text || '')) return reject(new Error('The gateway requires two-factor authentication; use the Global (FortiClient) mode'))
+        const bodyText = text || ''
+        const accepted = /(^|[^a-z])ret=1(\D|$)/i.test(bodyText)
+        const rejected = /(^|[^a-z])ret=0(\D|$)/i.test(bodyText)
+          || /permission_denied|login_failed|invalid.{0,20}(username|password|credential)/i.test(bodyText)
+        const twoFactor = /(^|[^a-z])ret=2(\D|$)/i.test(bodyText)
+          || /redir=(%2f|\/)remote(%2f|\/)twofactor|tokeninfo|fortitoken/i.test(bodyText)
+
+        if (twoFactor && !accepted) {
+          return reject(new Error('The gateway requires two-factor authentication; use the Global (FortiClient) mode'))
+        }
+        if (rejected && !accepted) {
+          return reject(new Error('The SSL VPN portal rejected the username or password'))
+        }
+        // Accepted, or an unparsable/empty body that still carried a session
+        // cookie — either way the portal did not say "no".
+        if (accepted || cookie) return resolve(cookie || allCookies.join('; '))
+        if (!bodyText.trim()) {
+          return reject(new Error('The VPN gateway returned an empty response. Check that the Remote Gateway host and port point at the SSL-VPN portal.'))
+        }
         reject(new Error('The SSL VPN portal rejected the username or password'))
       }
 
       request.on('response', (response) => {
         const cookies = (response.headers['set-cookie'] || []).map((item) => item.split(';')[0])
-        const svpn = cookies.find((item) => item.startsWith('SVPNCOOKIE=') && !/SVPNCOOKIE=\s*$/.test(item))
+        // Keep every non-empty cookie: some builds authenticate the proxy with
+        // SVPNNETWORKCOOKIE / SVPNTMPCOOKIE alongside (or instead of) SVPNCOOKIE.
+        allCookies = cookies.filter((item) => {
+          const value = item.slice(item.indexOf('=') + 1).trim()
+          return value.length > 0
+        })
+        const svpn = allCookies.find((item) => item.startsWith('SVPNCOOKIE='))
         if (svpn) cookie = svpn
         response.on('data', (chunk) => chunks.push(chunk))
         response.on('aborted', () => finish(Buffer.concat(chunks).toString('utf8')))

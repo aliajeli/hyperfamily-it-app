@@ -2,7 +2,7 @@
 
 const {
   createDiffieHellman,
-  createDiffieHellmanGroup,
+  createDiffieHellmanGroup: nodeCreateDiffieHellmanGroup,
   createECDH,
   createHash,
   createPublicKey,
@@ -10,6 +10,44 @@ const {
   generateKeyPairSync,
   randomFillSync,
 } = require('crypto');
+
+// LOCAL PATCH (HyperFamily) --------------------------------------------------
+// Electron 41 links against BoringSSL, which removed the small named MODP
+// groups. crypto.createDiffieHellmanGroup('modp1'|'modp2') therefore throws
+// ERR_CRYPTO_UNKNOWN_DH_GROUP ("Unknown DH group"), which broke SSH to older
+// switches that only offer diffie-hellman-group1-sha1 (= modp2).
+//
+// The primes themselves are perfectly usable: only the *named* lookup table is
+// gone. So fall back to building the group from the RFC 2409 / RFC 3526 prime
+// constants explicitly. Values are verbatim from those RFCs.
+const FALLBACK_MODP_PRIMES = {
+  // RFC 2409 First Oakley Group (768-bit), ssh "diffie-hellman-group1" legacy.
+  modp1:
+    'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E08'
+    + '8A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B'
+    + '302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9'
+    + 'A63A3620FFFFFFFFFFFFFFFF',
+  // RFC 2409 Second Oakley Group (1024-bit) = ssh diffie-hellman-group1-sha1.
+  modp2:
+    'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E08'
+    + '8A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B'
+    + '302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9'
+    + 'A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE6'
+    + '49286651ECE65381FFFFFFFFFFFFFFFF',
+};
+
+function createDiffieHellmanGroup(name) {
+  try {
+    return nodeCreateDiffieHellmanGroup(name);
+  } catch (err) {
+    const prime = FALLBACK_MODP_PRIMES[name];
+    if (!prime)
+      throw err;
+    // Generator 2 for every group defined above.
+    return createDiffieHellman(Buffer.from(prime, 'hex'), Buffer.from([2]));
+  }
+}
+// end LOCAL PATCH ------------------------------------------------------------
 
 const { Ber } = require('../../../asn1/lib/index.js');
 
