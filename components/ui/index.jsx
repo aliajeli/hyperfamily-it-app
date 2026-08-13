@@ -30,15 +30,15 @@ export const Button = React.forwardRef(function Button({ className, variant, siz
 })
 
 export const Input = React.forwardRef(function Input({ className, ...props }, ref) {
-  return <input ref={ref} className={cn('h-11 w-full rounded-xl border bg-[rgb(var(--surface)/.72)] px-3.5 text-sm text-[rgb(var(--text))] shadow-sm transition placeholder:text-[rgb(var(--muted)/.6)] hover:border-[rgb(var(--muted)/.45)] focus:border-[rgb(var(--focus))]', className)} {...props} />
+  return <input ref={ref} className={cn('h-10 w-full rounded-xl border bg-[rgb(var(--surface)/.72)] px-3.5 text-sm text-[rgb(var(--text))] shadow-sm transition placeholder:text-[rgb(var(--muted)/.6)] hover:border-[rgb(var(--muted)/.45)] focus:border-[rgb(var(--focus))]', className)} {...props} />
 })
 
 export const Select = React.forwardRef(function Select({ className, children, ...props }, ref) {
-  return <select ref={ref} className={cn('h-11 w-full rounded-xl border bg-[rgb(var(--surface)/.72)] px-3.5 text-sm text-[rgb(var(--text))] shadow-sm', className)} {...props}>{children}</select>
+  return <select ref={ref} className={cn('h-10 w-full rounded-xl border bg-[rgb(var(--surface)/.72)] px-3.5 text-sm text-[rgb(var(--text))] shadow-sm', className)} {...props}>{children}</select>
 })
 
 export const Textarea = React.forwardRef(function Textarea({ className, ...props }, ref) {
-  return <textarea ref={ref} className={cn('min-h-24 w-full resize-y rounded-xl border bg-[rgb(var(--surface)/.72)] p-3.5 text-sm', className)} {...props} />
+  return <textarea ref={ref} className={cn('min-h-20 w-full resize-y rounded-xl border bg-[rgb(var(--surface)/.72)] p-3.5 text-sm', className)} {...props} />
 })
 
 export function Label({ className, ...props }) {
@@ -46,10 +46,10 @@ export function Label({ className, ...props }) {
 }
 
 export function Card({ className, ...props }) { return <div className={cn('panel', className)} {...props} /> }
-export function CardHeader({ className, ...props }) { return <div className={cn('p-5 pb-3', className)} {...props} /> }
+export function CardHeader({ className, ...props }) { return <div className={cn('p-4 pb-2.5', className)} {...props} /> }
 export function CardTitle({ className, ...props }) { return <h3 className={cn('font-bold tracking-tight', className)} {...props} /> }
 export function CardDescription({ className, ...props }) { return <p className={cn('mt-1 text-sm text-[rgb(var(--muted))]', className)} {...props} /> }
-export function CardContent({ className, ...props }) { return <div className={cn('p-5 pt-2', className)} {...props} /> }
+export function CardContent({ className, ...props }) { return <div className={cn('p-4 pt-2', className)} {...props} /> }
 
 export function Badge({ status, className, children, ...props }) {
   const styles = { online: 'bg-nord-14/20 text-[#628148]', warning: 'bg-nord-13/25 text-[#806823]', offline: 'bg-nord-11/20 text-nord-11', unknown: 'bg-nord-3/15 text-[rgb(var(--muted))]' }
@@ -62,13 +62,13 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
       {trigger && <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>}
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-50 bg-nord-0/55 backdrop-blur-sm" />
-        <DialogPrimitive.Content className={cn('dialog-content glass fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-6 shadow-2xl outline-none', className)}>
+        <DialogPrimitive.Content className={cn('dialog-content glass fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-4 sm:p-5 shadow-2xl outline-none', className)}>
           <div className="pr-10">
             <DialogPrimitive.Title className="text-xl font-bold">{title}</DialogPrimitive.Title>
             {description && <DialogPrimitive.Description className="mt-1 text-sm text-[rgb(var(--muted))]">{description}</DialogPrimitive.Description>}
           </div>
           <DialogPrimitive.Close asChild><button aria-label="Close dialog" className="absolute right-4 top-4 rounded-lg p-2 text-[rgb(var(--muted))] transition-all duration-300 hover:rotate-90 hover:scale-105 hover:bg-[rgb(var(--border)/.6)] hover:text-[rgb(var(--text))]"><X size={18} /></button></DialogPrimitive.Close>
-          <div className="mt-5">{children}</div>
+          <div className="mt-3.5">{children}</div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
@@ -78,8 +78,8 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
 export function Tabs({ value, onValueChange, tabs, children, className }) {
   return (
     <TabsPrimitive.Root value={value} onValueChange={onValueChange} className={className}>
-      <TabsPrimitive.List className="mb-5 flex gap-1 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-1">
-        {tabs.map((tab) => <TabsPrimitive.Trigger key={tab.value} value={tab.value} className="flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-[rgb(var(--muted))] transition data-[state=active]:bg-[rgb(var(--surface))] data-[state=active]:text-[rgb(var(--text))] data-[state=active]:shadow-sm">{tab.icon}{tab.label}</TabsPrimitive.Trigger>)}
+      <TabsPrimitive.List className="mb-3.5 flex gap-1 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-1">
+        {tabs.map((tab) => <TabsPrimitive.Trigger key={tab.value} value={tab.value} className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-[rgb(var(--muted))] transition data-[state=active]:bg-[rgb(var(--surface))] data-[state=active]:text-[rgb(var(--text))] data-[state=active]:shadow-sm">{tab.icon}{tab.label}</TabsPrimitive.Trigger>)}
       </TabsPrimitive.List>
       {children}
     </TabsPrimitive.Root>
@@ -87,8 +87,21 @@ export function Tabs({ value, onValueChange, tabs, children, className }) {
 }
 export function TabsContent({ value, children, className }) { return <TabsPrimitive.Content value={value} className={cn('outline-none data-[state=active]:animate-[dashboard-overlay-in_.28s_ease-out]', className)}>{children}</TabsPrimitive.Content> }
 
-export function Switch({ checked, onCheckedChange, ...props }) {
-  return <SwitchPrimitive.Root checked={checked} onCheckedChange={onCheckedChange} className="relative h-6 w-11 rounded-full bg-[rgb(var(--border))] transition data-[state=checked]:bg-[rgb(var(--primary))]" {...props}><SwitchPrimitive.Thumb className="block h-5 w-5 translate-x-0.5 rounded-full bg-white shadow transition data-[state=checked]:translate-x-[22px]" /></SwitchPrimitive.Root>
+export function Switch({ checked, onCheckedChange, compact = false, className, ...props }) {
+  return (
+    <SwitchPrimitive.Root
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+      className={cn(
+        'relative shrink-0 rounded-full bg-[rgb(var(--border))] transition duration-200 focus-visible:ring-2 focus-visible:ring-[rgb(var(--primary))] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--surface))] disabled:cursor-not-allowed disabled:opacity-55 data-[state=checked]:bg-[rgb(var(--primary))]',
+        compact ? 'h-5 w-9' : 'h-6 w-11',
+        className
+      )}
+      {...props}
+    >
+      <SwitchPrimitive.Thumb className={cn('block translate-x-0.5 rounded-full bg-white shadow transition duration-200', compact ? 'h-4 w-4 data-[state=checked]:translate-x-[18px]' : 'h-5 w-5 data-[state=checked]:translate-x-[22px]')} />
+    </SwitchPrimitive.Root>
+  )
 }
 
 export function Skeleton({ className }) { return <div className={cn('animate-pulse rounded-xl bg-[rgb(var(--border)/.65)]', className)} /> }

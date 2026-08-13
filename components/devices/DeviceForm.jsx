@@ -12,8 +12,9 @@ import { isValidHost } from '@/lib/utils'
 const optionalHost = z.string().trim().refine((value) => !value || isValidHost(value), 'Enter a valid IP address or hostname')
 const optionalPort = z.union([z.literal(''), z.coerce.number().int().min(1).max(65535)]).optional()
 const optionalPositiveNumber = z.union([z.literal(''), z.coerce.number().int().min(1)]).optional()
+const MAX_SWITCH_PORTS = 48
 const switchPortSchema = z.object({
-  port_number: z.coerce.number().int().positive('Port number is required'),
+  port_number: z.coerce.number().int().min(1, 'Port Number is required').max(MAX_SWITCH_PORTS, `Port Number cannot exceed ${MAX_SWITCH_PORTS}`),
   vlan: z.string().trim().optional(),
   status: z.enum(['up', 'down', 'disabled']),
   ip: optionalHost,
@@ -41,7 +42,7 @@ const schema = z.object({
   brand: z.string().trim().optional(),
   checkout_number: optionalPositiveNumber,
   serial_number: z.string().trim().optional(),
-  switch_ports: z.array(switchPortSchema).default([]),
+  switch_ports: z.array(switchPortSchema).max(MAX_SWITCH_PORTS, `A Switch can contain at most ${MAX_SWITCH_PORTS} ports`).default([]),
   is_dashboard_visible: z.boolean().optional()
 }).superRefine((data, context) => {
   if (data.device_type !== 'Switch') return
@@ -141,10 +142,11 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
   }
 
   const addSwitchPort = () => {
+    if (switchPorts.length >= MAX_SWITCH_PORTS) return
     const used = new Set(switchPorts.map((_, index) => Number(watch(`switch_ports.${index}.port_number`))))
     let next = 1
-    while (used.has(next)) next += 1
-    append(emptySwitchPort(next))
+    while (next <= MAX_SWITCH_PORTS && used.has(next)) next += 1
+    if (next <= MAX_SWITCH_PORTS) append(emptySwitchPort(next))
   }
 
   return (
@@ -170,9 +172,9 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="flex items-center gap-2 text-sm font-black"><Network size={16} className="text-[rgb(var(--primary))]" /> Managed switch ports</h3>
-              <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Define as many physical ports as this switch requires.</p>
+              <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Define up to {MAX_SWITCH_PORTS} unique physical port numbers from 1 through {MAX_SWITCH_PORTS}.</p>
             </div>
-            <Button type="button" variant="secondary" size="sm" onClick={addSwitchPort}><Plus size={14} />Add port</Button>
+            <Button type="button" variant="secondary" size="sm" onClick={addSwitchPort} disabled={switchPorts.length >= MAX_SWITCH_PORTS}><Plus size={14} />Add port ({switchPorts.length}/{MAX_SWITCH_PORTS})</Button>
           </div>
 
           <div className="mt-3 space-y-2">
@@ -180,7 +182,7 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
               <div key={port.id} className="relative rounded-xl border bg-[rgb(var(--surface)/.72)] p-2.5 pr-10 shadow-sm">
                 <span className="absolute right-3 top-3 grid h-6 min-w-6 place-items-center rounded-lg bg-[rgb(var(--primary)/.1)] px-1.5 text-[9px] font-black text-[rgb(var(--primary))]">#{index + 1}</span>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <div><Label htmlFor={`switch-port-${index}-number`}>Port Number</Label><Input id={`switch-port-${index}-number`} type="number" min="1" aria-required="true" {...register(`switch_ports.${index}.port_number`)} />{errors.switch_ports?.[index]?.port_number && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].port_number.message}</p>}</div>
+                  <div><Label htmlFor={`switch-port-${index}-number`}>Port Number</Label><Input id={`switch-port-${index}-number`} type="number" min="1" max={MAX_SWITCH_PORTS} aria-required="true" {...register(`switch_ports.${index}.port_number`)} />{errors.switch_ports?.[index]?.port_number && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].port_number.message}</p>}</div>
                   <div><Label htmlFor={`switch-port-${index}-vlan`}>VLAN</Label><Input id={`switch-port-${index}-vlan`} placeholder="10 / Trunk" {...register(`switch_ports.${index}.vlan`)} /></div>
                   <div><Label htmlFor={`switch-port-${index}-status`}>Status</Label><Select id={`switch-port-${index}-status`} {...register(`switch_ports.${index}.status`)}><option value="up">Up</option><option value="down">Down</option><option value="disabled">Disabled</option></Select></div>
                   <div><Label htmlFor={`switch-port-${index}-ip`}>IP</Label><Input id={`switch-port-${index}-ip`} placeholder="Optional" {...register(`switch_ports.${index}.ip`)} />{errors.switch_ports?.[index]?.ip && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].ip.message}</p>}</div>

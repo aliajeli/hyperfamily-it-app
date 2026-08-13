@@ -11,9 +11,10 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 - **Branch-first device directory** — compact branch and equipment cards, required Device Names and Warehouse Codes, one Router per branch, reliable editing, and normalized Switch port records.
 - **Encrypted local database** — SQLCipher-compatible AES-256 SQLite encryption; database key protected with Windows DPAPI. Passwords are additionally encrypted at field level.
 - **Secure remote actions** — RDP, TeamViewer, Winbox, browser management, and Termius SSH with audit logging.
-- **Complete Excel workflow** — download the official Template with three data sheets, atomically import branches, devices, and Switch ports, or export a filtered inventory workbook.
+- **Complete Excel workflow** — download one official workbook containing `Branches` plus a dedicated sheet for every supported equipment type, atomically import all records (including up to 48 ports per Switch), or export a filtered inventory workbook.
 - **VPN controls** — FortiClient full VPN and reviewed OpenVPN split-tunnel profiles.
 - **Eight Nord themes** — four light and four dark palettes built entirely from Nord colors.
+- **Responsive operations UI** — coordinated desktop density for 1366×768 workstations plus adaptive navigation and layouts at smaller and larger resolutions.
 - **Signed update path** — GitHub release discovery and `electron-updater` integration.
 - **JavaScript only** — no TypeScript source files.
 
@@ -91,9 +92,9 @@ The browser preview uses seeded local demo data and does **not** execute OS oper
 4. Complete only the fields shown for that equipment type, choose whether it appears on the Dashboard, and save.
 5. Use the device card's edit action to revise the saved record later.
 
-Branch records require Name, Code, and a case-insensitively unique Warehouse Code, with optional network-link and contact information. Every Device requires a saved Device Name, and each Branch can contain at most one Router. Equipment forms are deliberately type-specific. Switches additionally support any number of managed port records containing Port Number, VLAN, Status, IP, and Details. Scale serial numbers, Warehouse Codes, and Switch ports are included in encrypted persistence and Excel inventory exports.
+Branch records require Name, Code, and a case-insensitively unique Warehouse Code, with optional network-link and contact information. Every Device requires a saved Device Name, and each Branch can contain at most one Router. Equipment forms are deliberately type-specific. Switches support up to 48 unique managed port records, numbered 1–48, each containing Port Number, VLAN, Status, IP, and Details. Scale serial numbers, Warehouse Codes, Dashboard visibility, and Switch ports are included in encrypted persistence and Excel inventory exports.
 
-To bulk-load a directory, select **Download Import Template**, complete the `Branches`, `Devices`, and `Switch Ports` worksheets, then select **Import Excel**. The entire workbook is validated before a transaction starts; any invalid row cancels the complete import so no partial directory is saved.
+To bulk-load a directory, select **Download Import Template**, complete `Branches` and the relevant dedicated equipment sheets (`Router`, `Switch`, `iLO`, `Server`, `NVR`, `AccessPoint`, `Scale`, `Client`, `Checkout`, and `POS`), then select **Import Excel**. Every equipment row has an explicit Branch Code association. The entire workbook is validated before a transaction starts; any invalid row cancels the complete import so no partial directory is saved. Legacy `Devices` and `Switch Ports` workbooks from earlier releases remain import-compatible.
 
 ## Scripts
 

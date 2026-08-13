@@ -1,14 +1,24 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Server, ShoppingCart, ShieldCheck, MoreHorizontal } from 'lucide-react'
+import { CreditCard, HardDrive, Monitor, Network, Router, Scale, Server, ShoppingCart, Video, Wifi } from 'lucide-react'
 import DeviceActionsMenu from './DeviceActionsMenu'
 import DeviceStatusBadge from './DeviceStatusBadge'
 
+// Keep Dashboard equipment symbols aligned with the Branches & Devices picker.
+// Previously only three types were mapped, so every other saved type rendered as
+// an unrelated ellipsis symbol in the Dashboard details view.
 const iconMap = {
-  iLO: ShieldCheck,
+  Router,
+  Switch: Network,
+  iLO: HardDrive,
   Server,
-  Checkout: ShoppingCart
+  NVR: Video,
+  AccessPoint: Wifi,
+  Scale,
+  Client: Monitor,
+  Checkout: ShoppingCart,
+  POS: CreditCard
 }
 
 const treatment = {
@@ -26,7 +36,7 @@ const decoration = {
 }
 
 export default function DeviceCard({ device, label }) {
-  const Icon = iconMap[device.device_type] || MoreHorizontal
+  const Icon = iconMap[device.device_type] || Monitor
   const state = device.status || 'unknown'
   const lastPing = device.last_ping_ms ?? device.ping_time
   const address = device.ip_address || device.ip

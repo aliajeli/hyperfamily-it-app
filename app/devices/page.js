@@ -21,6 +21,7 @@ export default function DevicesPage() {
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [downloadingTemplate, setDownloadingTemplate] = useState(false)
+  const [dashboardSavingId, setDashboardSavingId] = useState(null)
 
   const load = async (preferredBranchId = null) => {
     try {
@@ -91,6 +92,24 @@ export default function DevicesPage() {
       toast.success('Device deleted')
       await load(selectedBranchId)
     } catch (error) { toast.error(error.message) }
+  }
+
+  const changeDashboardVisibility = async (device, isDashboardVisible) => {
+    if (dashboardSavingId) return
+    setDashboardSavingId(device.id)
+    try {
+      // Save the complete existing record so type-specific fields and normalized
+      // Switch ports are preserved while only Dashboard visibility changes.
+      const updated = await getApi().devices.save({
+        ...device,
+        is_dashboard_visible: isDashboardVisible
+      })
+      setDevices((current) => current.map((item) => item.id === updated.id ? updated : item))
+    } catch (error) {
+      toast.error(`Dashboard visibility was not changed: ${error.message}`)
+    } finally {
+      setDashboardSavingId(null)
+    }
   }
 
   const importExcel = async () => {
@@ -176,9 +195,7 @@ export default function DevicesPage() {
                   onSelect={(branch) => setSelectedBranchId(branch.id)}
                   onEdit={(branch) => setDialog({ kind: 'branch', value: branch })}
                   onDelete={removeBranch}
-                  onAdd={() => setDialog({ kind: 'branch', value: null })}
                 />
-                <Button variant="secondary" size="icon" className="h-8 w-8 shrink-0" onClick={() => setDialog({ kind: 'branch', value: null })} aria-label="Add branch"><Plus size={13} /></Button>
               </div>
             </Card>
 
@@ -201,7 +218,15 @@ export default function DevicesPage() {
                   </div>
 
                   <div className="p-2.5 sm:p-3">
-                    <DeviceList devices={branchDevices} branch={selectedBranch} onEdit={openEditDevice} onDelete={removeDevice} onAdd={openAddDevice} />
+                    <DeviceList
+                      devices={branchDevices}
+                      branch={selectedBranch}
+                      onEdit={openEditDevice}
+                      onDelete={removeDevice}
+                      onAdd={openAddDevice}
+                      onDashboardChange={changeDashboardVisibility}
+                      dashboardSavingId={dashboardSavingId}
+                    />
                   </div>
                 </>
               ) : (
@@ -209,8 +234,7 @@ export default function DevicesPage() {
                   <div>
                     <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><Route size={23} /></div>
                     <h2 className="mt-3 text-base font-black">Start with a branch</h2>
-                    <p className="mx-auto mt-1 max-w-md text-xs text-[rgb(var(--muted))]">Create the first branch before adding equipment.</p>
-                    <Button size="sm" className="mt-4" onClick={() => setDialog({ kind: 'branch', value: null })}><Plus size={14} />Create first branch</Button>
+                    <p className="mx-auto mt-1 max-w-md text-xs text-[rgb(var(--muted))]">Create the first branch with the labeled Add branch button above before adding equipment.</p>
                   </div>
                 </div>
               )}

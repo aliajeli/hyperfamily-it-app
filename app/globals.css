@@ -323,3 +323,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .recharts-text { fill: rgb(var(--muted)); font-size: 10px; }
 .drag-region { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
+
+/* Coordinated desktop density for the application's primary 1366×768 target.
+   Width remains fluid; the height query only removes excess chrome on shorter
+   monitors and never hides page content. */
+@media (min-width: 768px) and (max-height: 800px) {
+  .page-title { font-size: 1.35rem; line-height: 1.7rem; }
+  .page-subtitle { margin-top: .15rem; font-size: .72rem; line-height: 1rem; }
+  .panel { border-radius: .85rem; }
+  .dialog-content { max-height: calc(100dvh - 1rem); }
+}
+
+@media (max-height: 680px) {
+  .login-card { margin-block: .75rem; }
+}

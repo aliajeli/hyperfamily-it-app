@@ -74,7 +74,7 @@ function runMigrations(db, adminHash) {
     CREATE TABLE IF NOT EXISTS switch_ports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       device_id INTEGER NOT NULL,
-      port_number INTEGER NOT NULL CHECK (port_number > 0),
+      port_number INTEGER NOT NULL CHECK (port_number BETWEEN 1 AND 48),
       vlan TEXT,
       status TEXT NOT NULL DEFAULT 'up' CHECK (status IN ('up','down','disabled')),
       ip TEXT,
@@ -143,6 +143,35 @@ function runMigrations(db, adminHash) {
     CREATE INDEX IF NOT EXISTS idx_uptime_device ON uptime_logs(device_id);
     CREATE INDEX IF NOT EXISTS idx_uptime_date ON uptime_logs(date);
     CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+
+    CREATE TRIGGER IF NOT EXISTS validate_switch_port_number_insert
+    BEFORE INSERT ON switch_ports
+    WHEN NEW.port_number < 1 OR NEW.port_number > 48
+    BEGIN
+      SELECT RAISE(ABORT, 'Switch Port Number must be from 1 through 48');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS validate_switch_port_number_update
+    BEFORE UPDATE OF port_number ON switch_ports
+    WHEN NEW.port_number < 1 OR NEW.port_number > 48
+    BEGIN
+      SELECT RAISE(ABORT, 'Switch Port Number must be from 1 through 48');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS validate_switch_port_count_insert
+    BEFORE INSERT ON switch_ports
+    WHEN (SELECT COUNT(*) FROM switch_ports WHERE device_id = NEW.device_id) >= 48
+    BEGIN
+      SELECT RAISE(ABORT, 'A Switch can contain at most 48 ports');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS validate_switch_port_count_device_update
+    BEFORE UPDATE OF device_id ON switch_ports
+    WHEN NEW.device_id <> OLD.device_id
+      AND (SELECT COUNT(*) FROM switch_ports WHERE device_id = NEW.device_id) >= 48
+    BEGIN
+      SELECT RAISE(ABORT, 'A Switch can contain at most 48 ports');
+    END;
   `)
 
   // Upgrade databases made by early development builds without these optional fields.
@@ -186,7 +215,7 @@ function runMigrations(db, adminHash) {
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   const transaction = db.transaction(() => Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value))))
   transaction()
-  db.pragma('user_version = 3')
+  db.pragma('user_version = 4')
 }
 
 module.exports = { runMigrations, DEVICE_COLUMNS }

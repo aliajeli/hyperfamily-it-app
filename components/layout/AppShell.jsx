@@ -40,9 +40,9 @@ export default function AppShell({ children, compact = false }) {
 
   if (!hydrated || !user) return <div className="grid min-h-screen place-items-center"><div className="h-10 w-10 animate-spin rounded-full border-4 border-[rgb(var(--primary)/.25)] border-t-[rgb(var(--primary))]" /></div>
 
-  return <div className="min-h-screen">
+  return <div className="min-h-[100dvh]">
     <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} onLogout={onLogout} />
     <Header collapsed={collapsed} user={user} />
-    <motion.main initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className={`min-h-screen transition-[margin] ${compact ? 'px-3 pb-5 pt-20 md:px-4' : 'px-4 pb-10 pt-24 md:px-7'} ${collapsed ? 'md:ml-[84px]' : 'md:ml-64'}`}>{children}</motion.main>
+    <motion.main initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className={`min-h-[100dvh] transition-[margin] ${compact ? 'px-3 pb-20 pt-[68px] md:px-4 md:pb-4' : 'px-3 pb-20 pt-[72px] md:px-5 md:pb-6'} ${collapsed ? 'md:ml-[72px]' : 'md:ml-56'}`}>{children}</motion.main>
   </div>
 }
