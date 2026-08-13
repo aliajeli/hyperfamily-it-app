@@ -133,7 +133,20 @@ class VPNService {
 
   /* ------------------------------------------------------------------ in-app */
 
-  /** Authenticates against the FortiGate SSL-VPN web portal with an HTTP POST. */
+  /**
+   * Authenticates against the FortiGate SSL-VPN web portal with an HTTP POST.
+   *
+   * FortiGate portals answer this endpoint with a slightly malformed chunked
+   * body (stray bytes around the chunk-size line), which Node's strict HTTP
+   * parser rejects with "Parse Error: Invalid character in chunk size" before
+   * the response is delivered. Two things make the login survive that:
+   *
+   *   - `insecureHTTPParser` puts Node back on the lenient parser, which is
+   *     what browsers and FortiClient itself use for this endpoint.
+   *   - Anything the parser did hand over before failing is still evaluated:
+   *     the SVPNCOOKIE arrives in the response headers, so a late body parse
+   *     error must not throw away a login that already succeeded.
+   */
   portalLogin(profile) {
     return new Promise((resolve, reject) => {
       const body = new URLSearchParams({
@@ -143,7 +156,7 @@ class VPNService {
         realm: profile.realm
       }).toString()
 
-      const request = https.request({
+      const options = {
         host: profile.gateway,
         port: profile.port,
         path: '/remote/logincheck',
@@ -153,23 +166,53 @@ class VPNService {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Content-Length': Buffer.byteLength(body),
-          'User-Agent': 'HyperFamily-Branch-Monitor'
+          'User-Agent': 'HyperFamily-Branch-Monitor',
+          Accept: '*/*',
+          Connection: 'close'
         }
-      }, (response) => {
-        const chunks = []
+      }
+      // Older Node builds may refuse the option outright; fall back silently.
+      let request
+      try {
+        request = https.request({ ...options, insecureHTTPParser: true })
+      } catch {
+        request = https.request(options)
+      }
+
+      let settled = false
+      const chunks = []
+      let cookie = ''
+      const finish = (text) => {
+        if (settled) return
+        settled = true
+        if (cookie && (!text || !/ret=0|permission_denied|login_failed/i.test(text))) return resolve(cookie)
+        if (/ret=2|redir=%2fremote%2ftwofactor/i.test(text || '')) return reject(new Error('The gateway requires two-factor authentication; use the Global (FortiClient) mode'))
+        reject(new Error('The SSL VPN portal rejected the username or password'))
+      }
+
+      request.on('response', (response) => {
+        const cookies = (response.headers['set-cookie'] || []).map((item) => item.split(';')[0])
+        const svpn = cookies.find((item) => item.startsWith('SVPNCOOKIE=') && !/SVPNCOOKIE=\s*$/.test(item))
+        if (svpn) cookie = svpn
         response.on('data', (chunk) => chunks.push(chunk))
-        response.on('end', () => {
-          const text = Buffer.concat(chunks).toString('utf8')
-          const cookies = (response.headers['set-cookie'] || []).map((item) => item.split(';')[0])
-          const svpn = cookies.find((item) => item.startsWith('SVPNCOOKIE='))
-          if (/ret=1/.test(text) && svpn) return resolve(svpn)
-          if (/ret=2|redir=%2fremote%2ftwofactor/i.test(text)) return reject(new Error('The gateway requires two-factor authentication; use the Global (FortiClient) mode'))
-          reject(new Error('The SSL VPN portal rejected the username or password'))
-        })
+        response.on('aborted', () => finish(Buffer.concat(chunks).toString('utf8')))
+        // A body-level parse error after the headers arrived is survivable.
+        response.on('error', () => finish(Buffer.concat(chunks).toString('utf8')))
+        response.on('end', () => finish(Buffer.concat(chunks).toString('utf8')))
       })
 
       request.on('timeout', () => request.destroy(new Error('The VPN gateway did not respond in time')))
-      request.on('error', (error) => reject(new Error(`Unable to reach the VPN gateway: ${error.message}`)))
+      request.on('error', (error) => {
+        if (settled) return
+        // The cookie already came in with the headers — the portal accepted the
+        // login and only its response framing was broken.
+        if (cookie) { settled = true; resolve(cookie); return }
+        settled = true
+        const message = /parse error/i.test(error.message)
+          ? `${error.message} — the gateway sent a malformed reply. Check that the Remote Gateway host and port point at the SSL-VPN portal, or use the Global (FortiClient) mode.`
+          : error.message
+        reject(new Error(`Unable to reach the VPN gateway: ${message}`))
+      })
       request.write(body)
       request.end()
     })

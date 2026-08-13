@@ -1,0 +1,8 @@
+{
+  "name": "ssh2-vendored",
+  "version": "1.17.0",
+  "private": true,
+  "description": "Pure-JavaScript subset of ssh2 1.17.0 vendored into the app so the SSH terminal never depends on node_modules being present at runtime.",
+  "main": "./lib/index.js",
+  "license": "MIT"
+}

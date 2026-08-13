@@ -86,7 +86,11 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
     return result
   }))
   ipcMain.handle('remote:probe', secure(() => remoteService.probe()))
-  ipcMain.handle('remote:palette', secure((_event, palette) => { broadcastPalette(palette || {}); return true }))
+  // The theme is applied by the renderer before anybody signs in (the login
+  // screen is themed too), so this one carries no private data and must stay
+  // outside the authentication guard — otherwise every launch logged
+  // "Error invoking remote method 'remote:palette': Authentication required".
+  ipcMain.handle('remote:palette', open((_event, palette) => { broadcastPalette(palette || {}); return true }))
 
   ipcMain.handle('terminal:targets', secure(() => terminalService.targets()))
   ipcMain.handle('terminal:open', secure((event, payload) => terminalService.open(payload || {}, event.sender, sessions.get(event.sender.id).username)))
@@ -107,6 +111,8 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('vpn:connect', secure((event, mode) => vpnService.connect(mode, sessions.get(event.sender.id).username)))
   ipcMain.handle('vpn:disconnect', secure((event) => vpnService.disconnect(sessions.get(event.sender.id).username)))
   ipcMain.handle('update:check', secure(() => updateService.check()))
+  // Lets the About page restore the Download/Install button after navigation.
+  ipcMain.handle('update:state', secure(() => updateService.state()))
   ipcMain.handle('update:download', secure(() => updateService.download()))
   ipcMain.handle('update:install', secure(() => updateService.install()))
   ipcMain.handle('audit:list', secure((_event, limit) => database.listAudit(limit)))

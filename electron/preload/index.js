@@ -63,7 +63,13 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     disconnect: () => invoke('vpn:disconnect'),
     subscribe: (callback) => subscribe('vpn:status', callback)
   },
-  update: { check: () => invoke('update:check'), download: () => invoke('update:download'), install: () => invoke('update:install'), subscribe: (callback) => subscribe('update:event', callback) },
+  update: {
+    check: () => invoke('update:check'),
+    state: () => invoke('update:state'),
+    download: () => invoke('update:download'),
+    install: () => invoke('update:install'),
+    subscribe: (callback) => subscribe('update:event', callback)
+  },
   audit: { list: (limit) => invoke('audit:list', limit) },
   dialog: { selectFile: (options) => invoke('dialog:select-file', options) },
   app: { info: () => invoke('app:info'), openExternal: (url) => invoke('app:open-external', url), pathExists: (path) => invoke('app:path-exists', path) }

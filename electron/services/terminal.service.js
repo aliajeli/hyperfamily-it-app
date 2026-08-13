@@ -1,20 +1,46 @@
 const net = require('node:net')
 
 /**
- * ssh2 is loaded on demand instead of at require time. A missing or unbuilt
- * dependency used to surface as an "Uncaught Exception" dialog that killed the
- * whole main process before any window appeared; now only SSH sessions fail,
- * with a message that says exactly what to do about it.
+ * The SSH engine is loaded on demand instead of at require time, so a broken
+ * installation can never take the whole main process down before a window
+ * appears.
+ *
+ * Two sources are tried in order:
+ *   1. The installed `ssh2` package, which can use its optional native crypto
+ *      binding (faster on big transfers).
+ *   2. `electron/vendor/ssh2`, a pure-JavaScript copy of the same library that
+ *      ships inside the application bundle. It has no native parts and no
+ *      node_modules dependency, so the terminal keeps working even when the
+ *      dependency tree is missing, unbuilt, or was pruned by the installer.
  */
 let sshClientFactory
+let sshEngineSource = null
+
 function loadSshClient() {
   if (sshClientFactory) return sshClientFactory
-  try {
-    sshClientFactory = require('ssh2').Client
-  } catch (error) {
-    throw new Error(`The SSH engine is not installed. Run "npm install" in the project folder and start the app again. (${error.message})`)
+
+  const attempts = []
+  for (const [source, loader] of [
+    ['ssh2', () => require('ssh2')],
+    ['bundled', () => require('../vendor/ssh2/lib/index.js')]
+  ]) {
+    try {
+      const client = loader().Client
+      if (typeof client !== 'function') throw new Error('the module did not expose a Client')
+      sshClientFactory = client
+      sshEngineSource = source
+      return sshClientFactory
+    } catch (error) {
+      attempts.push(`${source}: ${error.message}`)
+    }
   }
-  return sshClientFactory
+
+  throw new Error(`The SSH engine could not be started (${attempts.join('; ')})`)
+}
+
+/** Which engine served the last SSH session — surfaced in diagnostics only. */
+function sshEngine() {
+  return sshEngineSource
 }
 
 const safeHost = /^[a-zA-Z0-9.-]{1,253}$/
@@ -289,4 +315,4 @@ class TerminalService {
   }
 }
 
-module.exports = { TerminalService, negotiateTelnet }
+module.exports = { TerminalService, negotiateTelnet, loadSshClient, sshEngine }
