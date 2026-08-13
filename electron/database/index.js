@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs')
 const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
 
 const BRANCH_COLUMNS = ['name', 'code', 'warehouse_code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
-const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass'])
+const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass', 'guacamole_pass'])
 const MAX_SWITCH_PORTS = 48
 
 function normalizeSwitchPorts(ports) {
@@ -394,15 +394,77 @@ class AppDatabase {
     }
     return result
   }
+  getDeviceMappings() {
+    const result = {}
+    for (const row of this.db.prepare('SELECT device_id, credential_id FROM device_credential_assignments ORDER BY device_id').all()) {
+      if (!result[row.device_id]) result[row.device_id] = []
+      result[row.device_id].push(row.credential_id)
+    }
+    return result
+  }
+
+  // Unified view used by the Credential Mapping UI:
+  // { types: { [device_type]: [credentialId] }, devices: { [deviceId]: [credentialId] } }
+  getCredentialMap() {
+    return { types: this.getMappings(), devices: this.getDeviceMappings() }
+  }
+
   saveMappings(mappings, actor = 'Admin') {
-    const remove = this.db.prepare('DELETE FROM device_credentials')
-    const insert = this.db.prepare('INSERT OR IGNORE INTO device_credentials (device_type, credential_id) VALUES (?, ?)')
+    // Accepts either the legacy shape ({ [device_type]: [ids] }) or the new
+    // unified shape ({ types: {...}, devices: {...} }).
+    const unified = mappings && (mappings.types || mappings.devices)
+      ? mappings
+      : { types: mappings || {}, devices: null }
+
+    const clearTypes = this.db.prepare('DELETE FROM device_credentials')
+    const insertType = this.db.prepare('INSERT OR IGNORE INTO device_credentials (device_type, credential_id) VALUES (?, ?)')
+    const clearDevices = this.db.prepare('DELETE FROM device_credential_assignments')
+    const insertDevice = this.db.prepare('INSERT OR IGNORE INTO device_credential_assignments (device_id, credential_id) VALUES (?, ?)')
+
     this.db.transaction(() => {
-      remove.run()
-      for (const [type, ids] of Object.entries(mappings || {})) for (const id of ids) insert.run(type, Number(id))
+      if (unified.types) {
+        clearTypes.run()
+        for (const [type, ids] of Object.entries(unified.types)) {
+          for (const id of ids || []) insertType.run(type, Number(id))
+        }
+      }
+      if (unified.devices) {
+        clearDevices.run()
+        for (const [deviceId, ids] of Object.entries(unified.devices)) {
+          for (const id of ids || []) insertDevice.run(Number(deviceId), Number(id))
+        }
+      }
     })()
-    this.audit(actor, 'CREDENTIAL_MAPPING_UPDATE', 'Device types', 'Credential mappings updated')
-    return this.getMappings()
+
+    this.audit(actor, 'CREDENTIAL_MAPPING_UPDATE', 'Devices and device types', 'Credential mappings updated')
+    return this.getCredentialMap()
+  }
+
+  // Credentials that may be used with a device: explicit per-device assignments
+  // take precedence in the UI ordering, followed by device-type assignments.
+  listCredentialsForDevice(deviceId) {
+    const device = this.db.prepare('SELECT id, device_type FROM devices WHERE id = ?').get(Number(deviceId))
+    if (!device) return []
+    const rows = this.db.prepare(`SELECT c.id, c.name, c.username, 1 AS has_password, 'device' AS scope
+        FROM device_credential_assignments a JOIN credentials c ON c.id = a.credential_id
+        WHERE a.device_id = ?
+      UNION
+      SELECT c.id, c.name, c.username, 1 AS has_password, 'type' AS scope
+        FROM device_credentials t JOIN credentials c ON c.id = t.credential_id
+        WHERE t.device_type = ?`).all(device.id, device.device_type)
+
+    const seen = new Map()
+    for (const row of rows.sort((a, b) => (a.scope === 'device' ? -1 : 1) - (b.scope === 'device' ? -1 : 1))) {
+      if (!seen.has(row.id)) seen.set(row.id, row)
+    }
+    return [...seen.values()].sort((a, b) => (a.scope === b.scope ? a.name.localeCompare(b.name) : a.scope === 'device' ? -1 : 1))
+  }
+
+  // Resolves the credential a launcher should use when none was picked
+  // explicitly: the device-specific assignment wins over the type-level one.
+  resolveDeviceCredential(deviceId) {
+    const best = this.listCredentialsForDevice(deviceId)[0]
+    return best ? this.getCredential(best.id) : null
   }
 
   recordPingBatch(results) {

@@ -18,7 +18,7 @@ export default [
   },
   {
     files: ['electron/**/*.js', 'tests/**/*.js', 'next.config.js', 'tailwind.config.js', 'postcss.config.js'],
-    languageOptions: { globals: { require: 'readonly', module: 'readonly', process: 'readonly', __dirname: 'readonly', Buffer: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', fetch: 'readonly', URL: 'readonly', Response: 'readonly' } }
+    languageOptions: { globals: { require: 'readonly', module: 'readonly', process: 'readonly', __dirname: 'readonly', Buffer: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Response: 'readonly', AbortController: 'readonly', FormData: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly' } }
   },
   {
     files: ['app/**/*.{js,jsx}', 'components/**/*.{js,jsx}', 'stores/**/*.js', 'lib/**/*.js'],

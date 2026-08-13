@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Building2, FileDown, FileUp, Plus, RefreshCw, Route, Server, Warehouse } from 'lucide-react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Building2, Plus, RefreshCw, Route, Server, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchForm from '@/components/devices/BranchForm'
@@ -12,15 +13,13 @@ import DeviceTypePicker from '@/components/devices/DeviceTypePicker'
 import { Button, Card, Dialog, Skeleton } from '@/components/ui'
 import { getApi } from '@/lib/api'
 
-export default function DevicesPage() {
+function DevicesPageInner() {
   const [branches, setBranches] = useState([])
   const [devices, setDevices] = useState([])
   const [selectedBranchId, setSelectedBranchId] = useState(null)
   const [dialog, setDialog] = useState(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [importing, setImporting] = useState(false)
-  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
   const [dashboardSavingId, setDashboardSavingId] = useState(null)
 
   const load = async (preferredBranchId = null) => {
@@ -40,7 +39,20 @@ export default function DevicesPage() {
     }
   }
 
+  const searchParams = useSearchParams()
   useEffect(() => { load() }, [])
+
+  // Deep links from the global search palette: /devices?branch=<id> or ?device=<id>
+  useEffect(() => {
+    if (!devices.length && !branches.length) return
+    const deviceId = Number(searchParams.get('device'))
+    const branchId = Number(searchParams.get('branch'))
+    if (deviceId) {
+      const device = devices.find((item) => item.id === deviceId)
+      if (device) return setSelectedBranchId(device.branch_id)
+    }
+    if (branchId && branches.some((branch) => branch.id === branchId)) setSelectedBranchId(branchId)
+  }, [searchParams, devices, branches])
 
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) || null
   const branchDevices = useMemo(() => devices.filter((device) => device.branch_id === selectedBranchId), [devices, selectedBranchId])
@@ -112,34 +124,6 @@ export default function DevicesPage() {
     }
   }
 
-  const importExcel = async () => {
-    setImporting(true)
-    try {
-      const result = await getApi().inventory.importExcel()
-      if (!result || result.canceled) return
-      const branchChanges = result.branches_added + result.branches_updated
-      const deviceChanges = result.devices_added + result.devices_updated
-      toast.success(`Import complete: ${branchChanges} branches, ${deviceChanges} devices, and ${result.switch_ports_imported} switch ports processed`)
-      await load(selectedBranchId)
-    } catch (error) {
-      toast.error(error.message, { duration: 9000 })
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  const downloadTemplate = async () => {
-    setDownloadingTemplate(true)
-    try {
-      const result = await getApi().inventory.downloadTemplate()
-      if (result?.path) toast.success(`Import template saved to ${result.path}`)
-    } catch (error) {
-      toast.error(error.message)
-    } finally {
-      setDownloadingTemplate(false)
-    }
-  }
-
   const openAddDevice = () => {
     if (!selectedBranch) return
     setDialog({ kind: 'device', step: 'type', type: null, value: null })
@@ -168,11 +152,9 @@ export default function DevicesPage() {
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <h1 className="text-xl font-black tracking-tight">Branches &amp; Devices</h1>
-            <p className="mt-0.5 text-[11px] text-[rgb(var(--muted))]">Manage compact branch and equipment records or import the complete directory from Excel.</p>
+            <p className="mt-0.5 text-[11px] text-[rgb(var(--muted))]">Manage branch and equipment records, then connect to any device straight from the list.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" variant="secondary" onClick={downloadTemplate} disabled={downloadingTemplate || importing}><FileDown size={14} />{downloadingTemplate ? 'Preparing…' : 'Download Import Template'}</Button>
-            <Button size="sm" variant="secondary" onClick={importExcel} disabled={importing || downloadingTemplate}><FileUp size={14} />{importing ? 'Importing…' : 'Import Excel'}</Button>
             <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</Button>
             <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}><Plus size={14} />Add branch</Button>
           </div>
@@ -268,4 +250,8 @@ export default function DevicesPage() {
       </div>
     </AppShell>
   )
+}
+
+export default function DevicesPage() {
+  return <Suspense fallback={null}><DevicesPageInner /></Suspense>
 }
