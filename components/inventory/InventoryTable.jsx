@@ -28,10 +28,10 @@ const columns = [
   { key: 'device', label: 'Device', width: '15%' },
   { key: 'ip', label: 'IP', width: '10%' },
   { key: 'model', label: 'Model / version', width: '12%' },
-  { key: 'location', label: 'Location', width: '9%' },
+  { key: 'location', label: 'Location', width: '8%' },
   { key: 'asset', label: 'Asset / serial', width: '12%' },
   { key: 'connection', label: 'Connection', width: '9%' },
-  { key: 'status', label: 'Status', width: '8%' },
+  { key: 'status', label: 'Status', width: '9%' },
   { key: 'actions', label: '', width: '3%' }
 ]
 
@@ -39,7 +39,7 @@ export default function InventoryTable({ devices }) {
   if (!devices.length) return <EmptyState icon={<Boxes />} title="No matching assets" description="Change the active filters or add devices to your branch directory." />
 
   return (
-    <div className="w-full">
+    <div className="w-full overflow-y-auto" style={{ maxHeight: 'calc(100vh - 20.5rem)' }}>
       <table className="w-full table-fixed text-left text-[11px]">
         <colgroup>{columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}</colgroup>
         <thead className="sticky top-0 bg-[rgb(var(--surface))]">
@@ -55,44 +55,48 @@ export default function InventoryTable({ devices }) {
             const title = deviceTitle(device)
             return (
               <tr key={device.id} className="border-b align-top last:border-0 hover:bg-[rgb(var(--border)/.22)]">
-                <td className="px-2 py-2">
+                <td className="px-2 py-1.5">
                   <b className="block truncate" title={device.branch_name}>{device.branch_name}</b>
                   <p className="truncate font-mono text-[9px] text-[rgb(var(--muted))]">{device.branch_code}{device.branch_warehouse_code ? ` · WH ${device.branch_warehouse_code}` : ''}</p>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-1.5">
                   <span className="inline-block max-w-full truncate rounded-md bg-[rgb(var(--primary)/.1)] px-1.5 py-0.5 text-[10px] font-bold text-[rgb(var(--primary))]">{typeLabel(device.device_type)}</span>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-1.5">
                   <b className="block truncate" title={title}>{title}</b>
                   {device.hostname && device.hostname !== title && <p className="truncate font-mono text-[9px] text-[rgb(var(--muted))]">{device.hostname}</p>}
                   {device.user && <p className="truncate text-[9px] text-[rgb(var(--muted))]">{device.domain ? `${device.domain}\\` : ''}{device.user}</p>}
                 </td>
-                <td className="truncate px-2 py-2 font-mono" title={device.ip}>{device.ip}{device.port ? `:${device.port}` : ''}</td>
-                <td className="px-2 py-2">
+                <td className="truncate px-2 py-1.5 font-mono" title={device.ip}>{device.ip}{device.port ? `:${device.port}` : ''}</td>
+                <td className="px-2 py-1.5">
                   <span className="block truncate" title={device.model || ''}>{device.model || '—'}</span>
                   {device.esxi_version && <p className="truncate text-[9px] text-[rgb(var(--muted))]">ESXI {device.esxi_version}</p>}
                   {device.version && <p className="truncate text-[9px] text-[rgb(var(--muted))]">SW {device.version}</p>}
                 </td>
-                <td className="truncate px-2 py-2" title={device.location || ''}>{device.location || '—'}</td>
-                <td className="px-2 py-2">
+                <td className="truncate px-2 py-1.5" title={device.location || ''}>{device.location || '—'}</td>
+                <td className="px-2 py-1.5">
                   <span className="block truncate font-mono" title={device.asset_code || ''}>{device.asset_code || '—'}</span>
                   {device.serial_number && <p className="truncate text-[9px] text-[rgb(var(--muted))]">SN {device.serial_number}</p>}
                   {device.terminal_id && <p className="truncate text-[9px] text-[rgb(var(--muted))]">Term {device.terminal_id}</p>}
                   {device.acceptance_id && <p className="truncate text-[9px] text-[rgb(var(--muted))]">Acc {device.acceptance_id}</p>}
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-1.5">
                   {connection.length
                     ? connection.map((detail) => <p key={detail} className="truncate" title={detail}>{detail}</p>)
                     : '—'}
                 </td>
-                <td className="px-2 py-2">
-                  <Badge status={device.status || 'unknown'}>{device.status || 'unknown'}</Badge>
-                  <span className={`mt-1 flex items-center gap-1 text-[9px] font-semibold ${device.is_dashboard_visible ? 'status-online-text' : 'text-[rgb(var(--muted))]'}`}>
-                    {device.is_dashboard_visible ? <Eye size={10} /> : <EyeOff size={10} />}
-                    {device.is_dashboard_visible ? 'On dashboard' : 'Hidden'}
-                  </span>
+                <td className="px-2 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Badge status={device.status || 'unknown'}>{device.status || 'unknown'}</Badge>
+                    <span
+                      className={device.is_dashboard_visible ? 'status-online-text' : 'text-[rgb(var(--muted))]'}
+                      title={device.is_dashboard_visible ? 'Shown on the dashboard' : 'Hidden from the dashboard'}
+                    >
+                      {device.is_dashboard_visible ? <Eye size={11} /> : <EyeOff size={11} />}
+                    </span>
+                  </div>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-1.5">
                   <div className="flex justify-end">
                     <DeviceActionsMenu device={device} size={14} className="h-7 w-7" />
                   </div>
