@@ -1,6 +1,6 @@
 const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
-const { exportInventory } = require('../services/excel.service')
+const { createImportTemplate, exportInventory, importDirectory } = require('../services/excel.service')
 const { openDeviceWebview, broadcastPalette } = require('./webview-window')
 
 function friendlyError(error) {
@@ -83,6 +83,10 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
 
   ipcMain.handle('inventory:list', secure(() => database.listInventory()))
   ipcMain.handle('inventory:export', secure((_event, filters) => exportInventory(database, filters || {})))
+  // Directory import: the operator downloads a template, fills one sheet per
+  // device type, then imports it back. Both open a native file dialog.
+  ipcMain.handle('directory:template', secure((event) => createImportTemplate(database, null, sessions.get(event.sender.id).username)))
+  ipcMain.handle('directory:import', secure((event) => importDirectory(database, null, sessions.get(event.sender.id).username)))
   ipcMain.handle('remote:connect', secure(async (event, payload) => {
     const result = await remoteService.connect(payload, sessions.get(event.sender.id).username)
     // iLO and NVR open inside a themed application window rather than an

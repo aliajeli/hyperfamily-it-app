@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     list: () => invoke('inventory:list'),
     export: (filters) => invoke('inventory:export', filters)
   },
+  directory: {
+    template: () => invoke('directory:template'),
+    import: () => invoke('directory:import')
+  },
   remote: {
     connect: (payload) => invoke('remote:connect', payload),
     probe: () => invoke('remote:probe'),
