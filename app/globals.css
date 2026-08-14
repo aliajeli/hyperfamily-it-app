@@ -229,7 +229,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 .notification-count { animation: notification-pulse 2.2s ease-in-out infinite; }
-.notification-popup {
+.notification-popup,
+.vpn-popup {
   background: linear-gradient(145deg, rgb(var(--surface) / .98), rgb(var(--surface) / .94));
   backdrop-filter: blur(24px) saturate(115%);
   box-shadow: 0 26px 72px rgb(46 52 64 / .22), inset 0 1px 0 rgb(255 255 255 / .32);
@@ -251,7 +252,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 :root[data-color-mode='dark'] .directory-branch-card:hover,
 :root[data-color-mode='dark'] .directory-device-card:hover,
 :root[data-color-mode='dark'] .device-type-option:hover { box-shadow: 0 18px 42px rgb(0 0 0 / .3); }
-:root[data-color-mode='dark'] .notification-popup { box-shadow: 0 30px 80px rgb(0 0 0 / .46), inset 0 1px 0 rgb(255 255 255 / .06); }
+:root[data-color-mode='dark'] .notification-popup,
+:root[data-color-mode='dark'] .vpn-popup { box-shadow: 0 30px 80px rgb(0 0 0 / .46), inset 0 1px 0 rgb(255 255 255 / .06); }
 
 @keyframes ambient-background {
   from { background-position: 100% 0, 0 100%, 0 0; }

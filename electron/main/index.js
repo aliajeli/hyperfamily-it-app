@@ -98,6 +98,9 @@ else {
     database = new AppDatabase(app.getPath('userData'), vault)
     const remoteService = new RemoteService(database)
     vpnService = new VPNService(database, app.getPath('userData'), sendEvent)
+    // Keeps the header indicator honest: the real tunnel state is re-checked
+    // every second, so it also turns red if the tunnel drops on its own.
+    vpnService.startHealthMonitor()
     const updateService = new UpdateService(sendEvent)
     terminalService = new TerminalService(database, sendEvent)
     registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow: () => mainWindow })

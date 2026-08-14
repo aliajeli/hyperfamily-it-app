@@ -1,21 +1,33 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Shield, ShieldAlert, ShieldCheck, ChevronDown, Check, Unplug, AppWindow, Globe2, Download } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Shield, ShieldAlert, ShieldCheck, ChevronDown, Check, Unplug, AppWindow, Globe2, Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApi } from '@/lib/api'
 import { useVpnStore } from '@/stores/vpn.store'
 import { cn } from '@/lib/utils'
 
-const states = {
-  disconnected: { label: 'VPN off', className: 'text-nord-11 bg-nord-11/10', icon: Shield },
-  connecting: { label: 'Connecting…', className: 'text-nord-9 bg-nord-9/10 animate-pulse', icon: Shield },
-  connected_in_app: { label: 'In-app tunnel', className: 'text-[#8b6e1c] bg-nord-13/20', icon: ShieldCheck },
-  connected_global: { label: 'FortiClient VPN', className: 'text-[#66834e] bg-nord-14/20', icon: ShieldCheck },
+/**
+ * The indicator is deliberately binary: green while a tunnel is actually
+ * carrying traffic, red whenever it is not. The main process re-checks the real
+ * state every second and pushes it here, and this component also polls as a
+ * safety net so the colour is never stale even if an event is missed.
+ */
+const STATES = {
+  disconnected: { label: 'VPN off', tone: 'off', icon: Shield },
+  connecting: { label: 'Connecting…', tone: 'busy', icon: Loader2 },
+  connected_in_app: { label: 'In-app tunnel', tone: 'on', icon: ShieldCheck },
+  connected_global: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
   // Legacy state names kept so an older stored status never breaks the header.
-  connected_split: { label: 'In-app tunnel', className: 'text-[#8b6e1c] bg-nord-13/20', icon: ShieldCheck },
-  connected_full: { label: 'FortiClient VPN', className: 'text-[#66834e] bg-nord-14/20', icon: ShieldCheck },
-  error: { label: 'VPN error', className: 'text-nord-11 bg-nord-11/10 animate-shake', icon: ShieldAlert }
+  connected_split: { label: 'In-app tunnel', tone: 'on', icon: ShieldCheck },
+  connected_full: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
+  error: { label: 'VPN error', tone: 'off', icon: ShieldAlert }
+}
+
+const TONES = {
+  on: 'status-online-text bg-nord-14/15 ring-1 ring-nord-14/40',
+  off: 'text-nord-11 bg-nord-11/10 ring-1 ring-nord-11/30',
+  busy: 'text-[rgb(var(--primary))] bg-[rgb(var(--primary)/.12)] ring-1 ring-[rgb(var(--primary)/.3)]'
 }
 
 export default function VPNButton() {
@@ -24,20 +36,37 @@ export default function VPNButton() {
   const [open, setOpen] = useState(false)
   const [probe, setProbe] = useState(null)
   const ref = useRef(null)
-  const config = states[status.state] || states.disconnected
+
+  const config = STATES[status.state] || STATES.disconnected
   const Icon = config.icon
-  const connected = String(status.state || '').startsWith('connected')
+  const claimsConnected = String(status.state || '').startsWith('connected')
+  // `live` is authoritative when the main process reports it.
+  const live = status.live ?? claimsConnected
+  const tone = config.tone === 'on' && !live ? 'off' : config.tone
+  const label = config.tone === 'on' && !live ? 'VPN off' : config.label
+
+  const refresh = useCallback(() => {
+    const api = getApi()
+    if (!api?.vpn?.status) return
+    api.vpn.status().then(setStatus).catch(() => {})
+  }, [setStatus])
 
   useEffect(() => {
-    let unsubscribe = () => {}
     const api = getApi()
-    api.vpn.status().then(setStatus).catch(() => {})
+    if (!api?.vpn) return undefined
+    refresh()
     api.vpn.probe().then(setProbe).catch(() => setProbe(null))
-    unsubscribe = api.vpn.subscribe(setStatus)
+    const unsubscribe = api.vpn.subscribe(setStatus)
+    // Poll once a second so the colour tracks reality even without events.
+    const timer = setInterval(refresh, 1000)
     const close = (event) => { if (!ref.current?.contains(event.target)) setOpen(false) }
     document.addEventListener('mousedown', close)
-    return () => { unsubscribe?.(); document.removeEventListener('mousedown', close) }
-  }, [setStatus])
+    return () => {
+      unsubscribe?.()
+      clearInterval(timer)
+      document.removeEventListener('mousedown', close)
+    }
+  }, [setStatus, refresh])
 
   const connect = async (mode) => {
     setOpen(false)
@@ -64,26 +93,41 @@ export default function VPNButton() {
 
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(!open)} className={cn('no-drag flex h-9 items-center gap-2 rounded-xl px-2.5 text-xs font-bold transition hover:brightness-95', config.className)}>
-        <Icon size={16} />
-        <span className="hidden lg:inline">{config.label}</span>
+      <button
+        onClick={() => setOpen(!open)}
+        aria-label={`VPN status: ${label}`}
+        data-vpn-live={live ? 'true' : 'false'}
+        className={cn('no-drag flex h-9 items-center gap-2 rounded-xl px-2.5 text-xs font-bold transition hover:brightness-95', TONES[tone])}
+      >
+        <span className="relative flex items-center">
+          <Icon size={16} className={config.tone === 'busy' ? 'animate-spin' : undefined} />
+          <span
+            aria-hidden
+            className={cn(
+              'absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-[rgb(var(--surface))]',
+              live ? 'bg-nord-14' : 'bg-nord-11',
+              live && 'animate-pulse'
+            )}
+          />
+        </span>
+        <span className="hidden lg:inline">{label}</span>
         <ChevronDown size={13} />
       </button>
 
       {open && (
-        <div className="glass absolute right-0 top-11 z-50 w-72 rounded-xl p-2 shadow-xl">
+        <div role="dialog" aria-label="VPN connection" className="vpn-popup glass absolute right-0 top-11 z-50 w-72 overflow-hidden rounded-[22px] p-2 shadow-2xl">
           <div className="px-3 pb-1.5 pt-1 text-[9.5px] font-bold uppercase tracking-widest text-[rgb(var(--muted))]">FortiClient SSL VPN</div>
 
-          {!connected ? (
+          {!live ? (
             <>
-              <button onClick={() => connect('in_app')} className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-nord-13/15">
-                <AppWindow size={16} className="mt-0.5 text-nord-13" />
+              <button onClick={() => connect('in_app')} className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-[rgb(var(--primary)/.1)]">
+                <AppWindow size={16} className="mt-0.5 text-[rgb(var(--primary))]" />
                 <span>
                   <b className="block text-xs">In-app tunnel</b>
                   <small className="text-[10px] leading-relaxed text-[rgb(var(--muted))]">Routes only this application through the SSL-VPN portal proxy. Windows stays untouched.</small>
                 </span>
               </button>
-              <button onClick={() => connect('global')} className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-nord-14/15">
+              <button onClick={() => connect('global')} className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-nord-14/12">
                 <Globe2 size={16} className="mt-0.5 text-nord-14" />
                 <span>
                   <b className="block text-xs">Global (FortiClient)</b>

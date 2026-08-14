@@ -12,8 +12,6 @@ export default function VPNSettings({ settings, onSaved }) {
     vpn_port: settings.vpn_port || 443,
     vpn_user: settings.vpn_user || '',
     vpn_pass: settings.vpn_pass || '',
-    vpn_realm: settings.vpn_realm || '',
-    vpn_mode: settings.vpn_mode || 'in_app',
     vpn_autoconnect: settings.vpn_autoconnect ?? false,
     forticlient_path: settings.forticlient_path || ''
   })
@@ -72,7 +70,6 @@ export default function VPNSettings({ settings, onSaved }) {
     `stage        : ${report.stage}`,
     report.target ? `target       : ${report.target}` : null,
     report.username ? `username     : ${report.username}` : null,
-    report.realm ? `realm        : ${report.realm}` : null,
     report.statusCode !== undefined ? `http status  : ${report.statusCode} ${report.statusMessage || ''}`.trimEnd() : null,
     report.durationMs !== undefined ? `duration     : ${report.durationMs} ms` : null,
     report.transportError ? `transport    : ${report.transportError}` : null,
@@ -100,17 +97,12 @@ export default function VPNSettings({ settings, onSaved }) {
     error: { label: 'Test could not run', className: 'border-nord-11/50 bg-nord-11/15 text-[#a54b4b]' }
   }[report?.outcome] || null
 
-  const modes = [
-    { id: 'in_app', title: 'In-app tunnel', icon: <Route size={16} />, description: 'Only this application’s traffic is routed. The app authenticates to the FortiGate portal over HTTP POST and forwards branch requests through a local HTTP proxy. Windows keeps its normal internet connection.' },
-    { id: 'global', title: 'Global (FortiClient)', icon: <Shield size={16} />, description: 'Launches the FortiClient VPN installed on this computer so you complete the connection there. All system traffic follows the FortiClient profile.' }
-  ]
-
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_330px]">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><Shield size={17} />FortiClient SSL VPN</CardTitle>
-          <CardDescription className="text-xs">Gateway profile shared by both connection modes. Credentials are encrypted with Windows DPAPI.</CardDescription>
+          <CardDescription className="text-xs">One shared gateway profile. Choose in-app or global when you connect from the VPN button in the header. Credentials are encrypted with Windows DPAPI.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={save} className="space-y-3.5">
@@ -122,32 +114,10 @@ export default function VPNSettings({ settings, onSaved }) {
               <label><Label>Username</Label><Input autoComplete="off" value={form.vpn_user} onChange={(e) => setForm({ ...form, vpn_user: e.target.value })} /></label>
               <label><Label>Password</Label><Input type="password" autoComplete="new-password" value={form.vpn_pass} onChange={(e) => setForm({ ...form, vpn_pass: e.target.value })} /></label>
             </div>
-            <label><Label>Realm <span className="font-normal text-[rgb(var(--muted))]">(optional)</span></Label><Input placeholder="e.g. branches" value={form.vpn_realm} onChange={(e) => setForm({ ...form, vpn_realm: e.target.value })} /></label>
-
-            <fieldset className="rounded-xl border p-3">
-              <legend className="px-1.5 text-[11px] font-bold">Connection mode</legend>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {modes.map((mode) => {
-                  const active = form.vpn_mode === mode.id
-                  return (
-                    <button
-                      type="button"
-                      key={mode.id}
-                      onClick={() => setForm({ ...form, vpn_mode: mode.id })}
-                      className={`rounded-xl border p-3 text-left transition ${active ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.1)] shadow-sm' : 'hover:bg-[rgb(var(--border)/.35)]'}`}
-                    >
-                      <span className={`flex items-center gap-2 text-xs font-bold ${active ? 'text-[rgb(var(--primary))]' : ''}`}>{mode.icon}{mode.title}</span>
-                      <span className="mt-1.5 block text-[11px] leading-relaxed text-[rgb(var(--muted))]">{mode.description}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </fieldset>
-
             <label className="flex items-center justify-between rounded-xl border p-3">
               <span>
                 <b className="text-xs">Connect automatically at startup</b>
-                <span className="mt-0.5 block text-[11px] text-[rgb(var(--muted))]">Starts the selected mode as soon as you sign in.</span>
+                <span className="mt-0.5 block text-[11px] text-[rgb(var(--muted))]">Starts the in-app tunnel as soon as you sign in.</span>
               </span>
               <Switch checked={Boolean(form.vpn_autoconnect)} onCheckedChange={(value) => setForm({ ...form, vpn_autoconnect: value })} />
             </label>

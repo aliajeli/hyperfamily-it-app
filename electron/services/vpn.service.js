@@ -51,6 +51,9 @@ class VPNService {
     this.portalCookie = ''
     this.gateway = null
     this.stats = { requests: 0, bytes: 0, since: null }
+    this.healthTimer = null
+    this.forticlientRunning = false
+    this.lastLive = false
   }
 
   emit(state, mode = this.mode, message = '') {
@@ -70,8 +73,82 @@ class VPNService {
       proxyPort: this.proxyPort || null,
       gateway: this.gateway,
       stats: this.stats,
+      live: this.isLive(),
       forticlientInstalled: this.isForticlientInstalled()
     }
+  }
+
+  /**
+   * True when the tunnel is genuinely carrying traffic right now.
+   *
+   * The UI indicator must reflect reality rather than the last thing that was
+   * clicked: an in-app tunnel is live only while its loopback proxy is still
+   * listening, and the global mode is live only while a FortiClient tunnel
+   * process is actually running.
+   */
+  isLive() {
+    if (this.mode === 'in_app') return Boolean(this.proxy && this.proxy.listening)
+    if (this.mode === 'global') return this.forticlientRunning
+    return false
+  }
+
+  /**
+   * Polls the real state once a second and emits a status update whenever it
+   * changes, so the header button turns green/red on its own — including when
+   * the tunnel drops or FortiClient is closed outside the app.
+   */
+  startHealthMonitor(intervalMs = 1000) {
+    if (this.healthTimer) return
+    this.healthTimer = setInterval(() => {
+      this.refreshHealth().catch(() => {})
+    }, intervalMs)
+    this.healthTimer.unref?.()
+  }
+
+  stopHealthMonitor() {
+    if (!this.healthTimer) return
+    clearInterval(this.healthTimer)
+    this.healthTimer = null
+  }
+
+  async refreshHealth() {
+    if (this.state === 'connecting') return
+    if (this.mode === 'global') this.forticlientRunning = await VPNService.isForticlientProcessRunning()
+
+    const live = this.isLive()
+    const claimsConnected = this.state.startsWith('connected')
+
+    // The tunnel died underneath us (proxy closed, FortiClient exited).
+    if (claimsConnected && !live) {
+      const wasMode = this.mode
+      this.portalCookie = ''
+      this.gateway = null
+      this.proxyPort = 0
+      this.emit('disconnected', null, wasMode === 'global' ? 'FortiClient is no longer running' : 'The tunnel closed')
+      return
+    }
+
+    // FortiClient was started outside the app while we were idle.
+    if (!claimsConnected && this.mode === 'global' && this.forticlientRunning) {
+      this.emit('connected_global', 'global')
+      return
+    }
+
+    if (this.lastLive !== live) {
+      this.lastLive = live
+      this.sendEvent('vpn:status', this.getStatus())
+    }
+  }
+
+  /** Windows-only: is a FortiClient VPN tunnel process running? */
+  static isForticlientProcessRunning() {
+    if (process.platform !== 'win32') return Promise.resolve(false)
+    return new Promise((resolve) => {
+      execFile('tasklist', ['/fo', 'csv', '/nh'], { windowsHide: true }, (error, stdout) => {
+        if (error) return resolve(false)
+        resolve(/"(FortiSSLVPNdaemon|FortiClient|FortiTray|FortiSSLVPNclient)\.exe"/i.test(stdout))
+      })
+    })
   }
 
   isForticlientInstalled() {
@@ -103,8 +180,7 @@ class VPNService {
       gateway: String(settings.vpn_gateway).trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, ''),
       port: Number(settings.vpn_port) || 443,
       username: String(settings.vpn_user),
-      password: String(settings.vpn_pass),
-      realm: String(settings.vpn_realm || '')
+      password: String(settings.vpn_pass)
     }
   }
 
@@ -123,6 +199,8 @@ class VPNService {
       this.gateway = `${profile.gateway}:${profile.port}`
       this.stats = { requests: 0, bytes: 0, since: new Date().toISOString() }
       this.database.audit(actor, 'VPN_CONNECT', normalized, `Gateway ${this.gateway}`)
+      this.lastLive = true
+      this.startHealthMonitor()
       return this.emit(normalized === 'in_app' ? 'connected_in_app' : 'connected_global', normalized)
     } catch (error) {
       this.database.audit(actor, 'VPN_ERROR', normalized, error.message)
@@ -157,7 +235,7 @@ class VPNService {
         ajax: '1',
         username: profile.username,
         credential: profile.password,
-        realm: profile.realm
+        realm: ''
       }).toString()
 
       const options = {
@@ -309,7 +387,6 @@ class VPNService {
         stage: 'logincheck',
         target,
         username: profile.username,
-        realm: profile.realm || '(none)',
         outcome: verdict.outcome,
         reason: verdict.reason,
         statusCode: reply.statusCode,
@@ -329,7 +406,6 @@ class VPNService {
         stage: 'transport',
         target,
         username: profile.username,
-        realm: profile.realm || '(none)',
         outcome: 'error',
         reason: error.message,
         durationMs: Date.now() - started
@@ -350,6 +426,90 @@ class VPNService {
       throw error
     }
     return reply.cookie || reply.cookies.join('; ')
+  }
+
+  /* ------------------------------------------------------------- in-app mode */
+
+  /**
+   * Brings up the in-app tunnel: authenticate to the portal, then start the
+   * loopback proxy that carries the app's traffic.
+   *
+   * Real gateways frequently answer `/remote/logincheck` with only a temporary
+   * `SVPNTMPCOOKIE` plus `redir=/remote/hostcheck_install`, deferring the real
+   * `SVPNCOOKIE` until the host check is acknowledged. Following that redirect
+   * with the temporary cookie is what turns it into a session cookie, so the
+   * proxy is given a usable credential instead of a placeholder.
+   */
+  async connectInApp(profile) {
+    const cookie = await this.portalLogin(profile)
+    this.portalCookie = await this.completeHostCheck(profile, cookie)
+    await this.startProxy(profile)
+  }
+
+  /**
+   * Exchanges a temporary portal cookie for a full session cookie by following
+   * the hostcheck/portal redirect. Best-effort: if the gateway does not use the
+   * hostcheck flow, or the follow-up fails, the original cookie is kept.
+   */
+  async completeHostCheck(profile, cookie) {
+    if (!cookie) return cookie
+    const hasSession = /(^|;\s*)SVPNCOOKIE=[^;\s]+/.test(cookie)
+    if (hasSession) return cookie
+
+    const paths = ['/remote/hostcheck_install', '/remote/portal']
+    let current = cookie
+    for (const target of paths) {
+      const next = await this.followPortalPath(profile, target, current).catch(() => null)
+      if (!next) continue
+      current = VPNService.mergeCookies(current, next)
+      if (/(^|;\s*)SVPNCOOKIE=[^;\s]+/.test(current)) break
+    }
+    return current
+  }
+
+  /** GETs a portal path with the current cookie and returns any new cookies. */
+  followPortalPath(profile, target, cookie) {
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = (value) => { if (!settled) { settled = true; resolve(value) } }
+      const options = {
+        host: profile.gateway,
+        port: profile.port,
+        path: target,
+        method: 'GET',
+        rejectUnauthorized: false,
+        timeout: 15000,
+        headers: { Cookie: cookie, 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: '*/*', Connection: 'close' }
+      }
+      let request
+      try { request = https.request({ ...options, insecureHTTPParser: true }) } catch { request = https.request(options) }
+
+      request.on('response', (response) => {
+        const jar = (response.headers['set-cookie'] || [])
+          .map((item) => item.split(';')[0])
+          .filter((item) => item.slice(item.indexOf('=') + 1).trim().length > 0)
+        response.resume()
+        response.on('end', () => finish(jar.join('; ')))
+        response.on('error', () => finish(jar.join('; ')))
+      })
+      request.on('timeout', () => request.destroy())
+      request.on('error', () => finish(''))
+      request.end()
+    })
+  }
+
+  /** Merges two cookie strings, letting the newer value win per cookie name. */
+  static mergeCookies(existing, incoming) {
+    const jar = new Map()
+    for (const part of `${existing}; ${incoming}`.split(';')) {
+      const item = part.trim()
+      if (!item || !item.includes('=')) continue
+      const name = item.slice(0, item.indexOf('='))
+      const value = item.slice(item.indexOf('=') + 1)
+      if (!value.trim()) continue
+      jar.set(name, value)
+    }
+    return [...jar].map(([name, value]) => `${name}=${value}`).join('; ')
   }
 
   /**
@@ -427,11 +587,16 @@ class VPNService {
     const child = spawn(executable, [], { detached: true, stdio: 'ignore', windowsHide: false, shell: false })
     child.unref()
     this.process = null
+    // Give the client a moment to appear in the process list so the health
+    // monitor does not immediately report the session as dead.
+    this.forticlientRunning = true
+    setTimeout(() => { this.refreshHealth().catch(() => {}) }, 4000)
   }
 
   /* -------------------------------------------------------------- disconnect */
 
   async disconnect(actor = 'Admin') {
+    this.stopHealthMonitor()
     if (this.proxy) {
       await new Promise((resolve) => this.proxy.close(resolve))
       this.proxy = null
@@ -449,10 +614,13 @@ class VPNService {
 
     this.database.audit(actor, 'VPN_DISCONNECT', this.mode || 'unknown', 'VPN session disconnected')
     this.gateway = null
+    this.forticlientRunning = false
+    this.lastLive = false
     return this.emit('disconnected', null)
   }
 
   stop() {
+    this.stopHealthMonitor()
     if (this.proxy) { try { this.proxy.close() } catch {} }
     if (this.process) { try { this.process.kill() } catch {} }
   }
