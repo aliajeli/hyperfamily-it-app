@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FolderOpen, Shield, Route, Lock, AlertTriangle, CheckCircle2, Download } from 'lucide-react'
+import { FolderOpen, Shield, Route, Lock, AlertTriangle, CheckCircle2, Download, Stethoscope, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label, Switch } from '@/components/ui'
 import { getApi } from '@/lib/api'
@@ -19,6 +19,8 @@ export default function VPNSettings({ settings, onSaved }) {
   })
   const [probe, setProbe] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [diagnosing, setDiagnosing] = useState(false)
+  const [report, setReport] = useState(null)
 
   useEffect(() => { getApi().vpn.probe().then(setProbe).catch(() => setProbe(null)) }, [])
 
@@ -40,6 +42,63 @@ export default function VPNSettings({ settings, onSaved }) {
       setSaving(false)
     }
   }
+
+  /**
+   * Runs a real login attempt and shows exactly what the gateway answered.
+   * The settings are saved first so the test always uses what is on screen.
+   */
+  const diagnose = async () => {
+    setDiagnosing(true)
+    setReport(null)
+    try {
+      const next = await getApi().settings.save({ ...form, vpn_port: Number(form.vpn_port) })
+      onSaved(next)
+      const result = await getApi().vpn.diagnose()
+      setReport(result)
+      if (result.outcome === 'rejected') toast.error('The gateway explicitly rejected these credentials')
+      else if (result.ok) toast.success('The gateway did not reject the login')
+      else toast.warning(result.reason)
+    } catch (error) {
+      setReport({ ok: false, stage: 'client', outcome: 'error', reason: error.message })
+      toast.error(error.message)
+    } finally {
+      setDiagnosing(false)
+    }
+  }
+
+  const reportText = report ? [
+    `outcome      : ${report.outcome}`,
+    `reason       : ${report.reason}`,
+    `stage        : ${report.stage}`,
+    report.target ? `target       : ${report.target}` : null,
+    report.username ? `username     : ${report.username}` : null,
+    report.realm ? `realm        : ${report.realm}` : null,
+    report.statusCode !== undefined ? `http status  : ${report.statusCode} ${report.statusMessage || ''}`.trimEnd() : null,
+    report.durationMs !== undefined ? `duration     : ${report.durationMs} ms` : null,
+    report.transportError ? `transport    : ${report.transportError}` : null,
+    report.cookieNames?.length ? `cookies      : ${report.cookieNames.join(', ')}` : 'cookies      : (none)',
+    report.setCookie?.length ? `set-cookie   :\n${report.setCookie.map((item) => '  ' + item).join('\n')}` : null,
+    report.headers ? `headers      :\n${Object.entries(report.headers).map(([key, value]) => `  ${key}: ${value}`).join('\n')}` : null,
+    report.bodyLength !== undefined ? `body (${report.bodyLength} bytes):\n${report.bodyExcerpt || '(empty)'}` : null
+  ].filter(Boolean).join('\n') : ''
+
+  const copyReport = async () => {
+    try {
+      await navigator.clipboard.writeText(reportText)
+      toast.success('Diagnostics copied to the clipboard')
+    } catch {
+      toast.error('Could not access the clipboard')
+    }
+  }
+
+  const outcomeTone = {
+    accepted: { label: 'Credentials accepted', className: 'border-nord-14/50 bg-nord-14/15 text-[#4f6b3a]' },
+    ambiguous: { label: 'No verdict from gateway — connection will proceed', className: 'border-nord-13/50 bg-nord-13/15 text-[#8b6e1c]' },
+    rejected: { label: 'Gateway rejected the credentials (ret=0)', className: 'border-nord-11/50 bg-nord-11/15 text-[#a54b4b]' },
+    two_factor: { label: 'Two-factor authentication required', className: 'border-nord-13/50 bg-nord-13/15 text-[#8b6e1c]' },
+    unreachable: { label: 'Gateway did not answer', className: 'border-nord-11/50 bg-nord-11/15 text-[#a54b4b]' },
+    error: { label: 'Test could not run', className: 'border-nord-11/50 bg-nord-11/15 text-[#a54b4b]' }
+  }[report?.outcome] || null
 
   const modes = [
     { id: 'in_app', title: 'In-app tunnel', icon: <Route size={16} />, description: 'Only this application’s traffic is routed. The app authenticates to the FortiGate portal over HTTP POST and forwards branch requests through a local HTTP proxy. Windows keeps its normal internet connection.' },
@@ -101,8 +160,31 @@ export default function VPNSettings({ settings, onSaved }) {
               </div>
             </label>
 
-            <Button disabled={saving}><Lock size={15} />{saving ? 'Saving…' : 'Encrypt and save VPN settings'}</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={saving}><Lock size={15} />{saving ? 'Saving…' : 'Encrypt and save VPN settings'}</Button>
+              <Button type="button" variant="secondary" disabled={diagnosing} onClick={diagnose} aria-label="Test and diagnose the VPN login">
+                <Stethoscope size={15} />{diagnosing ? 'Testing…' : 'Test & diagnose'}
+              </Button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-[rgb(var(--muted))]">
+              “Test & diagnose” saves the form, performs a real portal login, and shows the gateway’s untouched reply. Use the copy button and send the text to support if the login misbehaves.
+            </p>
           </form>
+
+          {report ? (
+            <div className="mt-4 space-y-2" aria-label="VPN diagnostics report">
+              <div className={`flex items-start justify-between gap-3 rounded-xl border p-3 ${outcomeTone?.className || ''}`}>
+                <div className="min-w-0">
+                  <b className="text-xs">{outcomeTone?.label || report.outcome}</b>
+                  <p className="mt-1 text-[11px] leading-relaxed">{report.reason}</p>
+                </div>
+                <Button type="button" variant="secondary" size="sm" onClick={copyReport} aria-label="Copy diagnostics">
+                  <Copy size={14} />Copy
+                </Button>
+              </div>
+              <pre className="max-h-80 overflow-auto rounded-xl border bg-[rgb(var(--canvas))] p-3 font-mono text-[10px] leading-relaxed text-[rgb(var(--muted))] whitespace-pre-wrap break-all">{reportText}</pre>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -1,3 +1,9 @@
+// Electron links BoringSSL, which dropped the small named MODP groups that
+// older switches still require for SSH key exchange. This restores them and
+// must run before anything pulls in ssh2, which captures the crypto functions
+// it needs at require time.
+require('../services/dh-compat').installDhCompat()
+
 const path = require('path')
 const fs = require('fs')
 const { pathToFileURL } = require('url')

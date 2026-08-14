@@ -20,6 +20,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:database
+      - run: npm run test:ssh
       - run: npm run build
       # electron-builder uploads each artifact through its own "create the
       # release if it is missing" call. Those calls can land in the same second
