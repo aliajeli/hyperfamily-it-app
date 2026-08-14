@@ -253,7 +253,7 @@ export default function TerminalScreen({
       <div
         ref={screenRef}
         role="textbox"
-        aria-label="Terminal"
+        aria-label="Terminal screen"
         tabIndex={0}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
