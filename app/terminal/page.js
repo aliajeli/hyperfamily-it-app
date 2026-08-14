@@ -3,24 +3,32 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Building2, Cable, Circle, Copy, Loader2, Power, RefreshCw, TerminalSquare, Type, X } from 'lucide-react'
+import { Building2, Cable, Circle, Copy, Loader2, Maximize2, Minimize2, Power, RefreshCw, TerminalSquare, Type, X } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import SnippetPanel from '@/components/terminal/SnippetPanel'
 import TerminalScreen from '@/components/terminal/TerminalScreen'
 import { Button, EmptyState, Skeleton } from '@/components/ui'
 import { getApi } from '@/lib/api'
+import { MONO_FONTS, monoStack, normalizeTerminalFontSize, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN } from '@/lib/typography'
 import { cn } from '@/lib/utils'
 
+// --success / --danger are not defined anywhere in the stylesheet, so the dot
+// used to resolve to an invalid colour and fall back to black. Use the Nord
+// palette the rest of the app relies on for status colours.
 const STATE_STYLES = {
   idle: { label: 'Idle', color: 'rgb(var(--muted))' },
   connecting: { label: 'Connecting', color: 'rgb(var(--primary))' },
-  connected: { label: 'Connected', color: 'rgb(var(--success))' },
-  error: { label: 'Error', color: 'rgb(var(--danger))' },
+  connected: { label: 'Connected', color: '#A3BE8C' },
+  error: { label: 'Error', color: '#BF616A' },
   closed: { label: 'Disconnected', color: 'rgb(var(--muted))' }
 }
 
-const FONT_SIZES = [11, 12, 13, 14, 16, 18]
+// The user asked for 8–16; the range is generated so the bounds live in one place.
+const FONT_SIZES = Array.from(
+  { length: TERMINAL_FONT_SIZE_MAX - TERMINAL_FONT_SIZE_MIN + 1 },
+  (_, index) => TERMINAL_FONT_SIZE_MIN + index
+)
 
 function TerminalWorkspaceInner() {
   const searchParams = useSearchParams()
@@ -35,6 +43,8 @@ function TerminalWorkspaceInner() {
   const [session, setSession] = useState(null)
   const [status, setStatus] = useState({ state: 'idle', message: '' })
   const [fontSize, setFontSize] = useState(13)
+  const [fontFamily, setFontFamily] = useState(MONO_FONTS[0].id)
+  const [fullscreen, setFullscreen] = useState(false)
   const [grid, setGrid] = useState({ cols: 80, rows: 24 })
   const [busyDeviceId, setBusyDeviceId] = useState(null)
   const sessionRef = useRef(null)
@@ -52,7 +62,8 @@ function TerminalWorkspaceInner() {
     if (!terminalApi) return
     try {
       const [targets, snippetRows, settings] = await Promise.all([terminalApi.targets(), api.snippets.list(), api.settings.get().catch(() => null)])
-      if (settings?.terminal_font_size) setFontSize(Number(settings.terminal_font_size))
+      if (settings?.terminal_font_size) setFontSize(normalizeTerminalFontSize(settings.terminal_font_size))
+      if (settings?.terminal_font_family) setFontFamily(settings.terminal_font_family)
       setBranches(targets)
       setSnippets(snippetRows)
       setActiveBranchId((current) => (current && targets.some((branch) => branch.id === current) ? current : targets[0]?.id || null))
@@ -64,6 +75,26 @@ function TerminalWorkspaceInner() {
   }, [terminalApi, api])
 
   useEffect(() => { load() }, [load])
+
+  // Persist the font choices so the next visit opens the way it was left.
+  // Failures are ignored: the browser demo has no settings table.
+  useEffect(() => {
+    if (loading) return
+    api.settings.save({ terminal_font_size: fontSize, terminal_font_family: fontFamily }).catch(() => {})
+  }, [fontSize, fontFamily, loading, api])
+
+  // F11 toggles the fullscreen console, Escape leaves it. Both are ignored
+  // while typing into an input so they cannot fire from the snippet editor.
+  useEffect(() => {
+    const onKey = (event) => {
+      const tag = event.target?.tagName
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+      if (event.key === 'F11' && !typing) { event.preventDefault(); setFullscreen((value) => !value) }
+      else if (event.key === 'Escape' && !typing) setFullscreen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Status stream from the main process.
   useEffect(() => {
@@ -155,7 +186,14 @@ function TerminalWorkspaceInner() {
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100vh-7rem)] min-h-[560px] flex-col gap-3">
+      <div className={cn(
+        'flex flex-col gap-3',
+        fullscreen
+          // Escapes the app shell so the console gets the whole window.
+          ? 'fixed inset-0 z-50 h-screen bg-[rgb(var(--canvas))] p-3'
+          // 1366x768 has ~660px of usable height, so the floor must stay under it.
+          : 'h-[calc(100vh-7rem)] min-h-[420px]'
+      )}>
         <header className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2.5">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><TerminalSquare size={20} /></span>
@@ -168,6 +206,15 @@ function TerminalWorkspaceInner() {
             <div className="flex items-center gap-1 rounded-lg border bg-[rgb(var(--surface))] px-2 py-1">
               <Type size={12} className="text-[rgb(var(--muted))]" />
               <select
+                aria-label="Terminal font"
+                value={fontFamily}
+                onChange={(event) => setFontFamily(event.target.value)}
+                className="max-w-[9rem] bg-transparent text-[11px] font-bold outline-none"
+              >
+                {MONO_FONTS.map((font) => <option key={font.id} value={font.id}>{font.label}</option>)}
+              </select>
+              <span className="h-4 w-px bg-[rgb(var(--border))]" />
+              <select
                 aria-label="Font size"
                 value={fontSize}
                 onChange={(event) => setFontSize(Number(event.target.value))}
@@ -176,12 +223,21 @@ function TerminalWorkspaceInner() {
                 {FONT_SIZES.map((value) => <option key={value} value={value}>{value}px</option>)}
               </select>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFullscreen((value) => !value)}
+              aria-label={fullscreen ? 'Exit terminal fullscreen' : 'Enter terminal fullscreen'}
+              title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen terminal (F11)'}
+            >
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </Button>
             <Button variant="ghost" size="sm" onClick={load} title="Reload switches"><RefreshCw size={14} /></Button>
           </div>
         </header>
 
         {/* Branch strip */}
-        <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border bg-[rgb(var(--surface))] p-2">
+        <div className={cn('flex items-center gap-2 overflow-x-auto rounded-2xl border bg-[rgb(var(--surface))] p-2', fullscreen && 'hidden')}>
           <Building2 size={14} className="ml-1 shrink-0 text-[rgb(var(--muted))]" />
           {loading && !branches.length && [0, 1, 2].map((key) => <Skeleton key={key} className="h-8 w-32 shrink-0" />)}
           {branches.map((branch) => (
@@ -204,10 +260,10 @@ function TerminalWorkspaceInner() {
           {!loading && !branches.length && <span className="px-2 text-[11px] text-[rgb(var(--muted))]">No branch has a switch yet.</span>}
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className={cn('grid min-h-0 flex-1 grid-cols-1 gap-3', !fullscreen && 'xl:grid-cols-[minmax(0,1fr)_260px]')}>
           <div className="flex min-h-0 flex-col gap-3">
             {/* Switch chips for the selected branch */}
-            <div className="flex flex-wrap gap-2">
+            <div className={cn('flex flex-wrap gap-2', fullscreen && 'hidden')}>
               <AnimatePresence initial={false} mode="popLayout">
                 {(activeBranch?.switches || []).map((device) => {
                   const isActive = session?.deviceId === device.id && live
@@ -235,7 +291,7 @@ function TerminalWorkspaceInner() {
                       </span>
                       <span className={cn(
                         'ml-1 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide',
-                        device.transport === 'telnet' ? 'bg-[rgb(var(--danger)/.14)] text-[rgb(var(--danger))]' : 'bg-[rgb(var(--success)/.14)] text-[rgb(var(--success))]'
+                        device.transport === 'telnet' ? 'bg-nord-13/20 text-nord-13' : 'bg-nord-14/20 text-nord-14'
                       )}>{device.transport}</span>
                     </motion.button>
                   )
@@ -259,7 +315,13 @@ function TerminalWorkspaceInner() {
                     : <Button variant="ghost" size="sm" onClick={() => setSession(null)} title="Close pane"><X size={13} /></Button>}
                 </div>
                 <div className="min-h-0 flex-1">
-                  <TerminalScreen session={{ ...session, state: status.state }} api={terminalApi} fontSize={fontSize} onSizeChange={setGrid} />
+                  <TerminalScreen
+                    session={{ ...session, state: status.state }}
+                    api={terminalApi}
+                    fontSize={fontSize}
+                    fontFamily={monoStack(fontFamily)}
+                    onSizeChange={setGrid}
+                  />
                 </div>
               </div>
             ) : (
@@ -273,7 +335,9 @@ function TerminalWorkspaceInner() {
             )}
           </div>
 
-          <SnippetPanel snippets={snippets} onSave={saveSnippet} onDelete={deleteSnippet} onRun={runSnippet} disabled={status.state !== 'connected'} />
+          {!fullscreen && (
+            <SnippetPanel snippets={snippets} onSave={saveSnippet} onDelete={deleteSnippet} onRun={runSnippet} disabled={status.state !== 'connected'} />
+          )}
         </div>
       </div>
     </AppShell>

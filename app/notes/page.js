@@ -156,7 +156,7 @@ export default function NotesPage() {
                         aria-label={`Delete ${note.name}`}
                         onClick={(event) => { event.stopPropagation(); remove(note) }}
                         onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); remove(note) } }}
-                        className="shrink-0 rounded-md p-1 text-[rgb(var(--muted))] opacity-0 transition hover:bg-[rgb(var(--danger)/.15)] hover:text-[rgb(var(--danger))] group-hover:opacity-100"
+                        className="shrink-0 rounded-md p-1 text-[rgb(var(--muted))] opacity-0 transition hover:bg-nord-11/15 hover:text-nord-11 group-hover:opacity-100"
                       >
                         <Trash2 size={12} />
                       </span>

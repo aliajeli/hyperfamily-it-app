@@ -58,6 +58,25 @@
 /* Every other palette is applied at runtime from lib/themes.js as inline
    custom properties on <html>, so new themes need no CSS changes. */
 
+/* ---------------------------------------------------------------------------
+   Typography groups. lib/typography.js writes --font-<group> (a font stack)
+   and --font-<group>-scale (a multiplier) onto <html>; both have neutral
+   defaults so an untouched install renders exactly as before. The whole-app
+   scale is applied as the root font size, so rem-based spacing grows with it.
+   --------------------------------------------------------------------------- */
+:root {
+  --font-header: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-title: var(--font-header);
+  --font-text: var(--font-header);
+  --font-info: var(--font-text);
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  --font-header-scale: 1;
+  --font-title-scale: 1;
+  --font-text-scale: 1;
+  --font-info-scale: 1;
+  --font-mono-scale: 1;
+}
+
 * { border-color: rgb(var(--border)); }
 html { background: rgb(var(--canvas)); }
 body {
@@ -70,9 +89,17 @@ body {
   background-size: 112% 112%, 115% 115%, auto;
   animation: ambient-background 18s ease-in-out infinite alternate;
   color: rgb(var(--text));
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-text);
+  font-size: calc(1rem * var(--font-text-scale));
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
+
+/* Typeface per group. Wrapped in :where() so the specificity is zero and any
+   utility class on the element still wins. */
+:where(h1, .page-title, .app-header-title) { font-family: var(--font-header); }
+:where(h2, h3, h4, h5, h6, .card-title, .section-title) { font-family: var(--font-title); }
+:where(small, .page-subtitle, .field-label, .info-text, figcaption) { font-family: var(--font-info); }
+:where(code, kbd, samp, pre, .font-mono) { font-family: var(--font-mono); }
 button, input, select, textarea { font: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid rgb(var(--focus));
@@ -91,9 +118,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     box-shadow: 0 20px 60px rgb(46 52 64 / .09);
   }
   .panel { @apply glass rounded-2xl; }
-  .page-title { @apply text-2xl font-bold tracking-tight md:text-3xl; }
-  .page-subtitle { color: rgb(var(--muted)); @apply mt-1 text-sm; }
-  .field-label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider; color: rgb(var(--muted)); }
+  /* The per-group size multipliers are applied here, in the components layer,
+     so a Tailwind text-* utility on the same element still overrides them. */
+  .page-title { @apply text-2xl font-bold tracking-tight md:text-3xl; font-size: calc(1.5rem * var(--font-header-scale)); }
+  .app-header-title { font-size: calc(1rem * var(--font-header-scale)); }
+  .card-title, .section-title { font-size: calc(1rem * var(--font-title-scale)); }
+  .page-subtitle { color: rgb(var(--muted)); @apply mt-1 text-sm; font-size: calc(.875rem * var(--font-info-scale)); }
+  .field-label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider; color: rgb(var(--muted)); font-size: calc(.75rem * var(--font-info-scale)); }
+  .info-text { font-size: calc(.6875rem * var(--font-info-scale)); }
   .status-dot { @apply h-2.5 w-2.5 rounded-full; }
   .gradient-text { background: linear-gradient(110deg, rgb(var(--primary)), rgb(var(--secondary))); background-clip: text; -webkit-background-clip: text; color: transparent; }
 }
@@ -285,8 +317,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
    Width remains fluid; the height query only removes excess chrome on shorter
    monitors and never hides page content. */
 @media (min-width: 768px) and (max-height: 800px) {
-  .page-title { font-size: 1.35rem; line-height: 1.7rem; }
-  .page-subtitle { margin-top: .15rem; font-size: .72rem; line-height: 1rem; }
+  .page-title { font-size: calc(1.35rem * var(--font-header-scale)); line-height: 1.7rem; }
+  .page-subtitle { margin-top: .15rem; font-size: calc(.72rem * var(--font-info-scale)); line-height: 1rem; }
   .panel { border-radius: .85rem; }
   .dialog-content { max-height: calc(100dvh - 1rem); }
 }
