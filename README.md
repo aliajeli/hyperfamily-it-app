@@ -126,7 +126,7 @@ npm run build:electron
 Expected artifact:
 
 ```text
-dist/HyperFamily-Branch-Monitor-Setup-2.0.6.exe
+dist/HyperFamily-Branch-Monitor-Setup-2.0.7.exe
 ```
 
 For a trusted organizational rollout, configure an Authenticode certificate before publishing. Unsigned installers will trigger Windows SmartScreen warnings.
