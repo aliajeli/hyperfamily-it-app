@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Building2, Plus, RefreshCw, Route, Server, Warehouse } from 'lucide-react'
+import { Building2, FileDown, FileUp, Plus, RefreshCw, Route, Server, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchForm from '@/components/devices/BranchForm'
@@ -124,6 +124,43 @@ function DevicesPageInner() {
     }
   }
 
+  const [directoryBusy, setDirectoryBusy] = useState(null)
+
+  const downloadTemplate = async () => {
+    setDirectoryBusy('template')
+    try {
+      const result = await getApi().directory.template()
+      if (result?.canceled) return
+      toast.success('Import template saved', { description: result.path })
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setDirectoryBusy(null)
+    }
+  }
+
+  const importDirectory = async () => {
+    setDirectoryBusy('import')
+    try {
+      const result = await getApi().directory.import()
+      if (result?.canceled) return
+      const summary = [
+        result.branches_added ? `${result.branches_added} branches added` : null,
+        result.branches_updated ? `${result.branches_updated} branches updated` : null,
+        result.devices_added ? `${result.devices_added} devices added` : null,
+        result.devices_updated ? `${result.devices_updated} devices updated` : null,
+        result.switch_ports_imported ? `${result.switch_ports_imported} switch ports` : null
+      ].filter(Boolean).join(' · ')
+      toast.success('Directory imported', { description: summary || 'The workbook contained no new rows.' })
+      await load(selectedBranchId)
+    } catch (error) {
+      // Validation failures arrive as a multi-line list of offending rows.
+      toast.error('Import failed', { description: error.message, duration: 12000 })
+    } finally {
+      setDirectoryBusy(null)
+    }
+  }
+
   const openAddDevice = () => {
     if (!selectedBranch) return
     setDialog({ kind: 'device', step: 'type', type: null, value: null })
@@ -156,6 +193,12 @@ function DevicesPageInner() {
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</Button>
+            <Button size="sm" variant="secondary" onClick={downloadTemplate} disabled={Boolean(directoryBusy)} title="Save a blank workbook with one sheet per device type">
+              <FileDown size={14} className={directoryBusy === 'template' ? 'animate-pulse' : ''} />Template
+            </Button>
+            <Button size="sm" variant="secondary" onClick={importDirectory} disabled={Boolean(directoryBusy)} title="Import branches and devices from a filled-in template">
+              <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />Import
+            </Button>
             <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}><Plus size={14} />Add branch</Button>
           </div>
         </div>
