@@ -22,6 +22,7 @@ jobs:
       - run: npm test
       - run: npm run test:database
       - run: npm run test:ssh
+      - run: npm run test:vpn
       - run: npm run build
       - name: Package unsigned test installer
         if: github.event_name == 'push'
