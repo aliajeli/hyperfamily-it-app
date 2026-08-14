@@ -4,7 +4,8 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import * as SwitchPrimitive from '@radix-ui/react-switch'
-import { X } from 'lucide-react'
+import * as SelectPrimitive from '@radix-ui/react-select'
+import { X, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
@@ -33,8 +34,114 @@ export const Input = React.forwardRef(function Input({ className, ...props }, re
   return <input ref={ref} className={cn('h-10 w-full rounded-xl border bg-[rgb(var(--surface)/.72)] px-3.5 text-sm text-[rgb(var(--text))] shadow-sm transition placeholder:text-[rgb(var(--muted)/.6)] hover:border-[rgb(var(--muted)/.45)] focus:border-[rgb(var(--focus))]', className)} {...props} />
 })
 
-export const Select = React.forwardRef(function Select({ className, children, ...props }, ref) {
-  return <select ref={ref} className={cn('h-10 w-full rounded-xl border bg-[rgb(var(--surface)/.72)] px-3.5 text-sm text-[rgb(var(--text))] shadow-sm', className)} {...props}>{children}</select>
+/**
+ * Themed dropdown.
+ *
+ * A native <select> paints its option list with the operating system's own
+ * widget, which ignores the application theme entirely — that is why the open
+ * list looked plain and unstyled. This renders the list with Radix instead, so
+ * it inherits the theme and can be animated, while deliberately keeping the
+ * familiar `value` / `onChange` / `<option>` API of the element it replaces.
+ *
+ * `register()` from react-hook-form passes `onChange`, `onBlur`, `name` and a
+ * `ref`, all of which are honoured, so uncontrolled form usage keeps working.
+ */
+export const Select = React.forwardRef(function Select({ className, children, value, defaultValue, onChange, onBlur, name, disabled, required, 'aria-label': ariaLabel, id, ...props }, ref) {
+  const options = React.useMemo(() => {
+    const collected = []
+    const walk = (nodes) => React.Children.forEach(nodes, (child) => {
+      if (!React.isValidElement(child)) return
+      if (child.type === 'option') {
+        const label = typeof child.props.children === 'string'
+          ? child.props.children
+          : React.Children.toArray(child.props.children).join('')
+        collected.push({ value: String(child.props.value ?? label), label, disabled: child.props.disabled })
+      } else if (child.props?.children) walk(child.props.children)
+    })
+    walk(children)
+    return collected
+  }, [children])
+
+  const isControlled = value !== undefined
+  const [internal, setInternal] = React.useState(() => String(defaultValue ?? options[0]?.value ?? ''))
+  const current = isControlled ? String(value ?? '') : internal
+  const hiddenRef = React.useRef(null)
+
+  const emit = (next) => {
+    if (!isControlled) setInternal(next)
+    // Mirror the change onto a real form control so `register()` and any
+    // consumer reading `event.target.value` behave exactly as before.
+    const node = hiddenRef.current
+    if (node) {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set
+      setter ? setter.call(node, next) : (node.value = next)
+    }
+    onChange?.({ target: { value: next, name }, currentTarget: { value: next, name } })
+  }
+
+  const selected = options.find((option) => option.value === current)
+
+  return (
+    <SelectPrimitive.Root value={current} onValueChange={emit} disabled={disabled} name={name} required={required}>
+      <SelectPrimitive.Trigger
+        id={id}
+        ref={ref}
+        aria-label={ariaLabel}
+        onBlur={onBlur}
+        className={cn(
+          'group flex h-10 w-full items-center justify-between gap-2 rounded-xl border bg-[rgb(var(--surface)/.72)] px-3.5 text-left text-sm text-[rgb(var(--text))] shadow-sm outline-none transition-all duration-200',
+          'hover:border-[rgb(var(--primary)/.45)] hover:bg-[rgb(var(--surface)/.9)]',
+          'focus-visible:ring-2 focus-visible:ring-[rgb(var(--focus))] data-[state=open]:border-[rgb(var(--primary)/.55)]',
+          'disabled:cursor-not-allowed disabled:opacity-60',
+          className
+        )}
+        {...props}
+      >
+        <SelectPrimitive.Value asChild><span className="truncate">{selected?.label ?? ''}</span></SelectPrimitive.Value>
+        <SelectPrimitive.Icon asChild>
+          <ChevronDown size={15} className="shrink-0 text-[rgb(var(--muted))] transition-transform duration-300 group-data-[state=open]:rotate-180" />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+
+      {/* Kept in the DOM so native form semantics and RHF refs still resolve. */}
+      <select ref={hiddenRef} name={name} value={current} onChange={() => {}} tabIndex={-1} aria-hidden className="sr-only pointer-events-none absolute">
+        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          position="popper"
+          sideOffset={6}
+          collisionPadding={10}
+          className="select-content glass z-[70] max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl p-1 shadow-2xl"
+        >
+          <SelectPrimitive.ScrollUpButton className="flex h-5 items-center justify-center text-[rgb(var(--muted))]"><ChevronUp size={13} /></SelectPrimitive.ScrollUpButton>
+          <SelectPrimitive.Viewport className="p-0.5">
+            {options.map((option, index) => (
+              <SelectPrimitive.Item
+                key={`${option.value}-${index}`}
+                value={option.value}
+                disabled={option.disabled}
+                style={{ animationDelay: `${Math.min(index, 10) * 18}ms` }}
+                className={cn(
+                  'select-item relative flex cursor-pointer select-none items-center gap-2 rounded-lg py-2 pl-8 pr-3 text-sm outline-none transition-colors duration-150',
+                  'data-[highlighted]:bg-[rgb(var(--primary)/.14)] data-[highlighted]:text-[rgb(var(--primary))]',
+                  'data-[state=checked]:font-semibold data-[state=checked]:text-[rgb(var(--primary))]',
+                  'data-[disabled]:pointer-events-none data-[disabled]:opacity-45'
+                )}
+              >
+                <SelectPrimitive.ItemIndicator className="absolute left-2.5 grid place-items-center">
+                  <Check size={14} />
+                </SelectPrimitive.ItemIndicator>
+                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+              </SelectPrimitive.Item>
+            ))}
+          </SelectPrimitive.Viewport>
+          <SelectPrimitive.ScrollDownButton className="flex h-5 items-center justify-center text-[rgb(var(--muted))]"><ChevronDown size={13} /></SelectPrimitive.ScrollDownButton>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
+  )
 })
 
 export const Textarea = React.forwardRef(function Textarea({ className, ...props }, ref) {

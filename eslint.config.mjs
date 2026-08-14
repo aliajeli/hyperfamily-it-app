@@ -29,6 +29,6 @@ export default [
   },
   {
     files: ['app/**/*.{js,jsx}', 'components/**/*.{js,jsx}', 'stores/**/*.js', 'lib/**/*.js'],
-    languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', sessionStorage: 'readonly', navigator: 'readonly', CustomEvent: 'readonly', Event: 'readonly', FileReader: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', confirm: 'readonly', requestAnimationFrame: 'readonly', cancelAnimationFrame: 'readonly', ResizeObserver: 'readonly', Blob: 'readonly', URL: 'readonly' } }
+    languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', sessionStorage: 'readonly', navigator: 'readonly', CustomEvent: 'readonly', Event: 'readonly', FileReader: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', confirm: 'readonly', requestAnimationFrame: 'readonly', cancelAnimationFrame: 'readonly', ResizeObserver: 'readonly', MutationObserver: 'readonly', Blob: 'readonly', URL: 'readonly' } }
   }
 ]

@@ -106,7 +106,7 @@ else {
     registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow: () => mainWindow })
     registerDeviceWebviewHandlers(ipcMain)
     createWindow()
-    pingMonitor = new PingMonitor(database, sendEvent)
+    pingMonitor = new PingMonitor(database, sendEvent, vpnService)
     pingMonitor.start()
     database.audit('System', 'APP_START', app.getVersion(), `${process.platform} ${process.arch}`)
   })

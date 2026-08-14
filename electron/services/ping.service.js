@@ -15,11 +15,27 @@ function pingHost(host, timeoutMs = 1000) {
 }
 
 class PingMonitor {
-  constructor(database, sendEvent) {
+  constructor(database, sendEvent, vpnService = null) {
     this.database = database
     this.sendEvent = sendEvent
+    // Optional: lets the monitor reach branches through an active in-app
+    // tunnel. ICMP cannot traverse an HTTP proxy, so while the in-app VPN is
+    // carrying the app's traffic a raw `ping` always reports offline even
+    // though the device is perfectly reachable inside the tunnel.
+    this.vpnService = vpnService
     this.timer = null
     this.running = false
+  }
+
+  /** Reaches a device the way the current tunnel allows. */
+  async probe(device) {
+    const vpn = this.vpnService
+    const viaTunnel = vpn && vpn.mode === 'in_app' && vpn.isLive?.()
+    if (viaTunnel && typeof vpn.reachThroughTunnel === 'function') {
+      const result = await vpn.reachThroughTunnel(device).catch(() => null)
+      if (result) return result
+    }
+    return pingHost(device.ip)
   }
 
   start() {
@@ -43,7 +59,7 @@ class PingMonitor {
     try {
       const devices = this.database.listMonitoredDevices()
       if (devices.length) {
-        const settled = await Promise.allSettled(devices.map(async (device) => ({ device_id: device.id, ...(await pingHost(device.ip)) })))
+        const settled = await Promise.allSettled(devices.map(async (device) => ({ device_id: device.id, ...(await this.probe(device)) })))
         const results = settled.map((item, index) => item.status === 'fulfilled' ? item.value : { device_id: devices[index].id, status: 'offline', ping_time: null })
         this.database.recordPingBatch(results)
       }

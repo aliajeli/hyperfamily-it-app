@@ -21,7 +21,7 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }) {
   const pathname = usePathname()
   return (
     <>
-    <motion.aside animate={{ width: collapsed ? 72 : 224 }} transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }} className="glass fixed inset-y-0 left-0 z-30 hidden flex-col border-y-0 border-l-0 md:flex">
+    <aside className="app-rail glass fixed inset-y-0 left-0 z-30 hidden flex-col border-y-0 border-l-0 md:flex">
       <div className={cn('flex h-16 items-center gap-2.5 overflow-hidden border-b px-4', collapsed && 'justify-center px-2.5')}>
         <motion.div whileHover={{ rotate: -5, scale: 1.06 }} transition={{ type: 'spring', stiffness: 350 }}><BrandMark className="h-9 w-9 shrink-0" /></motion.div>
         <AnimatePresence initial={false}>
@@ -44,7 +44,7 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }) {
         <button onClick={() => setCollapsed(!collapsed)} className="group flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))]">{collapsed ? <PanelLeftOpen size={19} className="transition-transform group-hover:translate-x-0.5" /> : <><PanelLeftClose size={19} className="transition-transform group-hover:-translate-x-0.5" /><span>Collapse sidebar</span></>}</button>
         <button onClick={onLogout} className="group flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-nord-11 transition-all duration-300 hover:bg-nord-11/10"><LogOut size={19} className="transition-transform duration-300 group-hover:-translate-x-0.5 group-hover:rotate-[-6deg]" />{!collapsed && <span>Sign out</span>}</button>
       </div>
-    </motion.aside>
+    </aside>
 
     <nav aria-label="Mobile navigation" className="glass fixed inset-x-2 bottom-2 z-40 grid grid-cols-6 gap-1 rounded-2xl p-1.5 shadow-xl md:hidden">
       {navItems.map((item) => {
