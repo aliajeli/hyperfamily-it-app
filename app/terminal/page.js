@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Building2, Cable, Circle, Copy, Loader2, Maximize2, Minimize2, Power, RefreshCw, TerminalSquare, Type, X } from 'lucide-react'
+import { Building2, Cable, Circle, Copy, Loader2, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, Power, RefreshCw, TerminalSquare, Type, X } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import SnippetPanel from '@/components/terminal/SnippetPanel'
@@ -45,6 +45,9 @@ function TerminalWorkspaceInner() {
   const [fontSize, setFontSize] = useState(13)
   const [fontFamily, setFontFamily] = useState(MONO_FONTS[0].id)
   const [fullscreen, setFullscreen] = useState(false)
+  // Snippets stay available in fullscreen, but hidden by default so the
+  // console gets the whole width until they are actually wanted.
+  const [showSnippets, setShowSnippets] = useState(false)
   const [grid, setGrid] = useState({ cols: 80, rows: 24 })
   const [busyDeviceId, setBusyDeviceId] = useState(null)
   const sessionRef = useRef(null)
@@ -223,6 +226,20 @@ function TerminalWorkspaceInner() {
                 {FONT_SIZES.map((value) => <option key={value} value={value}>{value}px</option>)}
               </select>
             </div>
+            {fullscreen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSnippets((value) => !value)}
+                aria-label={showSnippets ? 'Hide snippets' : 'Show snippets'}
+                aria-pressed={showSnippets}
+                title={showSnippets ? 'Hide snippets' : 'Show snippets'}
+                className={cn(showSnippets && 'text-[rgb(var(--primary))]')}
+              >
+                {showSnippets ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+                <span className="hidden text-[11px] sm:inline">Snippets</span>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -260,7 +277,11 @@ function TerminalWorkspaceInner() {
           {!loading && !branches.length && <span className="px-2 text-[11px] text-[rgb(var(--muted))]">No branch has a switch yet.</span>}
         </div>
 
-        <div className={cn('grid min-h-0 flex-1 grid-cols-1 gap-3', !fullscreen && 'xl:grid-cols-[minmax(0,1fr)_260px]')}>
+        <div className={cn(
+          'grid min-h-0 flex-1 grid-cols-1 gap-3',
+          !fullscreen && 'xl:grid-cols-[minmax(0,1fr)_260px]',
+          fullscreen && showSnippets && 'md:grid-cols-[minmax(0,1fr)_280px]'
+        )}>
           <div className="flex min-h-0 flex-col gap-3">
             {/* Switch chips for the selected branch */}
             <div className={cn('flex flex-wrap gap-2', fullscreen && 'hidden')}>
@@ -335,7 +356,7 @@ function TerminalWorkspaceInner() {
             )}
           </div>
 
-          {!fullscreen && (
+          {(!fullscreen || showSnippets) && (
             <SnippetPanel snippets={snippets} onSave={saveSnippet} onDelete={deleteSnippet} onRun={runSnippet} disabled={status.state !== 'connected'} />
           )}
         </div>

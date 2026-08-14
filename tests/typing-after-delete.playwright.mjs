@@ -226,6 +226,66 @@ async function main() {
     await context.close()
   }
 
+  /* --------------------------------------------------------------- method 9
+   * Notes shipped its own deletes with bare confirm() rather than
+   * window.confirm(), which the first sweep's grep never matched. Delete a
+   * note, then prove the page still accepts keystrokes. */
+  {
+    const { context, page } = await openPage(browser, '/notes/')
+    await page.locator('button').filter({ hasText: 'VLAN plan' }).first().hover()
+    await page.waitForTimeout(200)
+    await page.locator('[aria-label="Delete VLAN plan"]').click({ force: true })
+    await page.waitForTimeout(600)
+
+    const dialog = await page.locator('[role="alertdialog"],[role="dialog"]').first()
+      .innerText().catch(() => '')
+    record('9. deleting a note opens the themed dialog, not a native one',
+      /Delete/i.test(dialog), `dialog text: ${dialog.slice(0, 60)}`)
+
+    await page.getByRole('button', { name: /delete note/i }).click()
+    await page.waitForTimeout(900)
+
+    const state = await inertState(page)
+    record('10. body stays interactive after deleting a note',
+      state.pointerEvents !== 'none', JSON.stringify(state))
+
+    await page.getByRole('button', { name: /new note/i }).click()
+    await page.waitForTimeout(500)
+    const title = page.locator('input[placeholder*="title" i], input[placeholder*="name" i]').first()
+    await title.click()
+    await title.type('note-after-delete', { delay: 15 })
+    record('11. the note title accepts typing after a delete',
+      (await title.inputValue()) === 'note-after-delete', `value="${await title.inputValue()}"`)
+
+    const body = page.locator('textarea').first()
+    await body.click()
+    await body.type('body-after-delete', { delay: 15 })
+    record('12. the note body accepts typing after a delete',
+      (await body.inputValue()).includes('body-after-delete'), `value="${await body.inputValue()}"`)
+
+    /* Cancelling a dialog unwinds a different code path than confirming it,
+     * and it is the path that used to leave the lock behind. */
+    await page.locator('button').filter({ hasText: 'Branch rollout' }).first()
+      .click({ force: true })
+    await page.waitForTimeout(700)
+    const discard = await page.locator('[role="alertdialog"],[role="dialog"]').first()
+      .innerText().catch(() => '')
+    record('13. switching away from an edited note warns with the themed dialog',
+      /Discard/i.test(discard), `dialog text: ${discard.slice(0, 60)}`)
+
+    await page.getByRole('button', { name: /keep editing/i }).click()
+    await page.waitForTimeout(700)
+    const afterCancel = await inertState(page)
+    record('14. body stays interactive after cancelling a dialog',
+      afterCancel.pointerEvents !== 'none', JSON.stringify(afterCancel))
+
+    await title.click()
+    await title.type('!', { delay: 15 })
+    record('15. typing still works after a cancelled dialog',
+      (await title.inputValue()).endsWith('!'), `value="${await title.inputValue()}"`)
+    await context.close()
+  }
+
   await browser.close()
 
   const failed = results.filter((r) => !r.passed)

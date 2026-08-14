@@ -193,7 +193,15 @@ test('upgrades older databases with Warehouse Code, scale serial numbers, and ma
     assert.equal(database.listBranches()[0].warehouse_code, 'LEGACY-LEGACY-1')
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'switch_ports'").pluck().get(), 1)
     assert.equal(database.db.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_devices_one_router_per_branch'").pluck().get(), 1)
-    assert.equal(database.db.pragma('user_version', { simple: true }), 6)
+    // Notes gained a colour and a priority in 2.1.0; an upgraded database must
+    // carry both, with existing rows defaulted rather than left null.
+    const noteColumns = database.db.prepare('PRAGMA table_info(notes)').all().map((column) => column.name)
+    assert.equal(noteColumns.includes('color'), true)
+    assert.equal(noteColumns.includes('priority'), true)
+    const upgradedNote = database.saveNote({ name: 'Upgraded note', body: 'kept' })
+    assert.equal(upgradedNote.color, 'default')
+    assert.equal(upgradedNote.priority, 0)
+    assert.equal(database.db.pragma('user_version', { simple: true }), 7)
   } finally {
     database?.close()
     fs.rmSync(directory, { recursive: true, force: true })
@@ -500,4 +508,44 @@ test('keeps plaintext intact after a failed migration and retries with an existi
     const database = new AppDatabase(directory, vault)
     try { assert.equal(database.db.prepare('SELECT value FROM legacy_probe').pluck().get(), 'retry-succeeded') } finally { database.close() }
   } finally { fs.rmSync(directory, { recursive: true, force: true }) }
+})
+
+test('notes carry a pin, a colour, and a priority, and come back in that order', () => {
+  const { database, cleanup } = fixture()
+  try {
+    const plain = database.saveNote({ name: 'Plain' })
+    assert.equal(plain.pinned, 0)
+    assert.equal(plain.color, 'default')
+    assert.equal(plain.priority, 0)
+
+    const urgent = database.saveNote({ name: 'Urgent', color: 'red', priority: 2 })
+    assert.equal(urgent.color, 'red')
+    assert.equal(urgent.priority, 2)
+
+    // An unknown colour and an out-of-range priority must be corrected rather
+    // than stored, otherwise the page would have nothing to render them with.
+    const sanitised = database.saveNote({ name: 'Odd', color: 'chartreuse', priority: 99 })
+    assert.equal(sanitised.color, 'default')
+    assert.equal(sanitised.priority, 2)
+    const negative = database.saveNote({ name: 'Negative', priority: -5 })
+    assert.equal(negative.priority, 0)
+
+    // Pinned notes lead, then higher priority, regardless of when each was
+    // written. Distinct priorities are used here so the assertion does not
+    // depend on how two notes saved in the same second are tie-broken.
+    database.saveNote({ id: plain.id, name: 'Plain', pinned: true, priority: 0 })
+    database.saveNote({ id: sanitised.id, name: 'Odd', priority: 1 })
+    const order = database.listNotes().map((note) => note.name)
+    assert.equal(order[0], 'Plain')          // pinned wins outright
+    assert.equal(order[1], 'Urgent')         // priority 2
+    assert.equal(order[2], 'Odd')            // priority 1
+    assert.equal(order[3], 'Negative')       // priority 0
+
+    // Editing keeps the colour and priority that were passed back in.
+    const edited = database.saveNote({ id: urgent.id, name: 'Urgent', color: 'blue', priority: 1 })
+    assert.equal(edited.color, 'blue')
+    assert.equal(edited.priority, 1)
+  } finally {
+    cleanup()
+  }
 })

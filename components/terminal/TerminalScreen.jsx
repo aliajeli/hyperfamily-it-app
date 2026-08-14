@@ -152,17 +152,28 @@ export default function TerminalScreen({
     setFollowTail(true)
   }, [send, trackInput])
 
-  /** Replaces the word being typed with `word`, using backspaces the device understands. */
-  const applyCompletion = useCallback((word) => {
+  /**
+   * Replaces the word being typed with `word`, using backspaces the device
+   * understands.
+   *
+   * `whole` marks the completion as a finished command rather than a partial
+   * prefix. Finished commands are followed by a space so the caret is already
+   * positioned for the next argument, which is what the shell itself does and
+   * saves reaching for the spacebar after every pick. A partial prefix (the
+   * longest common stem of several candidates) must not get one, because the
+   * word is still being typed.
+   */
+  const applyCompletion = useCallback((word, whole = true) => {
     const typed = currentWord(inputRef.current)
     const suffix = word.slice(typed.length)
+    const trailing = whole ? ' ' : ''
     if (word.slice(0, typed.length).toLowerCase() !== typed.toLowerCase()) {
       // Case differs or the pick is unrelated: rewrite the whole word.
       transmit('\u007f'.repeat(typed.length))
-      transmit(word)
+      transmit(word + trailing)
       return
     }
-    if (suffix) transmit(suffix)
+    if (suffix || trailing) transmit(suffix + trailing)
   }, [transmit])
 
   const onKeyDown = (event) => {
@@ -207,7 +218,7 @@ export default function TerminalScreen({
       if (!items.length) { transmit('\t'); return }
       if (items.length === 1) { applyCompletion(items[0]); return }
       const shared = commonPrefix(items)
-      if (shared.length > prefix.length) { applyCompletion(shared); return }
+      if (shared.length > prefix.length) { applyCompletion(shared, false); return }
       setPicker({ items: items.slice(0, 200), index: 0, prefix })
       return
     }
