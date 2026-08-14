@@ -18,13 +18,37 @@ const technologies = [
 
 const REPO = 'https://github.com/aliajeli/hyperfamily-it-app'
 
+/** 183807865 -> "175.3 MB". Sizes are shown in the units users recognise. */
+function formatBytes(bytes) {
+  const value = Number(bytes)
+  if (!Number.isFinite(value) || value <= 0) return '—'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let index = 0
+  let size = value
+  while (size >= 1024 && index < units.length - 1) { size /= 1024; index += 1 }
+  return `${size.toFixed(index === 0 ? 0 : size >= 100 ? 0 : 1)} ${units[index]}`
+}
+
+/** 95 -> "1m 35s", used for the estimated time remaining. */
+function formatDuration(seconds) {
+  const value = Number(seconds)
+  if (!Number.isFinite(value) || value <= 0) return null
+  if (value < 60) return `${Math.round(value)}s`
+  const minutes = Math.floor(value / 60)
+  const rest = Math.round(value % 60)
+  if (minutes < 60) return rest ? `${minutes}m ${rest}s` : `${minutes}m`
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+}
+
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.4', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.5', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
   const [downloading, setDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
+  // Live transfer figures: how much has arrived, how much is left, how fast.
+  const [transfer, setTransfer] = useState({ transferred: 0, total: 0, remaining: 0, bytesPerSecond: 0, etaSeconds: null })
   const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
@@ -38,17 +62,40 @@ export default function AboutPage() {
       setDownloading(Boolean(state.downloading))
       setDownloaded(Boolean(state.downloaded))
       setProgress(Number(state.percent) || 0)
+      setTransfer({
+        transferred: Number(state.transferred) || 0,
+        total: Number(state.total) || 0,
+        remaining: Number(state.remaining) || 0,
+        bytesPerSecond: Number(state.bytesPerSecond) || 0,
+        etaSeconds: state.etaSeconds ?? null
+      })
     }).catch(() => {})
 
     const unsubscribe = api.update.subscribe((event) => {
-      if (event.type === 'progress') { setDownloading(true); setProgress(Math.round(event.percent || 0)) }
+      if (event.type === 'progress') {
+        setDownloading(true)
+        setProgress(Math.round(event.percent || 0))
+        setTransfer({
+          transferred: Number(event.transferred) || 0,
+          total: Number(event.total) || 0,
+          remaining: Number(event.remaining) || 0,
+          bytesPerSecond: Number(event.bytesPerSecond) || 0,
+          etaSeconds: event.etaSeconds ?? null
+        })
+      }
       if (event.type === 'downloaded') {
         setDownloading(false)
         setDownloaded(true)
         setProgress(100)
+        setTransfer((current) => ({ ...current, transferred: event.total || current.total, remaining: 0, bytesPerSecond: 0, etaSeconds: null }))
         toast.success('Update downloaded — press Install to restart on the new version')
       }
-      if (event.type === 'error') { setDownloading(false); setProgress(0); toast.error(event.message) }
+      if (event.type === 'error') {
+        setDownloading(false)
+        setProgress(0)
+        setTransfer({ transferred: 0, total: 0, remaining: 0, bytesPerSecond: 0, etaSeconds: null })
+        toast.error(event.message)
+      }
     })
     return () => unsubscribe?.()
   }, [])
@@ -154,15 +201,39 @@ export default function AboutPage() {
                     </span>
                   )}
                 </div>
+                {update?.hasUpdate && update.downloadSize > 0 && (
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[rgb(var(--muted))]" aria-label="Update download size">
+                    <HardDrive size={12} />
+                    Download size <b className="text-[rgb(var(--text))]">{formatBytes(update.downloadSize)}</b>
+                    {update.downloadName ? <span className="truncate opacity-70">· {update.downloadName}</span> : null}
+                  </p>
+                )}
                 {update && !update.hasUpdate && (
                   <p className="mt-2 flex items-center gap-1.5 text-[11px] status-online-text"><CheckCircle2 size={12} />You are running the latest version.</p>
                 )}
-                {(progress > 0 || downloaded) && (
-                  <div className="mt-3">
-                    <div className="mb-1 flex justify-between text-[9.5px]"><span>{downloaded ? 'Update ready to install' : 'Downloading update'}</span><b>{progress}%</b></div>
+                {(downloading || progress > 0 || downloaded) && (
+                  <div className="mt-3" aria-label="Update download progress">
+                    <div className="mb-1 flex justify-between text-[9.5px]">
+                      <span>{downloaded ? 'Update ready to install' : 'Downloading update'}</span>
+                      <b>{progress}%</b>
+                    </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-[rgb(var(--border))]">
                       <motion.div animate={{ width: `${progress}%` }} className="h-full bg-[rgb(var(--primary))]" />
                     </div>
+                    {transfer.total > 0 && (
+                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[10px] text-[rgb(var(--muted))]">
+                        <span>
+                          <b className="text-[rgb(var(--text))]">{formatBytes(transfer.transferred)}</b> of {formatBytes(transfer.total)}
+                          {!downloaded && transfer.remaining > 0 ? <> · {formatBytes(transfer.remaining)} left</> : null}
+                        </span>
+                        {!downloaded && (transfer.bytesPerSecond > 0 || transfer.etaSeconds) && (
+                          <span>
+                            {transfer.bytesPerSecond > 0 ? <b className="text-[rgb(var(--text))]">{formatBytes(transfer.bytesPerSecond)}/s</b> : null}
+                            {formatDuration(transfer.etaSeconds) ? <> · {formatDuration(transfer.etaSeconds)} remaining</> : null}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -174,7 +245,9 @@ export default function AboutPage() {
                 {update?.hasUpdate && !downloaded && (
                   <Button size="sm" onClick={download} disabled={downloading}>
                     {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-                    {downloading ? `Downloading ${progress}%` : `Download v${update.latestVersion}`}
+                    {downloading
+                      ? `Downloading ${progress}%`
+                      : `Download v${update.latestVersion}${update.downloadSize > 0 ? ` (${formatBytes(update.downloadSize)})` : ''}`}
                   </Button>
                 )}
                 {downloaded && (

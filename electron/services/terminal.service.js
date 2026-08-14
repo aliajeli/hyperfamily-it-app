@@ -1,4 +1,10 @@
 const net = require('node:net')
+const { installDhCompat } = require('./dh-compat')
+
+// Idempotent, and already done in main; repeated here so the SSH engine is
+// never loaded without the BoringSSL DH groups being restored first, whatever
+// the require order ends up being.
+installDhCompat()
 
 /**
  * The SSH engine is loaded on demand instead of at require time, so a broken

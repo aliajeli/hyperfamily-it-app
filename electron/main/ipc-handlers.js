@@ -119,6 +119,8 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('vpn:probe', secure(() => vpnService.probe()))
   ipcMain.handle('vpn:connect', secure((event, mode) => vpnService.connect(mode, sessions.get(event.sender.id).username)))
   ipcMain.handle('vpn:disconnect', secure((event) => vpnService.disconnect(sessions.get(event.sender.id).username)))
+  // Reports the untouched gateway reply so a misbehaving portal can be identified.
+  ipcMain.handle('vpn:diagnose', secure(() => vpnService.diagnose()))
   ipcMain.handle('update:check', secure(() => updateService.check()))
   // Lets the About page restore the Download/Install button after navigation.
   ipcMain.handle('update:state', secure(() => updateService.state()))

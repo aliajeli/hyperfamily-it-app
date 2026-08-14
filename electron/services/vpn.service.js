@@ -134,7 +134,8 @@ class VPNService {
   /* ------------------------------------------------------------------ in-app */
 
   /**
-   * Authenticates against the FortiGate SSL-VPN web portal with an HTTP POST.
+   * Performs the raw `/remote/logincheck` POST and resolves with everything the
+   * gateway said — status line, headers, cookies and body — without judging it.
    *
    * FortiGate portals answer this endpoint with a slightly malformed chunked
    * body (stray bytes around the chunk-size line), which Node's strict HTTP
@@ -146,8 +147,11 @@ class VPNService {
    *   - Anything the parser did hand over before failing is still evaluated:
    *     the SVPNCOOKIE arrives in the response headers, so a late body parse
    *     error must not throw away a login that already succeeded.
+   *
+   * Both the real login and the "Test & diagnose" button run through here, so
+   * what the user sees in the diagnostics is exactly what the login logic saw.
    */
-  portalLogin(profile) {
+  portalRequest(profile) {
     return new Promise((resolve, reject) => {
       const body = new URLSearchParams({
         ajax: '1',
@@ -181,66 +185,49 @@ class VPNService {
 
       let settled = false
       const chunks = []
-      let cookie = ''
-      let allCookies = []
+      const result = {
+        statusCode: 0,
+        statusMessage: '',
+        headers: {},
+        setCookie: [],
+        cookies: [],
+        cookie: '',
+        body: '',
+        transportError: ''
+      }
 
-      // FortiGate reports the *outcome* in the body, not in the cookie jar:
-      //   ret=1  -> credentials accepted (often with redir=... to the portal)
-      //   ret=0  -> credentials rejected
-      //   ret=2 / redir=/remote/twofactor -> a second factor is required
-      // The SVPNCOOKIE is frequently issued only on the follow-up redirect, and
-      // several FortiOS builds send a placeholder `SVPNCOOKIE=` on the login
-      // response itself. Treating "no cookie yet" as "wrong password" is what
-      // rejected valid credentials, so the body verdict now wins and the cookie
-      // is only a fallback signal.
-      const finish = (text) => {
+      const done = () => {
         if (settled) return
         settled = true
-        const bodyText = text || ''
-        const accepted = /(^|[^a-z])ret=1(\D|$)/i.test(bodyText)
-        const rejected = /(^|[^a-z])ret=0(\D|$)/i.test(bodyText)
-          || /permission_denied|login_failed|invalid.{0,20}(username|password|credential)/i.test(bodyText)
-        const twoFactor = /(^|[^a-z])ret=2(\D|$)/i.test(bodyText)
-          || /redir=(%2f|\/)remote(%2f|\/)twofactor|tokeninfo|fortitoken/i.test(bodyText)
-
-        if (twoFactor && !accepted) {
-          return reject(new Error('The gateway requires two-factor authentication; use the Global (FortiClient) mode'))
-        }
-        if (rejected && !accepted) {
-          return reject(new Error('The SSL VPN portal rejected the username or password'))
-        }
-        // Accepted, or an unparsable/empty body that still carried a session
-        // cookie — either way the portal did not say "no".
-        if (accepted || cookie) return resolve(cookie || allCookies.join('; '))
-        if (!bodyText.trim()) {
-          return reject(new Error('The VPN gateway returned an empty response. Check that the Remote Gateway host and port point at the SSL-VPN portal.'))
-        }
-        reject(new Error('The SSL VPN portal rejected the username or password'))
+        result.body = Buffer.concat(chunks).toString('utf8')
+        resolve(result)
       }
 
       request.on('response', (response) => {
-        const cookies = (response.headers['set-cookie'] || []).map((item) => item.split(';')[0])
+        result.statusCode = response.statusCode || 0
+        result.statusMessage = response.statusMessage || ''
+        result.headers = { ...response.headers }
+        result.setCookie = response.headers['set-cookie'] || []
         // Keep every non-empty cookie: some builds authenticate the proxy with
         // SVPNNETWORKCOOKIE / SVPNTMPCOOKIE alongside (or instead of) SVPNCOOKIE.
-        allCookies = cookies.filter((item) => {
-          const value = item.slice(item.indexOf('=') + 1).trim()
-          return value.length > 0
-        })
-        const svpn = allCookies.find((item) => item.startsWith('SVPNCOOKIE='))
-        if (svpn) cookie = svpn
+        result.cookies = result.setCookie
+          .map((item) => item.split(';')[0])
+          .filter((item) => item.slice(item.indexOf('=') + 1).trim().length > 0)
+        const svpn = result.cookies.find((item) => item.startsWith('SVPNCOOKIE='))
+        if (svpn) result.cookie = svpn
         response.on('data', (chunk) => chunks.push(chunk))
-        response.on('aborted', () => finish(Buffer.concat(chunks).toString('utf8')))
+        response.on('aborted', done)
         // A body-level parse error after the headers arrived is survivable.
-        response.on('error', () => finish(Buffer.concat(chunks).toString('utf8')))
-        response.on('end', () => finish(Buffer.concat(chunks).toString('utf8')))
+        response.on('error', (error) => { result.transportError = error.message; done() })
+        response.on('end', done)
       })
 
       request.on('timeout', () => request.destroy(new Error('The VPN gateway did not respond in time')))
       request.on('error', (error) => {
         if (settled) return
-        // The cookie already came in with the headers — the portal accepted the
-        // login and only its response framing was broken.
-        if (cookie) { settled = true; resolve(cookie); return }
+        result.transportError = error.message
+        // Headers already arrived — the response framing broke, not the login.
+        if (result.statusCode || result.cookies.length) return done()
         settled = true
         const message = /parse error/i.test(error.message)
           ? `${error.message} — the gateway sent a malformed reply. Check that the Remote Gateway host and port point at the SSL-VPN portal, or use the Global (FortiClient) mode.`
@@ -252,9 +239,117 @@ class VPNService {
     })
   }
 
-  async connectInApp(profile) {
-    this.portalCookie = await this.portalLogin(profile)
-    await this.startProxy(profile)
+  /**
+   * Turns a raw portal reply into a verdict.
+   *
+   * FortiGate reports the *outcome* in the body, not in the cookie jar:
+   *   ret=1  -> credentials accepted (often with redir=... to the portal)
+   *   ret=0  -> credentials rejected
+   *   ret=2 / redir=/remote/twofactor -> a second factor is required
+   *
+   * The rule is deliberately lenient: only an explicit rejection counts as bad
+   * credentials. FortiOS 7.6 builds answer HTTP 200 with no usable cookie and
+   * no `ret=` at all, and several builds send a placeholder `SVPNCOOKIE=` on
+   * the login response itself. Calling any of those "wrong password" is what
+   * blocked logins that were in fact valid, so an unrecognised reply is now
+   * treated as "probably fine, keep going" instead of a hard failure.
+   */
+  static verdict(reply) {
+    const text = reply.body || ''
+    const explicitAccept = /(^|[^a-z])ret=1(\D|$)/i.test(text)
+    const explicitReject = /(^|[^a-z])ret=0(\D|$)/i.test(text)
+      || /permission_denied|login_failed|invalid.{0,20}(username|password|credential)/i.test(text)
+    const twoFactor = /(^|[^a-z])ret=2(\D|$)/i.test(text)
+      || /redir=(%2f|\/)remote(%2f|\/)twofactor|tokeninfo|fortitoken/i.test(text)
+    const hasCookie = Boolean(reply.cookie || reply.cookies.length)
+
+    if (explicitReject && !explicitAccept) {
+      return { outcome: 'rejected', reason: 'The SSL VPN portal rejected the username or password' }
+    }
+    if (twoFactor && !explicitAccept) {
+      return { outcome: 'two_factor', reason: 'The gateway requires two-factor authentication; use the Global (FortiClient) mode' }
+    }
+    if (explicitAccept) return { outcome: 'accepted', reason: 'The gateway returned ret=1' }
+    if (hasCookie) return { outcome: 'accepted', reason: 'The gateway issued a session cookie' }
+    if (!text.trim() && !reply.statusCode) {
+      return { outcome: 'unreachable', reason: 'The VPN gateway returned an empty response. Check that the Remote Gateway host and port point at the SSL-VPN portal.' }
+    }
+    // Nothing conclusive either way: continue rather than block a valid login.
+    return { outcome: 'ambiguous', reason: 'The gateway did not report a result; continuing with the connection' }
+  }
+
+  /**
+   * Runs a login attempt purely for reporting. Never throws for a rejected
+   * login — the point is to hand the user (and support) the untouched gateway
+   * reply so a misbehaving portal can be identified.
+   */
+  async diagnose() {
+    const settings = this.safeSettings()
+    const started = Date.now()
+    let profile
+    try {
+      profile = this.requireProfile(settings)
+    } catch (error) {
+      return {
+        ok: false,
+        stage: 'profile',
+        outcome: 'error',
+        reason: error.message,
+        durationMs: Date.now() - started
+      }
+    }
+
+    const target = `https://${profile.gateway}:${profile.port}/remote/logincheck`
+    try {
+      const reply = await this.portalRequest(profile)
+      const verdict = VPNService.verdict(reply)
+      const bodyText = reply.body || ''
+      return {
+        ok: verdict.outcome === 'accepted' || verdict.outcome === 'ambiguous',
+        stage: 'logincheck',
+        target,
+        username: profile.username,
+        realm: profile.realm || '(none)',
+        outcome: verdict.outcome,
+        reason: verdict.reason,
+        statusCode: reply.statusCode,
+        statusMessage: reply.statusMessage,
+        headers: reply.headers,
+        setCookie: reply.setCookie,
+        cookieNames: reply.cookies.map((item) => item.slice(0, item.indexOf('='))),
+        bodyLength: bodyText.length,
+        // Excerpt only: the body can be a full HTML portal page.
+        bodyExcerpt: bodyText.slice(0, 2000),
+        transportError: reply.transportError,
+        durationMs: Date.now() - started
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        stage: 'transport',
+        target,
+        username: profile.username,
+        realm: profile.realm || '(none)',
+        outcome: 'error',
+        reason: error.message,
+        durationMs: Date.now() - started
+      }
+    }
+  }
+
+  /**
+   * Authenticates against the FortiGate SSL-VPN web portal with an HTTP POST
+   * and resolves with the cookie string the proxy should present.
+   */
+  async portalLogin(profile) {
+    const reply = await this.portalRequest(profile)
+    const verdict = VPNService.verdict(reply)
+    if (verdict.outcome === 'rejected' || verdict.outcome === 'two_factor' || verdict.outcome === 'unreachable') {
+      const error = new Error(verdict.reason)
+      error.diagnosable = true
+      throw error
+    }
+    return reply.cookie || reply.cookies.join('; ')
   }
 
   /**

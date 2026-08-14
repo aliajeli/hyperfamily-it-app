@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     probe: () => invoke('vpn:probe'),
     connect: (mode) => invoke('vpn:connect', mode),
     disconnect: () => invoke('vpn:disconnect'),
+    diagnose: () => invoke('vpn:diagnose'),
     subscribe: (callback) => subscribe('vpn:status', callback)
   },
   update: {

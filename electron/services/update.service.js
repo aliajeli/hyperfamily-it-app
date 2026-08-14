@@ -28,7 +28,7 @@ const REQUEST_HEADERS = { 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: 'a
 class UpdateService {
   constructor(sendEvent) {
     this.sendEvent = sendEvent
-    this.status = { downloading: false, downloaded: false, percent: 0, version: null, viaFallback: false }
+    this.status = { ...UpdateService.idleStatus() }
     this.installerPath = null
 
     autoUpdater.autoDownload = false
@@ -50,9 +50,12 @@ class UpdateService {
     autoUpdater.removeAllListeners('error')
 
     autoUpdater.on('download-progress', (progress) => {
-      this.status.downloading = true
-      this.status.percent = Math.max(0, Math.min(100, Math.round(progress.percent || 0)))
-      this.emit({ type: 'progress', percent: this.status.percent, transferred: progress.transferred, total: progress.total })
+      this.reportProgress({
+        transferred: progress.transferred || 0,
+        total: progress.total || 0,
+        // electron-updater measures the rate itself; trust it when present.
+        bytesPerSecond: progress.bytesPerSecond
+      })
     })
     autoUpdater.on('update-downloaded', (info) => {
       this.markDownloaded(info?.version || null, autoUpdater.downloadedUpdateHelper?.file || null, false)
@@ -62,14 +65,94 @@ class UpdateService {
     autoUpdater.on('error', (error) => { this.lastUpdaterError = error })
   }
 
+  /** The shape every idle/reset status uses, so no field can go missing. */
+  static idleStatus() {
+    return {
+      downloading: false,
+      downloaded: false,
+      percent: 0,
+      version: null,
+      viaFallback: false,
+      transferred: 0,
+      total: 0,
+      remaining: 0,
+      bytesPerSecond: 0,
+      etaSeconds: null
+    }
+  }
+
   emit(payload) {
     this.sendEvent('update:event', payload)
   }
 
+  /**
+   * Single place where download progress is turned into the numbers the About
+   * page shows: how much has arrived, how much is left, how fast it is going,
+   * and how long that implies.
+   *
+   * The rate is smoothed over a short window rather than measured chunk to
+   * chunk, because raw per-chunk timings jump around enough to make the
+   * on-screen speed unreadable.
+   */
+  reportProgress({ transferred, total, bytesPerSecond }) {
+    const now = Date.now()
+    if (!this.rateWindow || this.rateWindow.start > now) this.resetRate(transferred, now)
+
+    let rate = Number(bytesPerSecond) || 0
+    if (!rate) {
+      const elapsed = (now - this.rateWindow.time) / 1000
+      if (elapsed >= 0.4) {
+        const instant = (transferred - this.rateWindow.bytes) / elapsed
+        // Exponential smoothing; first sample seeds the average outright.
+        rate = this.rateWindow.rate ? this.rateWindow.rate * 0.7 + instant * 0.3 : instant
+        this.rateWindow = { ...this.rateWindow, time: now, bytes: transferred, rate }
+      } else {
+        rate = this.rateWindow.rate
+      }
+    } else {
+      this.rateWindow = { ...this.rateWindow, time: now, bytes: transferred, rate }
+    }
+
+    const safeTotal = total > 0 ? total : 0
+    const remaining = safeTotal ? Math.max(0, safeTotal - transferred) : 0
+    this.status.downloading = true
+    this.status.percent = safeTotal
+      ? Math.max(0, Math.min(100, Math.round((transferred / safeTotal) * 100)))
+      : 0
+    this.status.transferred = transferred
+    this.status.total = safeTotal
+    this.status.remaining = remaining
+    this.status.bytesPerSecond = Math.max(0, Math.round(rate))
+    this.status.etaSeconds = rate > 1024 && remaining ? Math.round(remaining / rate) : null
+
+    this.emit({
+      type: 'progress',
+      percent: this.status.percent,
+      transferred,
+      total: safeTotal,
+      remaining,
+      bytesPerSecond: this.status.bytesPerSecond,
+      etaSeconds: this.status.etaSeconds
+    })
+  }
+
+  resetRate(bytes = 0, now = Date.now()) {
+    this.rateWindow = { start: now, time: now, bytes, rate: 0 }
+  }
+
   markDownloaded(version, installerPath, viaFallback) {
-    this.status = { downloading: false, downloaded: true, percent: 100, version, viaFallback }
+    const total = this.status.total || 0
+    this.status = {
+      ...UpdateService.idleStatus(),
+      downloaded: true,
+      percent: 100,
+      version,
+      viaFallback,
+      transferred: total,
+      total
+    }
     if (installerPath) this.installerPath = installerPath
-    this.emit({ type: 'downloaded', version, viaFallback })
+    this.emit({ type: 'downloaded', version, viaFallback, total })
   }
 
   /** Lets the UI restore the Download/Install button after a page change. */
@@ -105,6 +188,12 @@ class UpdateService {
       ? { url: installer.browser_download_url, name: installer.name, size: installer.size, version: latestVersion }
       : null
 
+    // Remember the size so the progress bar has a total even before the first
+    // byte arrives, and so the check result can advertise the download size.
+    if (installer?.size && !this.status.downloading && !this.status.downloaded) {
+      this.status.total = installer.size
+    }
+
     return {
       currentVersion,
       latestVersion,
@@ -112,6 +201,8 @@ class UpdateService {
       releaseNotes: notes,
       publishedAt: newest.item.published_at,
       downloadUrl: installer?.browser_download_url || newest.item.html_url || null,
+      downloadSize: installer?.size || 0,
+      downloadName: installer?.name || null,
       ...this.state()
     }
   }
@@ -121,9 +212,11 @@ class UpdateService {
     if (this.status.downloading) throw new Error('A download is already running')
     if (this.status.downloaded) return this.state()
 
-    this.status = { downloading: true, downloaded: false, percent: 0, version: null, viaFallback: false }
+    const knownTotal = this.latestInstaller?.size || this.status.total || 0
+    this.status = { ...UpdateService.idleStatus(), downloading: true, total: knownTotal, remaining: knownTotal }
+    this.resetRate(0)
     this.lastUpdaterError = null
-    this.emit({ type: 'progress', percent: 0 })
+    this.emit({ type: 'progress', percent: 0, transferred: 0, total: knownTotal, remaining: knownTotal, bytesPerSecond: 0, etaSeconds: null })
 
     try {
       const result = await this.downloadWithUpdater()
@@ -138,7 +231,7 @@ class UpdateService {
       await this.downloadFromGitHub()
       return this.state()
     } catch (error) {
-      this.status = { downloading: false, downloaded: false, percent: 0, version: null, viaFallback: false }
+      this.status = { ...UpdateService.idleStatus() }
       const detail = this.lastUpdaterError?.message ? ` (${this.lastUpdaterError.message})` : ''
       const message = `${error.message}${detail}`
       this.emit({ type: 'error', message })
@@ -182,18 +275,22 @@ class UpdateService {
     const handle = fs.createWriteStream(partial)
 
     let transferred = 0
-    let lastPercent = -1
+    let lastEmit = 0
+    this.status.total = total
+    this.resetRate(0)
     try {
       for await (const chunk of response.body) {
         transferred += chunk.length
         if (!handle.write(Buffer.from(chunk))) await new Promise((resolve) => handle.once('drain', resolve))
-        const percent = total ? Math.min(99, Math.round((transferred / total) * 100)) : 0
-        if (percent !== lastPercent) {
-          lastPercent = percent
-          this.status.percent = percent
-          this.emit({ type: 'progress', percent, transferred, total })
+        // Emit on a timer rather than per chunk: often enough for a smooth
+        // readout, rarely enough not to flood the IPC channel.
+        const now = Date.now()
+        if (now - lastEmit >= 250) {
+          lastEmit = now
+          this.reportProgress({ transferred, total })
         }
       }
+      this.reportProgress({ transferred, total })
       await new Promise((resolve, reject) => handle.end((error) => (error ? reject(error) : resolve())))
     } catch (error) {
       handle.destroy()
