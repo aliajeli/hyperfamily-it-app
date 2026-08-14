@@ -106,7 +106,7 @@ export default function TypographySettings({ settings, onSaved }) {
             const stack = fontStack(form[familyKey], catalogue)
 
             return (
-              <div key={group.id} className="grid items-center gap-3 rounded-xl border p-3 lg:grid-cols-[8rem_minmax(0,1fr)_13rem]">
+              <div key={group.id} className="grid items-center gap-3 rounded-xl border p-3 lg:grid-cols-[8rem_minmax(0,1fr)_16rem]">
                 <div>
                   <b className="text-xs">{group.label}</b>
                   <span className="mt-0.5 block text-[10px] leading-snug text-[rgb(var(--muted))]">{group.description}</span>
