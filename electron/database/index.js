@@ -7,6 +7,9 @@ const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
 const BRANCH_COLUMNS = ['name', 'code', 'warehouse_code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
 const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass'])
 const MAX_SWITCH_PORTS = 48
+// Colour names a note may carry. Stored as a name rather than a hex value so
+// each theme can render its own shade of it.
+const NOTE_COLORS = ['default', 'red', 'amber', 'green', 'blue', 'purple']
 
 function normalizeSwitchPorts(ports) {
   if (!Array.isArray(ports)) throw new Error('Switch ports must be provided as a list')
@@ -575,7 +578,9 @@ class AppDatabase {
   }
 
   listNotes() {
-    return this.db.prepare('SELECT id, name, body, pinned, created_at, updated_at FROM notes ORDER BY pinned DESC, updated_at DESC').all()
+    // Pinned first, then by priority, then by recency: the order the notes page
+    // renders in without needing to sort client-side.
+    return this.db.prepare('SELECT id, name, body, pinned, color, priority, created_at, updated_at FROM notes ORDER BY pinned DESC, priority DESC, updated_at DESC').all()
   }
 
   saveNote(payload = {}, actor = 'System') {
@@ -583,13 +588,18 @@ class AppDatabase {
     if (!name) throw new Error('A note needs a name')
     const body = typeof payload.body === 'string' ? payload.body : ''
     const pinned = payload.pinned ? 1 : 0
+    // Unknown colours fall back to neutral and priority is clamped to the
+    // three defined levels, so a malformed payload can never write a value the
+    // interface has no rendering for.
+    const color = NOTE_COLORS.includes(payload.color) ? payload.color : 'default'
+    const priority = Math.min(2, Math.max(0, Number.parseInt(payload.priority, 10) || 0))
     if (payload.id) {
-      this.db.prepare('UPDATE notes SET name = ?, body = ?, pinned = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-        .run(name, body, pinned, Number(payload.id))
+      this.db.prepare('UPDATE notes SET name = ?, body = ?, pinned = ?, color = ?, priority = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(name, body, pinned, color, priority, Number(payload.id))
       this.audit(actor, 'NOTE_UPDATE', name, `Note ${payload.id}`)
       return this.db.prepare('SELECT * FROM notes WHERE id = ?').get(Number(payload.id))
     }
-    const info = this.db.prepare('INSERT INTO notes (name, body, pinned) VALUES (?, ?, ?)').run(name, body, pinned)
+    const info = this.db.prepare('INSERT INTO notes (name, body, pinned, color, priority) VALUES (?, ?, ?, ?, ?)').run(name, body, pinned, color, priority)
     this.audit(actor, 'NOTE_CREATE', name, `Note ${info.lastInsertRowid}`)
     return this.db.prepare('SELECT * FROM notes WHERE id = ?').get(info.lastInsertRowid)
   }

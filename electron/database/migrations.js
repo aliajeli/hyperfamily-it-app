@@ -191,11 +191,13 @@ function runMigrations(db, adminHash) {
       name TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
       pinned INTEGER NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT 'default',
+      priority INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, priority DESC, updated_at DESC);
 
     CREATE TABLE IF NOT EXISTS terminal_snippets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -215,6 +217,14 @@ function runMigrations(db, adminHash) {
   if (!hasColumn(db, 'devices', 'protocol')) db.exec("ALTER TABLE devices ADD COLUMN protocol TEXT DEFAULT 'https'")
   if (!hasColumn(db, 'devices', 'serial_number')) db.exec('ALTER TABLE devices ADD COLUMN serial_number TEXT')
   if (!hasColumn(db, 'branches', 'warehouse_code')) db.exec('ALTER TABLE branches ADD COLUMN warehouse_code TEXT')
+
+  // Notes gained a colour and a priority level in 2.1.0. Existing notes take
+  // the neutral colour and the ordinary priority, so nothing already written
+  // changes appearance or position until it is edited.
+  if (!hasColumn(db, 'notes', 'color')) db.exec("ALTER TABLE notes ADD COLUMN color TEXT NOT NULL DEFAULT 'default'")
+  if (!hasColumn(db, 'notes', 'priority')) db.exec('ALTER TABLE notes ADD COLUMN priority INTEGER NOT NULL DEFAULT 0')
+  db.exec('DROP INDEX IF EXISTS idx_notes_updated')
+  db.exec('CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, priority DESC, updated_at DESC)')
   db.exec(`
     UPDATE branches
     SET warehouse_code = 'LEGACY-' || code
@@ -285,7 +295,7 @@ function runMigrations(db, adminHash) {
     seedSnippets()
   }
 
-  db.pragma('user_version = 6')
+  db.pragma('user_version = 7')
 }
 
 module.exports = { runMigrations, DEVICE_COLUMNS }
