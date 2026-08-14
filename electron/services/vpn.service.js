@@ -2,7 +2,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 const http = require('node:http')
 const https = require('node:https')
-const net = require('node:net')
+const tls = require('node:tls')
+const os = require('node:os')
 const { execFile, spawn } = require('node:child_process')
 const { URL } = require('node:url')
 
@@ -31,6 +32,9 @@ const FORTICLIENT_CANDIDATES = [
 
 const FORTICLIENT_DOWNLOAD = 'https://www.fortinet.com/support/product-downloads#vpn'
 
+/** How long the Global mode waits for the user to finish signing in. */
+const GLOBAL_TUNNEL_TIMEOUT_MS = 90000
+
 function findFortiClient(configuredPath) {
   const candidates = [configuredPath, ...FORTICLIENT_CANDIDATES].filter(Boolean)
   return candidates.find((candidate) => {
@@ -53,6 +57,8 @@ class VPNService {
     this.stats = { requests: 0, bytes: 0, since: null }
     this.healthTimer = null
     this.forticlientRunning = false
+    this.serviceRunning = false
+    this.tunnelUp = false
     this.lastLive = false
   }
 
@@ -74,6 +80,8 @@ class VPNService {
       gateway: this.gateway,
       stats: this.stats,
       live: this.isLive(),
+      serviceRunning: this.serviceRunning,
+      tunnelUp: this.tunnelUp,
       forticlientInstalled: this.isForticlientInstalled()
     }
   }
@@ -88,7 +96,11 @@ class VPNService {
    */
   isLive() {
     if (this.mode === 'in_app') return Boolean(this.proxy && this.proxy.listening)
-    if (this.mode === 'global') return this.forticlientRunning
+    // Global mode is live only when a real tunnel exists. Launching (or merely
+    // installing) FortiClient is NOT a connection: its tray app and background
+    // service run permanently on a healthy Windows box, so neither can be used
+    // as the indicator. A routable virtual adapter is the honest signal.
+    if (this.mode === 'global') return this.tunnelUp
     return false
   }
 
@@ -113,24 +125,37 @@ class VPNService {
 
   async refreshHealth() {
     if (this.state === 'connecting') return
-    if (this.mode === 'global') this.forticlientRunning = await VPNService.isForticlientProcessRunning()
+
+    // The real tunnel is probed every tick regardless of the mode we think we
+    // are in, so a tunnel raised or dropped in FortiClient itself is reflected
+    // in the indicator within one second either way.
+    const probe = await VPNService.detectGlobalTunnel()
+    this.serviceRunning = probe.serviceRunning
+    this.forticlientRunning = probe.serviceRunning
+    this.tunnelUp = probe.live
 
     const live = this.isLive()
     const claimsConnected = this.state.startsWith('connected')
 
-    // The tunnel died underneath us (proxy closed, FortiClient exited).
+    // The tunnel died underneath us (proxy closed, FortiClient disconnected).
     if (claimsConnected && !live) {
       const wasMode = this.mode
       this.portalCookie = ''
       this.gateway = null
       this.proxyPort = 0
-      this.emit('disconnected', null, wasMode === 'global' ? 'FortiClient is no longer running' : 'The tunnel closed')
+      if (wasMode === 'in_app') this.clearSessionProxy().catch(() => {})
+      this.emit('disconnected', null, wasMode === 'global'
+        ? 'The FortiClient tunnel is no longer connected'
+        : 'The tunnel closed')
       return
     }
 
-    // FortiClient was started outside the app while we were idle.
-    if (!claimsConnected && this.mode === 'global' && this.forticlientRunning) {
-      this.emit('connected_global', 'global')
+    // A tunnel was raised in FortiClient outside the app: adopt it, so the
+    // header turns green for a connection the user made themselves.
+    if (!claimsConnected && this.mode !== 'in_app' && probe.live) {
+      this.mode = 'global'
+      this.lastLive = true
+      this.emit('connected_global', 'global', 'FortiClient tunnel detected')
       return
     }
 
@@ -140,15 +165,96 @@ class VPNService {
     }
   }
 
-  /** Windows-only: is a FortiClient VPN tunnel process running? */
+  /* ------------------------------------------------- global tunnel detection */
+
+  /**
+   * Windows service names used by the FortiClient VPN family. The SSL-VPN
+   * daemon is the one that actually carries a tunnel; the others are the
+   * scheduler/tray helpers that ship with the full FortiClient suite.
+   */
+  static VPN_SERVICES = ['FortiSSLVPNdaemon', 'FA_Scheduler', 'FortiClient', 'FortiClientService']
+
+  /**
+   * Is the FortiClient VPN Windows service running?
+   *
+   * `sc query <name>` prints `STATE : 4  RUNNING` for a live service and exits
+   * non-zero (1060) when the service does not exist, so a missing service is
+   * simply "not running" rather than an error.
+   */
+  static queryService(name) {
+    return new Promise((resolve) => {
+      execFile('sc', ['query', name], { windowsHide: true, timeout: 4000 }, (error, stdout = '') => {
+        if (error && !stdout) return resolve(false)
+        resolve(/STATE\s+:\s*4\s*RUNNING/i.test(stdout))
+      })
+    })
+  }
+
+  /** True when any FortiClient VPN service reports RUNNING. */
+  static async isVpnServiceRunning() {
+    if (process.platform !== 'win32') return false
+    for (const name of VPNService.VPN_SERVICES) {
+      if (await VPNService.queryService(name)) return true
+    }
+    return false
+  }
+
+  /**
+   * True when a Fortinet virtual adapter currently holds a routable IPv4
+   * address — the only trustworthy proof that a tunnel is actually carrying
+   * traffic.
+   *
+   * This is what makes the indicator honest. The FortiClient service and tray
+   * process run permanently on a healthy Windows machine, so neither of them
+   * can distinguish "FortiClient is open" from "FortiClient is connected".
+   * The virtual adapter only receives an address once the tunnel is
+   * established, and loses it the moment the user disconnects.
+   */
+  static isTunnelAdapterUp() {
+    try {
+      const interfaces = os.networkInterfaces()
+      for (const [name, addresses] of Object.entries(interfaces)) {
+        if (!/forti|ppp|ssl.?vpn/i.test(name)) continue
+        for (const address of addresses || []) {
+          const family = address.family === 4 || address.family === 'IPv4'
+          if (!family || address.internal) continue
+          // 169.254.x.x is an APIPA self-assignment: the adapter is present
+          // but the tunnel never came up.
+          if (/^169\.254\./.test(address.address)) continue
+          if (address.address && address.address !== '0.0.0.0') return true
+        }
+      }
+    } catch {}
+    return false
+  }
+
+  /** Is a FortiClient VPN tunnel process running? (suite presence, not state) */
   static isForticlientProcessRunning() {
     if (process.platform !== 'win32') return Promise.resolve(false)
     return new Promise((resolve) => {
-      execFile('tasklist', ['/fo', 'csv', '/nh'], { windowsHide: true }, (error, stdout) => {
+      execFile('tasklist', ['/fo', 'csv', '/nh'], { windowsHide: true, timeout: 6000 }, (error, stdout) => {
         if (error) return resolve(false)
         resolve(/"(FortiSSLVPNdaemon|FortiClient|FortiTray|FortiSSLVPNclient)\.exe"/i.test(stdout))
       })
     })
+  }
+
+  /**
+   * Resolves the true global-mode tunnel state.
+   *
+   * A tunnel counts as up when the VPN service is running AND a Fortinet
+   * adapter holds a real address. The adapter alone is enough evidence, but
+   * requiring the service too keeps the reading stable while Windows tears a
+   * disconnected adapter down.
+   */
+  static async detectGlobalTunnel() {
+    if (process.platform !== 'win32') return { serviceRunning: false, adapterUp: false, live: false }
+    const [serviceRunning, processRunning] = await Promise.all([
+      VPNService.isVpnServiceRunning(),
+      VPNService.isForticlientProcessRunning()
+    ])
+    const adapterUp = VPNService.isTunnelAdapterUp()
+    return { serviceRunning: serviceRunning || processRunning, adapterUp, live: adapterUp }
   }
 
   isForticlientInstalled() {
@@ -444,6 +550,40 @@ class VPNService {
     const cookie = await this.portalLogin(profile)
     this.portalCookie = await this.completeHostCheck(profile, cookie)
     await this.startProxy(profile)
+    // Starting the proxy is only half the job: nothing reaches it until the
+    // Electron session is told to use it. Without this the tunnel reported
+    // "Connected" while every request still went out over the plain link.
+    await this.applySessionProxy()
+  }
+
+  /**
+   * Points Electron's network stack at the loopback proxy so the app's own
+   * traffic (device web UIs, iLO/NVR webviews, update checks) is carried by
+   * the tunnel. Loopback is excluded so the app can still talk to itself.
+   */
+  async applySessionProxy() {
+    if (!this.proxyPort) return
+    const electronSession = VPNService.electronSession()
+    if (!electronSession) return
+    await electronSession.setProxy({
+      proxyRules: `http=127.0.0.1:${this.proxyPort};https=127.0.0.1:${this.proxyPort}`,
+      proxyBypassRules: '<local>;127.0.0.1;localhost'
+    })
+  }
+
+  /** Restores direct networking when the in-app tunnel goes away. */
+  async clearSessionProxy() {
+    const electronSession = VPNService.electronSession()
+    if (!electronSession) return
+    await electronSession.setProxy({ mode: 'direct' }).catch(() => {})
+  }
+
+  /** The default Electron session, or null outside a packaged main process. */
+  static electronSession() {
+    try {
+      const { session } = require('electron')
+      return session?.defaultSession || null
+    } catch { return null }
   }
 
   /**
@@ -547,19 +687,30 @@ class VPNService {
         clientRequest.pipe(upstream)
       })
 
+      // CONNECT tunnels are relayed *through the gateway*, never opened
+      // straight to the target. Dialling the target directly is what made the
+      // in-app tunnel look connected while quietly carrying nothing: the
+      // socket succeeded only for hosts that were already reachable without
+      // the VPN, and branch equipment stayed unreachable.
       server.on('connect', (request, clientSocket, head) => {
         const [host, rawPort] = request.url.split(':')
         const port = Number(rawPort) || 443
-        const tunnel = net.connect({ host, port }, () => {
+        this.openGatewayTunnel(profile, host, port, (error, tunnel) => {
+          if (error || !tunnel) {
+            try { clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n') } catch {}
+            return
+          }
           clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
           if (head?.length) tunnel.write(head)
           this.stats.requests += 1
+          tunnel.on('data', (chunk) => { this.stats.bytes += chunk.length })
           tunnel.pipe(clientSocket)
           clientSocket.pipe(tunnel)
+          const drop = () => { try { tunnel.destroy() } catch {}; try { clientSocket.destroy() } catch {} }
+          tunnel.on('error', drop)
+          clientSocket.on('error', drop)
+          clientSocket.on('close', () => { try { tunnel.destroy() } catch {} })
         })
-        const fail = () => { try { clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n') } catch {} }
-        tunnel.on('error', fail)
-        clientSocket.on('error', () => tunnel.destroy())
       })
 
       server.on('error', (error) => reject(new Error(`Unable to start the in-app VPN proxy: ${error.message}`)))
@@ -569,6 +720,105 @@ class VPNService {
         resolve()
       })
     })
+  }
+
+
+  /**
+   * Opens a TCP relay to `host:port` through the FortiGate SSL-VPN gateway.
+   *
+   * The socket is established to the gateway over TLS and a CONNECT request is
+   * issued there with the portal session cookie, so the far end of the socket
+   * is the branch device as seen from inside the tunnel.
+   */
+  openGatewayTunnel(profile, host, port, callback) {
+    let settled = false
+    const done = (error, socket) => { if (!settled) { settled = true; callback(error, socket) } }
+
+    const socket = tls.connect({
+      host: profile.gateway,
+      port: profile.port,
+      rejectUnauthorized: false,
+      servername: profile.gateway
+    }, () => {
+      socket.write(
+        `CONNECT ${host}:${port} HTTP/1.1\r\n` +
+        `Host: ${host}:${port}\r\n` +
+        `User-Agent: HyperFamily-Branch-Monitor\r\n` +
+        (this.portalCookie ? `Cookie: ${this.portalCookie}\r\n` : '') +
+        'Proxy-Connection: Keep-Alive\r\n\r\n'
+      )
+    })
+
+    let banner = Buffer.alloc(0)
+    const onData = (chunk) => {
+      banner = Buffer.concat([banner, chunk])
+      const end = banner.indexOf('\r\n\r\n')
+      if (end === -1) {
+        if (banner.length > 65536) { socket.destroy(); done(new Error('Malformed gateway reply')) }
+        return
+      }
+      const head = banner.slice(0, end).toString('latin1')
+      socket.removeListener('data', onData)
+      if (!/^HTTP\/1\.[01]\s+2\d\d/.test(head)) {
+        socket.destroy()
+        return done(new Error(`Gateway refused the tunnel: ${head.split('\r\n')[0]}`))
+      }
+      const rest = banner.slice(end + 4)
+      if (rest.length) socket.unshift(rest)
+      done(null, socket)
+    }
+
+    socket.on('data', onData)
+    socket.setTimeout(20000, () => { socket.destroy(); done(new Error('The gateway tunnel timed out')) })
+    socket.on('error', (error) => done(error))
+    socket.on('close', () => done(new Error('The gateway closed the tunnel')))
+  }
+
+
+  /**
+   * Reachability probe for a device while the in-app tunnel is active.
+   *
+   * ICMP cannot be carried by an HTTP proxy, so the monitor would report every
+   * branch as offline the moment the in-app tunnel took over. Instead a TCP
+   * tunnel to a port the device is expected to answer on is opened through the
+   * gateway and timed; that round trip is a truthful reachability signal.
+   */
+  reachThroughTunnel(device) {
+    if (!this.isLive() || this.mode !== 'in_app') return Promise.resolve(null)
+    const profile = (() => {
+      try { return this.requireProfile(this.safeSettings()) } catch { return null }
+    })()
+    if (!profile) return Promise.resolve(null)
+
+    const port = Number(device.connection_port) || Number(device.port) || VPNService.probePort(device.device_type)
+    const started = Date.now()
+    return new Promise((resolve) => {
+      let done = false
+      const finish = (value) => { if (!done) { done = true; resolve(value) } }
+      const timer = setTimeout(() => finish({ status: 'offline', ping_time: null }), 5000)
+
+      this.openGatewayTunnel(profile, device.ip, port, (error, socket) => {
+        clearTimeout(timer)
+        if (socket) { try { socket.destroy() } catch {} }
+        if (error) return finish({ status: 'offline', ping_time: null })
+        const elapsed = Math.max(1, Date.now() - started)
+        finish({ status: elapsed <= 300 ? 'online' : 'warning', ping_time: elapsed })
+      })
+    })
+  }
+
+  /** A port the given device type is expected to be listening on. */
+  static probePort(deviceType) {
+    switch (deviceType) {
+      case 'Switch': return 22
+      case 'Router': return 8291
+      case 'iLO':
+      case 'NVR': return 443
+      case 'Server':
+      case 'Client':
+      case 'Checkout': return 3389
+      default: return 80
+    }
   }
 
   /* ------------------------------------------------------------------ global */
@@ -587,10 +837,31 @@ class VPNService {
     const child = spawn(executable, [], { detached: true, stdio: 'ignore', windowsHide: false, shell: false })
     child.unref()
     this.process = null
-    // Give the client a moment to appear in the process list so the health
-    // monitor does not immediately report the session as dead.
+
+    // Opening FortiClient is not the same as connecting through it. The user
+    // still has to press Connect in that window, so we wait for a real tunnel
+    // to appear instead of reporting success immediately — that false green
+    // light was the whole complaint about the Full VPN button.
+    const appeared = await this.waitForTunnel(GLOBAL_TUNNEL_TIMEOUT_MS)
+    if (!appeared) {
+      const error = new Error('FortiClient is open — finish signing in there. The indicator turns green as soon as the tunnel is up.')
+      error.code = 'FORTICLIENT_PENDING'
+      throw error
+    }
+    this.tunnelUp = true
+    this.serviceRunning = true
     this.forticlientRunning = true
-    setTimeout(() => { this.refreshHealth().catch(() => {}) }, 4000)
+  }
+
+  /** Polls for a real tunnel adapter, resolving true as soon as one appears. */
+  async waitForTunnel(timeoutMs) {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      const probe = await VPNService.detectGlobalTunnel()
+      if (probe.live) return true
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+    return false
   }
 
   /* -------------------------------------------------------------- disconnect */
@@ -602,6 +873,7 @@ class VPNService {
       this.proxy = null
       this.proxyPort = 0
     }
+    await this.clearSessionProxy()
     this.portalCookie = ''
 
     if (this.mode === 'global' && process.platform === 'win32') {
@@ -615,6 +887,8 @@ class VPNService {
     this.database.audit(actor, 'VPN_DISCONNECT', this.mode || 'unknown', 'VPN session disconnected')
     this.gateway = null
     this.forticlientRunning = false
+    this.serviceRunning = false
+    this.tunnelUp = false
     this.lastLive = false
     return this.emit('disconnected', null)
   }

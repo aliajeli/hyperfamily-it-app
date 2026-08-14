@@ -111,6 +111,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 ::-webkit-scrollbar-thumb { background: rgb(var(--muted) / .25); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
 
 @layer components {
+  /* ------------------------------------------------------------- app shell
+     The navigation rail, the header offset and the content margin are all
+     driven by the single --rail custom property set on .app-shell. Keeping
+     them on one variable (in rem, so it tracks the interface scale) is what
+     prevents the rail from overlapping page content at scales below 100 %.
+     Below the md breakpoint the rail is hidden, so no offset is applied. */
+  .app-shell { --rail: 14rem; }
+  .app-rail {
+    width: var(--rail);
+    transition: width .34s cubic-bezier(.22, 1, .36, 1);
+  }
+  .app-main,
+  .app-header { transition: margin-left .34s cubic-bezier(.22, 1, .36, 1), left .34s cubic-bezier(.22, 1, .36, 1); }
+  @media (min-width: 768px) {
+    .app-main { margin-left: var(--rail); }
+    .app-header { left: var(--rail); }
+  }
+  /* Nothing inside the shell may spill sideways past its own column. */
+  .app-main { min-width: 0; max-width: 100%; overflow-x: clip; }
+
   .glass {
     background: linear-gradient(145deg, rgb(var(--surface) / .84), rgb(var(--surface) / .64));
     backdrop-filter: blur(18px) saturate(135%);
@@ -278,6 +298,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .dialog-content[data-state='open'] { animation: dashboard-modal-in .4s cubic-bezier(.16, 1, .3, 1) both; }
 .dialog-content[data-state='closed'] { animation: dashboard-modal-out .18s ease-in both; }
 
+  /* Themed dropdown list. The panel springs open from the trigger edge and its
+     rows stagger in behind it, so the list reads as one connected surface
+     rather than a native menu pasted over the interface. */
+  .select-content[data-state='open'] { animation: select-in .26s cubic-bezier(.16, 1, .3, 1) both; transform-origin: var(--radix-select-content-transform-origin); }
+  .select-content[data-state='closed'] { animation: select-out .14s ease-in both; transform-origin: var(--radix-select-content-transform-origin); }
+  .select-content[data-state='open'] .select-item { animation: select-item-in .26s cubic-bezier(.16, 1, .3, 1) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .select-content[data-state='open'],
+    .select-content[data-state='open'] .select-item,
+    .select-content[data-state='closed'] { animation-duration: .01ms; }
+  }
+
 :root[data-color-mode='dark'] .branch-card:hover,
 :root[data-color-mode='dark'] .device-card:hover,
 :root[data-color-mode='dark'] .router-monitor-card:hover,
@@ -307,6 +340,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 @keyframes dashboard-side-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
 @keyframes dashboard-side-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
+
+@keyframes select-in {
+  from { opacity: 0; transform: scale(.94) translateY(-6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes select-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(.96); }
+}
+@keyframes select-item-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .recharts-cartesian-grid line { stroke: rgb(var(--border)); }
 .recharts-text { fill: rgb(var(--muted)); font-size: 10px; }

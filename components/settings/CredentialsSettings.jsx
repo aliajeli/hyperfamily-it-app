@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label, EmptyState, Select } from '@/components/ui'
 import { DEVICE_TYPES } from '@/lib/constants'
 import { getApi } from '@/lib/api'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 /**
  * Credential assignment, simplified.
@@ -17,6 +18,7 @@ import { getApi } from '@/lib/api'
  * never be lost by forgetting a button, and nothing else is ever touched.
  */
 export default function CredentialsSettings() {
+  const confirm = useConfirm()
   const [credentials, setCredentials] = useState([])
   const [rows, setRows] = useState([])
   const [typeDefaults, setTypeDefaults] = useState({})
@@ -71,7 +73,12 @@ export default function CredentialsSettings() {
   }
 
   const remove = async (credential) => {
-    if (!window.confirm(`Delete credential “${credential.name}”? Any device using it falls back to its device-type credential.`)) return
+    const ok = await confirm({
+      title: `Delete “${credential.name}”?`,
+      description: 'Any device using this credential falls back to its device-type credential.',
+      confirmLabel: 'Delete credential'
+    })
+    if (!ok) return
     try {
       await getApi().credentials.remove(credential.id)
       await load()

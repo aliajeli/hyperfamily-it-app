@@ -6,6 +6,8 @@ import { getApi } from '@/lib/api'
 import { applyTheme, readRememberedTheme } from '@/lib/themes'
 import { applyTypography, rememberTypography, readRememberedTypography } from '@/lib/typography'
 import { useSettingsStore } from '@/stores/settings.store'
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
+import InteractionGuard from './InteractionGuard'
 
 export default function AppProviders({ children }) {
   const setSettings = useSettingsStore((state) => state.setSettings)
@@ -37,5 +39,9 @@ export default function AppProviders({ children }) {
     return () => { alive = false; window.removeEventListener('hyperfamily:data-changed', reload) }
   }, [setSettings])
 
-  return <>{children}<Toaster richColors position="bottom-right" closeButton /></>
+  return <ConfirmProvider>
+    <InteractionGuard />
+    {children}
+    <Toaster richColors position="bottom-right" closeButton />
+  </ConfirmProvider>
 }

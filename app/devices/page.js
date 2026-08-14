@@ -11,9 +11,11 @@ import DeviceForm from '@/components/devices/DeviceForm'
 import DeviceList from '@/components/devices/DeviceList'
 import DeviceTypePicker from '@/components/devices/DeviceTypePicker'
 import { Button, Card, Dialog, Skeleton } from '@/components/ui'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { getApi } from '@/lib/api'
 
 function DevicesPageInner() {
+  const confirm = useConfirm()
   const [branches, setBranches] = useState([])
   const [devices, setDevices] = useState([])
   const [selectedBranchId, setSelectedBranchId] = useState(null)
@@ -89,7 +91,12 @@ function DevicesPageInner() {
   }
 
   const removeBranch = async (branch) => {
-    if (!window.confirm(`Delete ${branch.name} and all of its devices?`)) return
+    const ok = await confirm({
+      title: `Delete ${branch.name}?`,
+      description: 'The branch and every device recorded against it are permanently removed. This cannot be undone.',
+      confirmLabel: 'Delete branch'
+    })
+    if (!ok) return
     try {
       await getApi().branches.remove(branch.id)
       toast.success('Branch deleted')
@@ -98,7 +105,12 @@ function DevicesPageInner() {
   }
 
   const removeDevice = async (device) => {
-    if (!window.confirm(`Delete ${device.name || device.hostname || device.device_type} (${device.ip})?`)) return
+    const ok = await confirm({
+      title: `Delete ${device.name || device.hostname || device.device_type}?`,
+      description: `${device.ip} is removed from this branch along with its credential assignments.`,
+      confirmLabel: 'Delete device'
+    })
+    if (!ok) return
     try {
       await getApi().devices.remove(device.id)
       toast.success('Device deleted')
