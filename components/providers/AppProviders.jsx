@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { getApi } from '@/lib/api'
 import { applyTheme, readRememberedTheme } from '@/lib/themes'
+import { applyTypography, rememberTypography, readRememberedTypography } from '@/lib/typography'
 import { useSettingsStore } from '@/stores/settings.store'
 
 export default function AppProviders({ children }) {
@@ -19,10 +20,15 @@ export default function AppProviders({ children }) {
         // The saved setting wins, but a profile without one keeps whatever the
         // pre-paint boot script already restored instead of snapping back.
         applyTheme(settings.theme || readRememberedTheme() || 'aurora')
+        // Fonts and interface scale live in the same settings row; cache them
+        // so the next launch applies them before the first paint.
+        applyTypography(settings)
+        rememberTypography(settings)
       } catch {
-        // Before sign-in there is no database yet; the remembered id is all we
-        // have, and it is what the login screen is already painted with.
+        // Before sign-in there is no database yet; the remembered values are
+        // all we have, and they are what the login screen is painted with.
         applyTheme(readRememberedTheme() || 'aurora')
+        applyTypography(readRememberedTypography())
       }
     }
     load()

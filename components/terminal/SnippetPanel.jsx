@@ -82,7 +82,7 @@ export default function SnippetPanel({ snippets, onSave, onDelete, onRun, disabl
                 <div className="flex shrink-0 flex-col gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
                   <button type="button" onClick={() => onRun(snippet)} disabled={disabled} aria-label={`Run ${snippet.name}`} className="rounded-md p-1 text-[rgb(var(--muted))] hover:bg-[rgb(var(--primary)/.15)] hover:text-[rgb(var(--primary))] disabled:opacity-40"><Send size={12} /></button>
                   <button type="button" onClick={() => setDraft({ ...snippet, description: snippet.description || '' })} aria-label={`Edit ${snippet.name}`} className="rounded-md p-1 text-[rgb(var(--muted))] hover:bg-[rgb(var(--border))] hover:text-[rgb(var(--text))]"><Pencil size={12} /></button>
-                  <button type="button" onClick={() => onDelete(snippet)} aria-label={`Delete ${snippet.name}`} className="rounded-md p-1 text-[rgb(var(--muted))] hover:bg-[rgb(var(--danger)/.15)] hover:text-[rgb(var(--danger))]"><Trash2 size={12} /></button>
+                  <button type="button" onClick={() => onDelete(snippet)} aria-label={`Delete ${snippet.name}`} className="rounded-md p-1 text-[rgb(var(--muted))] hover:bg-nord-11/15 hover:text-nord-11"><Trash2 size={12} /></button>
                 </div>
               </div>
             </motion.div>

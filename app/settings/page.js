@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SlidersHorizontal, KeyRound, MonitorCog, TerminalSquare, Shield, Palette } from 'lucide-react'
+import { SlidersHorizontal, KeyRound, MonitorCog, TerminalSquare, Shield, Palette, Type } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import GeneralSettings from '@/components/settings/GeneralSettings'
@@ -10,6 +10,7 @@ import DeviceSettings from '@/components/settings/DeviceSettings'
 import TerminalSettings from '@/components/settings/TerminalSettings'
 import VPNSettings from '@/components/settings/VPNSettings'
 import ThemeSettings from '@/components/settings/ThemeSettings'
+import TypographySettings from '@/components/settings/TypographySettings'
 import { Card, Skeleton, Tabs, TabsContent } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import { DEFAULT_SETTINGS } from '@/lib/constants'
@@ -20,7 +21,8 @@ const tabs = [
   { value: 'devices', label: 'Device tools', icon: <MonitorCog size={14} /> },
   { value: 'terminal', label: 'Terminal & web', icon: <TerminalSquare size={14} /> },
   { value: 'vpn', label: 'VPN', icon: <Shield size={14} /> },
-  { value: 'theme', label: 'Theme', icon: <Palette size={14} /> }
+  { value: 'theme', label: 'Theme', icon: <Palette size={14} /> },
+  { value: 'typography', label: 'Fonts & scale', icon: <Type size={14} /> }
 ]
 
 export default function SettingsPage() {
@@ -38,7 +40,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-[1600px] space-y-3">
         <div>
           <h1 className="page-title">Application settings</h1>
-          <p className="page-subtitle">Security, monitoring intervals, device tools, terminal defaults, VPN profiles, and appearance.</p>
+          <p className="page-subtitle">Security, monitoring intervals, device tools, terminal defaults, VPN profiles, appearance, and typography.</p>
         </div>
 
         {!settings ? (
@@ -54,6 +56,7 @@ export default function SettingsPage() {
               <TabsContent value="terminal"><TerminalSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="vpn"><VPNSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="theme"><ThemeSettings settings={settings} onSaved={setSettings} /></TabsContent>
+              <TabsContent value="typography"><TypographySettings settings={settings} onSaved={setSettings} /></TabsContent>
             </Card>
           </Tabs>
         )}

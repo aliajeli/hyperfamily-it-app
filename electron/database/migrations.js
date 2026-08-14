@@ -246,10 +246,19 @@ function runMigrations(db, adminHash) {
     teamviewer_path: 'C:\\Program Files\\TeamViewer\\TeamViewer.exe', teamviewer_password: '',
     winbox_path: 'C:\\Program Files\\Winbox\\winbox64.exe', winbox_port: 8291,
     teamviewer_lan_mode: true,
-    vpn_gateway: '', vpn_port: 443, vpn_user: '', vpn_pass: '', vpn_realm: '', vpn_autoconnect: false,
+    vpn_gateway: '', vpn_port: 443, vpn_user: '', vpn_pass: '', vpn_autoconnect: false,
     forticlient_path: 'C:\\Program Files\\Fortinet\\FortiClient\\FortiClient.exe',
     terminal_font_size: 14, terminal_ssh_port: 22, terminal_telnet_port: 23,
-    webview_autologin: true
+    terminal_font_family: 'ui-monospace', terminal_syntax_highlight: true,
+    webview_autologin: true,
+    // Typography groups and the global interface scale. An empty family means
+    // "inherit the application default" so a fresh install looks unchanged.
+    ui_scale: 100,
+    font_header_family: '', font_header_size: 100,
+    font_title_family: '', font_title_size: 100,
+    font_text_family: '', font_text_size: 100,
+    font_info_family: '', font_info_size: 100,
+    font_mono_family: '', font_mono_size: 100
   }
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   const transaction = db.transaction(() => Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value))))
@@ -257,6 +266,10 @@ function runMigrations(db, adminHash) {
 
   // The in-app remote session (Guacamole) was removed in 2.0.1; drop its stored settings.
   db.exec("DELETE FROM settings WHERE key LIKE 'guacamole_%'")
+
+  // Realm and the pre-selected connection mode were removed in 2.0.6: the realm
+  // is never sent and the mode is chosen at connect time from the VPN button.
+  db.exec("DELETE FROM settings WHERE key IN ('vpn_realm', 'vpn_mode')")
 
   const snippetCount = db.prepare('SELECT COUNT(*) AS count FROM terminal_snippets').get().count
   if (!snippetCount) {
