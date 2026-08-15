@@ -34,6 +34,13 @@ class UpdateService {
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
     autoUpdater.disableWebInstaller = true
+    // Differential downloads are the whole point of the update flow: the
+    // installer is ~180 MB, but a release that only changes the renderer
+    // bundle transfers a few megabytes of changed blocks because
+    // electron-updater diffs the new .blockmap against the installed one.
+    // Keep this false, and never let a downgrade trigger a full re-download.
+    autoUpdater.disableDifferentialDownload = false
+    autoUpdater.allowDowngrade = false
     autoUpdater.logger = null
     // The installer is not code signed yet, so Authenticode verification would
     // reject every download with ERR_UPDATER_INVALID_SIGNATURE. Skip it until a
@@ -247,6 +254,9 @@ class UpdateService {
     try {
       const checkResult = await autoUpdater.checkForUpdates()
       if (!checkResult?.updateInfo) throw new Error('electron-updater found no update metadata')
+      // A differential pass writes only the changed blocks; if the blockmap is
+      // missing or unusable electron-updater silently falls back to the full
+      // file, so this stays a single call either way.
       const files = await autoUpdater.downloadUpdate(checkResult.cancellationToken)
       if (updaterError) throw updaterError
       const file = (Array.isArray(files) ? files.find((item) => String(item).toLowerCase().endsWith('.exe')) || files[0] : null) || null
@@ -346,6 +356,8 @@ class UpdateService {
 
     // "--updated" tells the electron-builder NSIS script this is an upgrade,
     // "/S" runs it without prompts, "--force-run" relaunches the app after.
+    // The one-click per-user NSIS target needs no elevation, so this whole
+    // sequence completes without a wizard or a UAC dialog.
     try {
       const child = spawn(installer, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: false })
       child.unref()

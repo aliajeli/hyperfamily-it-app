@@ -1,5 +1,5 @@
 /**
- * Item 8 regression suite: nothing may ever render above the VPN or
+ * Item 8 regression suite: nothing may ever render above the VPN control or
  * Notification panels.
  *
  * The check is done the way a user perceives it — by asking the browser which
@@ -104,35 +104,39 @@ const run = async () => {
     await page.close()
   }
 
-  // ---------- VPN panel ----------
+  // ---------- VPN control ----------
+  // v2.0.11 (item 13) replaced the VPN popup with a single toggle button, so
+  // the old ".vpn-popup" contract is gone. What still has to hold is that the
+  // control is one button, opens nothing, and is never painted over.
   {
     const page = await openPage(browser, '/devices/')
-    const vpn = page.locator('button[aria-label*="VPN"], button:has-text("VPN")').first()
-    await vpn.click({ timeout: 15000 }).catch(() => {})
+    const vpn = page.locator('[data-vpn-live]')
+    record('VPN control is a single button',
+      (await vpn.count()) === 1 && (await vpn.first().evaluate((n) => n.tagName)) === 'BUTTON')
+
+    await vpn.first().click({ timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(900)
-    const visible = await page.locator('.vpn-popup').isVisible().catch(() => false)
-    record('VPN panel opens', visible)
 
-    if (visible) {
-      const rest = await coverageBreaches(page, '.vpn-popup')
-      record('VPN panel: nothing covers it at rest', !rest.missing && rest.breaches.length === 0,
-        rest.missing ? 'panel not found' : JSON.stringify(rest.breaches.slice(0, 3)))
+    const popup = await page.evaluate(() =>
+      document.querySelectorAll('.vpn-popup, [role="menu"], [role="dialog"], [role="listbox"]').length)
+    record('VPN button opens no popup', popup === 0, `portalled layers=${popup}`)
 
-      const cards = page.locator('.directory-branch-card')
-      const n = Math.min(await cards.count(), 6)
-      let worst = []
-      for (let i = 0; i < n; i++) {
-        await cards.nth(i).hover({ force: true }).catch(() => {})
-        await page.waitForTimeout(220)
-        const r = await coverageBreaches(page, '.vpn-popup')
-        if (!r.missing && r.breaches.length) worst = worst.concat(r.breaches)
-      }
-      record(`VPN panel: survives hovering ${n} branch card(s)`, worst.length === 0,
-        worst.length ? JSON.stringify(worst.slice(0, 3)) : 'no element ever painted over the panel')
+    const rest = await coverageBreaches(page, '[data-vpn-live]')
+    record('VPN button: nothing covers it at rest', !rest.missing && rest.breaches.length === 0,
+      rest.missing ? 'control not found' : JSON.stringify(rest.breaches.slice(0, 3)))
 
-      const z = await page.evaluate(() => getComputedStyle(document.querySelector('.vpn-popup')).zIndex)
-      record('VPN panel z-index is the top layer', Number(z) >= 90, `z=${z}`)
+    const cards = page.locator('.directory-branch-card')
+    const n = Math.min(await cards.count(), 6)
+    let worst = []
+    for (let i = 0; i < n; i++) {
+      await cards.nth(i).hover({ force: true }).catch(() => {})
+      await page.waitForTimeout(220)
+      const r = await coverageBreaches(page, '[data-vpn-live]')
+      if (!r.missing && r.breaches.length) worst = worst.concat(r.breaches)
     }
+    record(`VPN button: survives hovering ${n} branch card(s)`, worst.length === 0,
+      worst.length ? JSON.stringify(worst.slice(0, 3)) : 'no element ever painted over the control')
+
     await page.close()
   }
 

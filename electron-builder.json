@@ -32,11 +32,14 @@
     "verifyUpdateCodeSignature": false
   },
   "nsis": {
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
+    "oneClick": true,
+    "perMachine": false,
+    "allowElevation": false,
+    "runAfterFinish": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "deleteAppDataOnUninstall": false,
+    "differentialPackage": true,
     "installerIcon": "public/electron/icon.ico",
     "uninstallerIcon": "public/electron/icon.ico"
   },

@@ -45,15 +45,15 @@ export default function TypographySettings({ settings, onSaved }) {
   const reset = () => setForm({ ...DEFAULTS })
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-2.5">
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base"><Type size={17} />Font groups</CardTitle>
-          <CardDescription className="text-xs">
-            Every piece of text in the app belongs to one of these five groups. Set a typeface and a relative size for each one.
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm"><Type size={15} />Font groups</CardTitle>
+          <CardDescription className="text-[11px]">
+            Every piece of text belongs to one of these five groups. Changes preview live; press Save to keep them.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2.5">
+        <CardContent className="space-y-1.5">
           {FONT_GROUPS.map((group) => {
             const catalogue = group.id === 'mono' ? MONO_FONTS : UI_FONTS
             const familyKey = `font_${group.id}_family`
@@ -62,39 +62,39 @@ export default function TypographySettings({ settings, onSaved }) {
             const stack = fontStack(form[familyKey], catalogue)
 
             return (
-              <div key={group.id} className="grid items-center gap-3 rounded-xl border p-3 lg:grid-cols-[8rem_minmax(0,1fr)_16rem]">
-                <div>
-                  <b className="text-xs">{group.label}</b>
-                  <span className="mt-0.5 block text-[10px] leading-snug text-[rgb(var(--muted))]">{group.description}</span>
+              <div key={group.id} className="grid items-center gap-2 rounded-lg border p-1.5 lg:grid-cols-[7rem_minmax(0,1fr)_15rem]">
+                <div className="min-w-0">
+                  <b className="text-[11px]">{group.label}</b>
+                  <span className="block truncate text-[9.5px] leading-snug text-[rgb(var(--muted))]" title={group.description}>{group.description}</span>
                 </div>
 
                 <div
-                  className="min-w-0 truncate rounded-lg bg-[rgb(var(--canvas))] px-3 py-2"
+                  className="min-w-0 truncate rounded-md bg-[rgb(var(--canvas))] px-2 py-1"
                   style={{ fontFamily: stack || undefined, fontSize: `${(group.id === 'mono' ? 12 : 14) * (size / 100)}px` }}
                   title={group.sample}
                 >
                   {group.sample}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <label className="min-w-0 flex-1">
-                    <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-[rgb(var(--muted))]">Typeface</span>
+                    <span className="sr-only">Typeface</span>
                     <Select
                       aria-label={`${group.label} font family`}
                       value={form[familyKey] || ''}
                       onChange={(event) => update(familyKey, event.target.value)}
-                      className="h-8 text-[11px]"
+                      className="h-7 text-[11px]"
                     >
                       {catalogue.map((font) => <option key={font.id || 'default'} value={font.id}>{font.label}</option>)}
                     </Select>
                   </label>
-                  <label className="w-20">
-                    <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-[rgb(var(--muted))]">Size</span>
+                  <label className="w-[4.5rem]">
+                    <span className="sr-only">Size</span>
                     <Select
                       aria-label={`${group.label} font size`}
                       value={String(size)}
                       onChange={(event) => update(sizeKey, Number(event.target.value))}
-                      className="h-8 text-[11px]"
+                      className="h-7 text-[11px]"
                     >
                       {Array.from({ length: (SCALE_MAX - SCALE_MIN) / SCALE_STEP + 1 }, (_, index) => SCALE_MIN + index * SCALE_STEP)
                         .map((value) => <option key={value} value={value}>{value}%</option>)}
@@ -107,9 +107,9 @@ export default function TypographySettings({ settings, onSaved }) {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={save} disabled={saving}><Save size={15} />{saving ? 'Saving…' : 'Save typography'}</Button>
-        <Button variant="ghost" onClick={reset} disabled={saving}><RotateCcw size={15} />Reset to defaults</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={save} disabled={saving}><Save size={14} />{saving ? 'Saving…' : 'Save typography'}</Button>
+        <Button size="sm" variant="ghost" onClick={reset} disabled={saving}><RotateCcw size={14} />Reset to defaults</Button>
       </div>
     </div>
   )

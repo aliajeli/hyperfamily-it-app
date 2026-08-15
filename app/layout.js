@@ -1,6 +1,6 @@
 import './globals.css'
 import AppProviders from '@/components/providers/AppProviders'
-import { THEMES, THEME_VARS, THEME_STORAGE_KEY } from '@/lib/themes'
+import { THEMES, THEME_VARS, THEME_STORAGE_KEY, CUSTOM_THEME_ID, CUSTOM_THEME_STORAGE_KEY } from '@/lib/themes'
 import { FONT_GROUPS, MONO_FONTS, TYPOGRAPHY_STORAGE_KEY, UI_FONTS } from '@/lib/typography'
 
 export const metadata = {
@@ -41,11 +41,23 @@ const BOOT_GROUPS = FONT_GROUPS.map((group) => ({ i: group.id, v: group.variable
 const BOOT_SCRIPT = `(function(){try{
 var T=${JSON.stringify(BOOT_THEMES)},K=${JSON.stringify(THEME_VARS)};
 var id=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
-var t=(id&&T[id])||T[${JSON.stringify(THEMES[0].id)}];
+var r=document.documentElement,t=null,name=id&&T[id]?id:${JSON.stringify(THEMES[0].id)};
+if(id===${JSON.stringify(CUSTOM_THEME_ID)}){
+/* The custom palette is not in the compiled table: read the mirrored copy and
+   derive its light/dark mode from the canvas luminance, exactly as
+   lib/themes.js does, so native scrollbars match from the very first paint. */
+var raw=localStorage.getItem(${JSON.stringify(CUSTOM_THEME_STORAGE_KEY)});
+if(raw){var c=JSON.parse(raw),v=[];
+for(var k=0;k<K.length;k++)v.push(c[K[k]]||T[${JSON.stringify(THEMES[0].id)}].v[k]);
+var p=String(c.canvas||'0 0 0').split(/\s+/).map(Number);
+var lum=function(x){x=(Number(x)||0)/255;return x<=0.03928?x/12.92:Math.pow((x+0.055)/1.055,2.4)};
+t={m:(0.2126*lum(p[0])+0.7152*lum(p[1])+0.0722*lum(p[2])>0.4)?'light':'dark',v:v};
+name=${JSON.stringify(CUSTOM_THEME_ID)};}
+}
+if(!t)t=(id&&T[id])||T[${JSON.stringify(THEMES[0].id)}];
 if(!t)return;
-var r=document.documentElement;
 for(var i=0;i<K.length;i++)r.style.setProperty('--'+K[i],t.v[i]);
-r.style.colorScheme=t.m;r.dataset.theme=id&&T[id]?id:${JSON.stringify(THEMES[0].id)};r.dataset.colorMode=t.m;
+r.style.colorScheme=t.m;r.dataset.theme=name;r.dataset.colorMode=t.m;
 }catch(e){}
 try{
 var F=${JSON.stringify(BOOT_FONTS)},G=${JSON.stringify(BOOT_GROUPS)};
