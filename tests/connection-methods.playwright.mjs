@@ -1,12 +1,12 @@
 /**
- * Connection-method matrix (Settings -> Connections).
+ * Connection-method settings (Settings -> Connections), master/detail edition.
  *
- * Asserts the per-device-type defaults required by the specification and the
- * three interactions the chip grid supports: enable, promote-to-default and
- * remove. The "last method cannot be removed" case matters most -- a device
- * type with zero connection methods would be unreachable from the UI. Since
- * v2.0.11 the matrix lives on its own "Connections" tab, so the suite also
- * asserts it is no longer rendered by "Device tools".
+ * Since v2.0.13 the device types live in a list on the left and picking one
+ * opens its connection methods on the right, so this suite selects each type
+ * before asserting its chips. It still covers the three interactions — enable,
+ * promote-to-default and remove — and the "last method cannot be removed"
+ * guard, plus the two layout requirements (no sideways scroll, one screen at
+ * 1366x768). The matrix must not be rendered by "Device tools" either.
  *
  * Usage: build, serve out/ on :3000, then
  *   node tests/connection-methods.playwright.mjs
@@ -25,31 +25,45 @@ await p.waitForTimeout(1200)
 await p.getByText('Device tools',{exact:true}).first().click()
 await p.waitForTimeout(2000)
 t('device tools no longer hosts the matrix',
-  (await p.locator('[aria-label$="is the default for Router"]').count())===0)
+  (await p.locator('[role="tablist"][aria-label="Device types"]').count())===0)
 
 await p.getByText('Connections',{exact:true}).first().click()
 await p.waitForTimeout(2500)
 
-// 1. spec defaults are the starred chip per type
+const pick = async (label) => {
+  await p.locator(`[aria-label="Edit connection methods for ${label}"]`).click()
+  await p.waitForTimeout(450)
+}
+
+// 1. the type list holds all ten types
+t('all ten device types are listed',
+  (await p.locator('[role="tablist"][aria-label="Device types"] [role="tab"]').count())===10)
+
+// 2. spec defaults are the starred chip per type
+const LABEL = {Router:'Router',AccessPoint:'Access Point',Switch:'Switch',iLO:'iLO',
+              NVR:'NVR',Server:'Server',Checkout:'Checkout',Client:'Client',
+              Scale:'Scale',POS:'POS'}
 const spec = {Router:'Winbox',AccessPoint:'Winbox',Switch:'Terminal',iLO:'Browser with auto sign-in',
               NVR:'Browser with auto sign-in',Server:'Remote Desktop',Checkout:'Remote Desktop',Client:'Remote Desktop',
               Scale:'External browser',POS:'TeamViewer'}
 for (const [type,label] of Object.entries(spec)) {
+  await pick(LABEL[type])
   const star = p.locator(`[aria-label="${label} is the default for ${type}"]`)
   t(`${type} defaults to ${label}`, await star.count()===1)
 }
 
-// 2. Client must offer BOTH Remote Desktop and TeamViewer per spec
+// 3. Client must offer BOTH Remote Desktop and TeamViewer per spec
+await pick('Client')
 t('Client offers TeamViewer as well',
   (await p.locator('[aria-label="Remove TeamViewer from Client"]').count())===1)
 
-// 3. promote TeamViewer to default for Client, star should move
+// 4. promote TeamViewer to default for Client, star should move
 await p.locator('[aria-label="Make TeamViewer the default for Client"]').click()
 await p.waitForTimeout(350)
 t('promoting TeamViewer moves the star',
   (await p.locator('[aria-label="TeamViewer is the default for Client"]').count())===1)
 
-// 4. enable a disabled method (Winbox on Client) then remove it again
+// 5. enable a disabled method (Winbox on Client) then remove it again
 await p.locator('[aria-label="Enable Winbox for Client"]').click()
 await p.waitForTimeout(300)
 const added = await p.locator('[aria-label="Remove Winbox from Client"]').count()===1
@@ -58,17 +72,17 @@ await p.waitForTimeout(300)
 const removed = await p.locator('[aria-label="Enable Winbox for Client"]').count()===1
 t('enable then remove round-trips', added && removed)
 
-// 5. last remaining method exposes no remove control (cannot reach zero)
+// 6. last remaining method exposes no remove control (cannot reach zero)
 await p.locator('[aria-label="Remove Remote Desktop from Client"]').click()
 await p.waitForTimeout(300)
 t('last method cannot be removed',
   (await p.locator('[aria-label="Remove TeamViewer from Client"]').count())===0)
 
-// 6. no sideways scroll on this tab
+// 7. no sideways scroll on this tab
 const v = await p.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}))
 t('connections tab does not scroll sideways', v.sw<=v.cw+1)
 
-// 7. the whole tab has to fit 1366x768 without vertical scrolling either
+// 8. the whole tab has to fit 1366x768 without vertical scrolling either
 const h = await p.evaluate(()=>({dh:document.documentElement.scrollHeight,wh:window.innerHeight}))
 t('connections tab fits one screen', h.dh<=h.wh+1)
 

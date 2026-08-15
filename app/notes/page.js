@@ -77,8 +77,14 @@ export default function NotesPage() {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle) return notes
-    return notes.filter((note) => `${note.name} ${note.body || ''}`.toLowerCase().includes(needle))
+    const rows = needle
+      ? notes.filter((note) => `${note.name} ${note.body || ''}`.toLowerCase().includes(needle))
+      : notes
+    // Pinned first, then the most urgent, then the most recently touched.
+    return [...rows].sort((a, b) =>
+      (Boolean(b.pinned) - Boolean(a.pinned))
+      || (Number(b.priority || 0) - Number(a.priority || 0))
+      || (new Date(b.updated_at || 0) - new Date(a.updated_at || 0)))
   }, [notes, query])
 
   const dirty = useMemo(() => {
@@ -160,11 +166,17 @@ export default function NotesPage() {
     <AppShell>
       <div className="flex h-[calc(100vh-7rem)] min-h-[560px] flex-col gap-3" onKeyDown={onKeyDown}>
         <header className="flex flex-wrap items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><NotebookPen size={20} /></span>
+          <span className="relative grid h-10 w-10 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]">
+            <NotebookPen size={20} />
+            <span aria-hidden className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[rgb(var(--primary))] ring-2 ring-[rgb(var(--surface))]" />
+          </span>
           <div>
             <h1 className="text-lg font-extrabold tracking-tight">Notes</h1>
             <p className="text-[11px] text-[rgb(var(--muted))]">Runbooks, VLAN plans and anything else worth keeping</p>
           </div>
+          <span className="hidden rounded-full border bg-[rgb(var(--surface)/.6)] px-2 py-0.5 text-[10px] font-bold text-[rgb(var(--muted))] sm:inline">
+            {loading ? '…' : `${notes.length} note${notes.length === 1 ? '' : 's'}`}
+          </span>
           <Button className="ml-auto" size="sm" onClick={startNew}><Plus size={14} /> New note</Button>
         </header>
 
@@ -185,26 +197,40 @@ export default function NotesPage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, height: 0 }}
+                    whileHover={{ y: -2 }}
                     type="button"
                     onClick={() => select(note)}
                     style={note.color && note.color !== 'default' && draft?.id !== note.id
                       ? { background: colorOf(note.color).tint, borderColor: colorOf(note.color).edge }
                       : undefined}
                     className={cn(
-                      'group relative w-full overflow-hidden rounded-xl border bg-[rgb(var(--canvas))] p-2.5 pl-3 text-left transition-all hover:-translate-y-0.5 hover:border-[rgb(var(--primary)/.55)] hover:shadow-sm',
-                      draft?.id === note.id && 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.08)]'
+                      'group relative w-full overflow-hidden rounded-xl border bg-[rgb(var(--canvas))] p-2.5 pl-3 text-left transition-all duration-200 hover:border-[rgb(var(--primary)/.55)] hover:shadow-md hover:shadow-black/5',
+                      draft?.id === note.id && 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.08)]',
+                      Boolean(note.pinned) && 'shadow-sm'
                     )}
                   >
                     {/* A colour is only useful if it can be spotted without reading. */}
                     {note.color && note.color !== 'default' && (
                       <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: colorOf(note.color).swatch }} />
                     )}
-                    <div className="flex items-center gap-1.5">
-                      {Boolean(note.pinned) && <Pin size={11} className="shrink-0 text-[rgb(var(--primary))]" />}
+                    {/* Pinned notes get a floating badge so they read at a glance. */}
+                    {Boolean(note.pinned) && (
+                      <span aria-hidden className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[rgb(var(--primary))] text-white shadow ring-2 ring-[rgb(var(--surface))]">
+                        <Pin size={10} fill="currentColor" />
+                      </span>
+                    )}
+                    <div className="flex items-center gap-1.5 pr-5">
                       {Number(note.priority) > 0 && (() => {
                         const level = priorityOf(note.priority)
                         const Icon = level.icon
-                        return <Icon size={11} className="shrink-0" style={{ color: level.tone }} aria-label={level.label} />
+                        return (
+                          <span
+                            className="flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5 text-[8.5px] font-extrabold uppercase"
+                            style={{ color: level.tone, background: 'rgb(var(--surface)/.85)' }}
+                          >
+                            <Icon size={9} /> {level.short}
+                          </span>
+                        )
                       })()}
                       <span className="min-w-0 flex-1 truncate text-[12px] font-extrabold">{note.name}</span>
                       <span
@@ -219,45 +245,71 @@ export default function NotesPage() {
                       </span>
                     </div>
                     <p className="mt-0.5 truncate text-[10px] text-[rgb(var(--muted))]">{preview(note.body)}</p>
-                    <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">{when(note.updated_at)}</p>
+                    <p className="mt-1 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
+                      <span className="h-1 w-1 rounded-full bg-[rgb(var(--border))]" />
+                      {when(note.updated_at)}
+                    </p>
                   </motion.button>
                 ))}
               </AnimatePresence>
 
               {!loading && !filtered.length && (
-                <p className="rounded-xl border border-dashed p-6 text-center text-[11px] text-[rgb(var(--muted))]">
-                  {notes.length ? 'No note matches that search.' : 'No notes yet.'}
-                </p>
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed p-6 text-center">
+                  <span className="grid h-12 w-12 place-items-center rounded-full bg-[rgb(var(--border)/.4)] text-[rgb(var(--muted))]">
+                    <NotebookPen size={20} />
+                  </span>
+                  <p className="text-[11px] font-bold">{notes.length ? 'No note matches that search' : 'No notes yet'}</p>
+                  <p className="text-[10px] text-[rgb(var(--muted))]">{notes.length ? 'Try a different keyword.' : 'Create the first one to start keeping track.'}</p>
+                </div>
               )}
             </div>
           </aside>
 
           {draft ? (
-            <section className="flex min-h-0 flex-col gap-2 rounded-2xl border bg-[rgb(var(--surface))] p-3">
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={nameRef}
-                  value={draft.name}
-                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                  placeholder="Note name"
-                  aria-label="Note name"
-                  className="flex-1 border-0 bg-transparent px-0 text-base font-extrabold shadow-none focus-visible:ring-0"
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={draft.id || 'new'}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="relative flex min-h-0 flex-col gap-2 overflow-hidden rounded-2xl border bg-[rgb(var(--surface))] p-3"
+              >
+                {/* The note's colour as a soft banner, so the editor matches the card. */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-0 h-0.5"
+                  style={{
+                    background: `linear-gradient(90deg, ${colorOf(draft.color || 'default').swatch}, transparent 80%)`,
+                    opacity: draft.color && draft.color !== 'default' ? 1 : 0.35
+                  }}
                 />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title={draft.pinned ? 'Unpin note' : 'Pin note'}
-                  aria-label={draft.pinned ? 'Unpin note' : 'Pin note'}
-                  aria-pressed={Boolean(draft.pinned)}
-                  className={cn(draft.pinned && 'text-[rgb(var(--primary))]')}
-                  onClick={() => (draft.id ? save({ pinned: draft.pinned ? 0 : 1 }) : setDraft({ ...draft, pinned: draft.pinned ? 0 : 1 }))}
-                >
-                  {draft.pinned ? <PinOff size={14} /> : <Pin size={14} />}
-                </Button>
-                <Button size="sm" onClick={() => save()} disabled={saving || !dirty}>
-                  <Save size={14} /> {saving ? 'Saving…' : 'Save'}
-                </Button>
-              </div>
+                <span aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[rgb(var(--primary)/.07)] blur-2xl" />
+
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={nameRef}
+                    value={draft.name}
+                    onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                    placeholder="Note name"
+                    aria-label="Note name"
+                    className="flex-1 border-0 bg-transparent px-0 text-base font-extrabold shadow-none focus-visible:ring-0"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title={draft.pinned ? 'Unpin note' : 'Pin note'}
+                    aria-label={draft.pinned ? 'Unpin note' : 'Pin note'}
+                    aria-pressed={Boolean(draft.pinned)}
+                    className={cn(draft.pinned && 'text-[rgb(var(--primary))]')}
+                    onClick={() => (draft.id ? save({ pinned: draft.pinned ? 0 : 1 }) : setDraft({ ...draft, pinned: draft.pinned ? 0 : 1 }))}
+                  >
+                    {draft.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                  </Button>
+                  <Button size="sm" onClick={() => save()} disabled={saving || !dirty}>
+                    <Save size={14} /> {saving ? 'Saving…' : 'Save'}
+                  </Button>
+                </div>
 
               {/* Colour and priority sit above the body: both describe the whole
                   note, and both are one click rather than a buried menu. */}
@@ -319,11 +371,19 @@ export default function NotesPage() {
               />
 
               <div className="flex items-center gap-2 px-1 text-[10px] text-[rgb(var(--muted))]">
-                <span>{(draft.body || '').length} characters</span>
-                {draft.updated_at && <span>· Updated {when(draft.updated_at)}</span>}
-                <span className="ml-auto">{dirty ? 'Unsaved changes — Ctrl+S to save' : 'All changes saved'}</span>
+                <span className="rounded-full bg-[rgb(var(--border)/.4)] px-2 py-0.5 font-semibold">{(draft.body || '').length} characters</span>
+                {draft.updated_at && <span className="hidden sm:inline">Updated {when(draft.updated_at)}</span>}
+                <span
+                  className={cn(
+                    'ml-auto rounded-full px-2 py-0.5 font-semibold',
+                    dirty ? 'bg-nord-13/20 text-[#8b6e1c]' : 'bg-nord-14/15 text-[#66834e]'
+                  )}
+                >
+                  {dirty ? 'Unsaved changes — Ctrl+S to save' : 'All changes saved'}
+                </span>
               </div>
-            </section>
+              </motion.section>
+            </AnimatePresence>
           ) : (
             <section className="grid place-items-center rounded-2xl border border-dashed bg-[rgb(var(--surface)/.5)]">
               <EmptyState

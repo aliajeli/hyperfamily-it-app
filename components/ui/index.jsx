@@ -188,12 +188,14 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
 export function Tabs({ value, onValueChange, tabs, children, className, listClassName }) {
   return (
     <TabsPrimitive.Root value={value} onValueChange={onValueChange} className={className}>
-      <TabsPrimitive.List className={cn('flex gap-1 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-1', listClassName || 'mb-3.5')}>
+      {/* Compact triggers (v2.0.13): the ten settings tabs fit one line at
+          1366×768 without the strip growing a horizontal scrollbar. */}
+      <TabsPrimitive.List className={cn('flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-0.5', listClassName || 'mb-3.5')}>
         {tabs.map((tab) => (
           <TabsPrimitive.Trigger
             key={tab.value}
             value={tab.value}
-            className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))] data-[state=active]:bg-[rgb(var(--primary))] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-[rgb(var(--primary)/.28)]"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-semibold text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))] data-[state=active]:bg-[rgb(var(--primary))] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-[rgb(var(--primary)/.28)]"
           >
             {tab.icon}{tab.label}
           </TabsPrimitive.Trigger>
