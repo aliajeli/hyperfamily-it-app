@@ -22,7 +22,10 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }) {
   return (
     <>
     <aside className="app-rail glass fixed inset-y-0 left-0 hidden flex-col border-y-0 border-l-0 md:flex">
-      <div className={cn('flex h-16 items-center gap-2.5 overflow-hidden border-b px-4', collapsed && 'justify-center px-2.5')}>
+      {/* The brand block shares the header's exact height (h-14) so its bottom
+          border — the sidebar's separator — sits on the same line as the
+          header's, one continuous rule across the top of the app (v2.0.15). */}
+      <div className={cn('flex h-14 items-center gap-2.5 overflow-hidden border-b px-4', collapsed && 'justify-center px-2.5')}>
         <motion.div whileHover={{ rotate: -5, scale: 1.06 }} transition={{ type: 'spring', stiffness: 350 }}><BrandMark className="h-9 w-9 shrink-0" /></motion.div>
         <AnimatePresence initial={false}>
           {!collapsed && <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} className="min-w-0"><div className="truncate font-extrabold tracking-[0.025em]">HyperFamily</div><div className="truncate text-[10px] font-bold uppercase tracking-[.18em] text-[rgb(var(--muted))]">Branch Monitor</div></motion.div>}

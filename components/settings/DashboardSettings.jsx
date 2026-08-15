@@ -50,7 +50,7 @@ function Choice({ selected, icon: Icon, title, description, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-xl border p-2.5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+      className={`group relative h-full overflow-hidden rounded-xl border p-2.5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
         selected
           ? 'border-[rgb(var(--primary)/.55)] bg-[rgb(var(--primary)/.09)] shadow-md shadow-black/5'
           : 'bg-[rgb(var(--surface)/.48)] hover:border-[rgb(var(--primary)/.3)] hover:bg-[rgb(var(--surface)/.8)]'
@@ -114,17 +114,19 @@ export default function DashboardSettings({ settings, onSaved }) {
       <CardContent className="p-3 pt-1.5">
         <form onSubmit={saveDashboard} className="space-y-2.5">
           <div className="grid gap-2.5 xl:grid-cols-2">
-            <fieldset className="min-w-0">
+            <fieldset className="flex min-w-0 flex-col">
               <legend className="field-label">Branch card density</legend>
-              <div className="grid gap-2 sm:grid-cols-2">
+              {/* auto-rows-fr + h-full make all four option cards the same
+                  height regardless of how long their descriptions wrap. */}
+              <div className="grid flex-1 auto-rows-fr gap-2 sm:grid-cols-2">
                 {branchModes.map((option) => (
                   <Choice key={option.value} {...option} selected={dashboard.dashboard_branch_mode === option.value} onClick={() => setDashboard({ ...dashboard, dashboard_branch_mode: option.value })} />
                 ))}
               </div>
             </fieldset>
-            <fieldset className="min-w-0">
+            <fieldset className="flex min-w-0 flex-col">
               <legend className="field-label">Equipment view style</legend>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid flex-1 auto-rows-fr gap-2 sm:grid-cols-2">
                 {detailViews.map((option) => (
                   <Choice key={option.value} {...option} selected={dashboard.dashboard_branch_details_view === option.value} onClick={() => setDashboard({ ...dashboard, dashboard_branch_details_view: option.value })} />
                 ))}

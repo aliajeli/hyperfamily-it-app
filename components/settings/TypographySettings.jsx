@@ -59,7 +59,7 @@ export default function TypographySettings({ settings, onSaved }) {
             const catalogue = group.id === 'mono' ? MONO_FONTS : UI_FONTS
             const familyKey = `font_${group.id}_family`
             const sizeKey = `font_${group.id}_size`
-            const size = normalizeScale(form[sizeKey])
+            const size = normalizeScale(form[sizeKey], group.id)
             const sizePx = pxForScale(group.id, size)
             // The Monospace group always shows its default (System Monospace)
             // in the dropdown, even on installs whose stored settings predate
