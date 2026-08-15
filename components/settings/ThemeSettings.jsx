@@ -25,6 +25,8 @@ import { getApi } from '@/lib/api'
 import { useSettingsStore } from '@/stores/settings.store'
 import { cn } from '@/lib/utils'
 
+const spring = { type: 'spring', stiffness: 550, damping: 30 }
+
 /**
  * Theme picker plus a full custom-palette editor.
  *
@@ -162,44 +164,54 @@ export default function ThemeSettings({ settings, onSaved }) {
         </div>
       </div>
 
-      {/* 41 palettes cannot fit a 768px screen at a readable size, so the
-          list scrolls inside its own bounded region: the settings page itself
-          never grows a scrollbar, which is the actual requirement. The cards
-          are deliberately short (v2.0.13) so far more palettes fit on screen. */}
-      <div className="scroll-y grid max-h-[62vh] gap-1 overflow-y-auto pr-0.5 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
+      {/* Square palette tiles (v2.0.14): each theme is one square card — a
+          2×2 swatch grid over the canvas colour, name underneath. 41 palettes
+          scroll inside their own bounded region so the settings page itself
+          never grows a scrollbar. */}
+      <div className="scroll-y grid max-h-[62vh] gap-2 overflow-y-auto pr-0.5 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
         {visible.map((theme) => {
           const selected = settings.theme === theme.id
           return (
             <motion.button
               key={theme.id}
               type="button"
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.985 }}
+              whileHover={{ y: -3 }}
+              whileTap={{ scale: 0.97 }}
               onClick={(event) => choose(theme, event)}
               disabled={busy === theme.id}
               className={cn(
-                'relative overflow-hidden rounded-lg border p-[3px] text-left transition',
+                'group relative flex aspect-square flex-col overflow-hidden rounded-xl border p-1 text-left transition-all duration-300',
                 selected
-                  ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.08)] shadow-md'
-                  : 'bg-[rgb(var(--surface)/.45)] hover:border-[rgb(var(--primary)/.4)] hover:bg-[rgb(var(--surface)/.8)]'
+                  ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.1)] shadow-lg shadow-[rgb(var(--primary)/.25)] ring-2 ring-[rgb(var(--primary)/.35)]'
+                  : 'bg-[rgb(var(--surface)/.45)] hover:border-[rgb(var(--primary)/.45)] hover:bg-[rgb(var(--surface)/.8)] hover:shadow-lg hover:shadow-black/5'
               )}
             >
-              {selected && <span className="absolute right-0.5 top-0.5 z-10 grid h-3 w-3 place-items-center rounded-full bg-[rgb(var(--primary))] text-white shadow"><Check size={7} strokeWidth={3} /></span>}
-              <div
-                className="mb-0.5 flex h-3 items-end gap-0.5 overflow-hidden rounded border p-[2px]"
+              {selected && (
+                <motion.span
+                  initial={{ scale: 0, rotate: -90 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={spring}
+                  className="absolute right-1 top-1 z-10 grid h-4 w-4 place-items-center rounded-full bg-[rgb(var(--primary))] text-white shadow"
+                >
+                  <Check size={9} strokeWidth={3} />
+                </motion.span>
+              )}
+              {/* The palette itself: four swatches over the canvas colour. */}
+              <span
+                className="grid flex-1 grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-lg border p-1"
                 style={{ background: `rgb(${theme.canvas})` }}
               >
-                <span className="h-full flex-1 rounded-sm" style={{ background: `rgb(${theme.surface})` }} />
-                <span className="h-2/3 w-1.5 rounded-sm" style={{ background: `rgb(${theme.primary})` }} />
-                <span className="h-1/2 w-1.5 rounded-sm" style={{ background: `rgb(${theme.secondary})` }} />
-                <span className="h-1/3 w-1.5 rounded-sm" style={{ background: `rgb(${theme.accent})` }} />
-              </div>
-              <div className="flex items-center gap-0.5">
-                <b className="min-w-0 truncate text-[9px]" title={theme.name}>{theme.name}</b>
-                <span className="ml-auto shrink-0 text-[rgb(var(--muted))]" title={`${theme.family} · ${theme.mode}`}>
+                <span className="rounded-[4px]" style={{ background: `rgb(${theme.surface})` }} />
+                <span className="rounded-[4px]" style={{ background: `rgb(${theme.primary})` }} />
+                <span className="rounded-[4px]" style={{ background: `rgb(${theme.secondary})` }} />
+                <span className="rounded-[4px]" style={{ background: `rgb(${theme.accent})` }} />
+              </span>
+              <span className="flex items-center gap-0.5 px-0.5 pb-0.5 pt-1">
+                <b className="min-w-0 flex-1 truncate text-[9px]" title={theme.name}>{theme.name}</b>
+                <span className="shrink-0 text-[rgb(var(--muted))]" title={`${theme.family} · ${theme.mode}`}>
                   {theme.mode === 'dark' ? <Moon size={7} /> : <Sun size={7} />}
                 </span>
-              </div>
+              </span>
             </motion.button>
           )
         })}
