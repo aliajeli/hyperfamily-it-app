@@ -27,6 +27,24 @@ const FORTICLIENT_CANDIDATES = [
   'C:\\Program Files (x86)\\Fortinet\\FortiClient\\FortiSSLVPNclient.exe'
 ]
 
+/**
+ * Every FortiClient flavour accepts a CLI disconnect, but under a different
+ * executable name per generation. All of them are tried until the tunnel
+ * actually drops (verified afterwards by polling the adapter):
+ *
+ *   FortiVPN.exe          -- 7.4+ / 8.x full suite   (--cli --disconnect)
+ *   FortiClient.exe       -- older full suites       (disconnect)
+ *   FortiSSLVPNclient.exe -- standalone SSL VPN      (disconnect)
+ */
+const DISCONNECT_COMMANDS = [
+  { exe: 'FortiVPN.exe', args: ['--cli', '--disconnect'] },
+  { exe: 'FortiClient.exe', args: ['disconnect'] },
+  { exe: 'FortiSSLVPNclient.exe', args: ['disconnect'] }
+]
+
+/** How long a disconnect may take before the app starts suspecting it. */
+const DISCONNECT_TUNNEL_TIMEOUT_MS = 12000
+
 const FORTICLIENT_DOWNLOAD = 'https://www.fortinet.com/support/product-downloads#vpn'
 
 /**
@@ -756,23 +774,73 @@ class VPNService {
 
   /* -------------------------------------------------------------- disconnect */
 
+  /**
+   * Drops the FortiClient tunnel.
+   *
+   * The bug this fixes (v2.0.12): the old code only issued the CLI disconnect
+   * when the *standalone* client (FortiSSLVPNclient.exe) was the one found on
+   * disk. With the full suite installed — the default forticlient_path points
+   * at FortiClient.exe — nothing was ever executed, yet the method still
+   * emitted `disconnected`, so the header flipped to "VPN off" while
+   * FortiClient happily kept the tunnel up.
+   *
+   * Now every generation of the client gets its own disconnect command, and
+   * the result is verified: the adapter is polled until it actually releases
+   * its address. Only then is the session reported as disconnected — if the
+   * tunnel is still up after every attempt, the state stays `connected_global`
+   * and the error is surfaced instead of lying about it.
+   */
   async disconnect(actor = 'Admin') {
-    this.stopHealthMonitor()
+    const modeBefore = this.mode || 'unknown'
 
-    if (this.mode === 'global' && process.platform === 'win32') {
+    if (process.platform === 'win32') {
       const settings = this.safeSettings()
-      const executable = findFortiClient(settings.forticlient_path)
-      if (executable && /fortisslvpnclient/i.test(path.basename(executable))) {
-        await new Promise((resolve) => execFile(executable, ['disconnect'], { windowsHide: true, timeout: 15000 }, () => resolve()))
+      const installed = findFortiClient(settings.forticlient_path)
+
+      // Directories to look in: the configured executable's folder plus the
+      // two standard FortiClient install roots.
+      const roots = [...new Set([
+        installed && path.dirname(installed),
+        ...FORTICLIENT_CANDIDATES.map((candidate) => path.dirname(candidate))
+      ].filter(Boolean))]
+
+      for (const command of DISCONNECT_COMMANDS) {
+        const executable = roots
+          .map((root) => path.join(root, command.exe))
+          .find((candidate) => { try { return fs.existsSync(candidate) } catch { return false } })
+        if (!executable) continue
+        await new Promise((resolve) => execFile(executable, command.args, { windowsHide: true, timeout: 15000 }, () => resolve()))
       }
     }
 
-    this.database.audit(actor, 'VPN_DISCONNECT', this.mode || 'unknown', 'VPN session disconnected')
+    // The CLI only *asks* FortiClient to drop the tunnel; the virtual adapter
+    // releases its address a moment later. Poll until that really happens —
+    // the health monitor keeps running meanwhile, so it would adopt or flag
+    // any state change we miss.
+    const deadline = Date.now() + DISCONNECT_TUNNEL_TIMEOUT_MS
+    let probe = await VPNService.detectGlobalTunnel(this.globalBaseline || null)
+    while (probe.live && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      probe = await VPNService.detectGlobalTunnel(this.globalBaseline || null)
+    }
+
+    // The tunnel is still carrying traffic. Claiming "disconnected" here is
+    // exactly the bug this method exists to prevent.
+    if (probe.live) {
+      const message = 'FortiClient did not drop the tunnel. Disconnect it inside the FortiClient window, or press the button again.'
+      this.database.audit(actor, 'VPN_DISCONNECT', modeBefore, message)
+      this.emit('connected_global', 'global', message)
+      throw new Error(message)
+    }
+
+    this.stopHealthMonitor()
+    this.database.audit(actor, 'VPN_DISCONNECT', modeBefore, 'VPN session disconnected')
     this.gateway = null
     this.forticlientRunning = false
     this.serviceRunning = false
     this.tunnelUp = false
     this.lastLive = false
+    this.globalBaseline = null
     return this.emit('disconnected', null)
   }
 

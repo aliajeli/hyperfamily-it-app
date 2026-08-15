@@ -97,7 +97,10 @@ export const Select = React.forwardRef(function Select({ className, children, va
         )}
         {...props}
       >
-        <SelectPrimitive.Value asChild><span className="truncate">{selected?.label ?? ''}</span></SelectPrimitive.Value>
+        {/* Radix renders `placeholder` (not children) while the value is '', so
+            an empty-valued option — like the typography "Default Font" — must
+            carry its label in both places to stay visible in the trigger. */}
+        <SelectPrimitive.Value placeholder={selected?.label ?? ''} asChild><span className="truncate">{selected?.label ?? ''}</span></SelectPrimitive.Value>
         <SelectPrimitive.Icon asChild>
           <ChevronDown size={15} className="shrink-0 text-[rgb(var(--muted))] transition-transform duration-300 group-data-[state=open]:rotate-180" />
         </SelectPrimitive.Icon>

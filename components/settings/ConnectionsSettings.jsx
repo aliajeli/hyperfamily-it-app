@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { PlugZap, RotateCcw, Save, Star, X } from 'lucide-react'
+import { PlugZap, RotateCcw, Save, Star, Check, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import { useSettingsStore } from '@/stores/settings.store'
 import { DEVICE_TYPES, DEVICE_TYPE_DETAILS } from '@/lib/constants'
+import { cn } from '@/lib/utils'
 import {
   CONNECTION_METHODS,
   CONNECTION_METHOD_IDS,
@@ -16,18 +18,22 @@ import {
 } from '@/lib/connection-methods'
 
 /**
- * Per-device-type connection methods.
+ * Per-device-type connection methods — linear edition (v2.0.12).
  *
- * Moved out of Device tools, which was carrying two unrelated jobs: where the
- * TeamViewer and Winbox executables live, and how each kind of equipment should
- * be reached. The second one is the one operators actually revisit, so it gets
- * its own tab and enough room to show all ten types at once.
+ * Each device type is a single horizontal card and every method is one
+ * chip in its row, so all ten types stay visible without the page growing a
+ * scrollbar. Interactions kept from the previous grid:
  *
- * Several methods can be enabled for one type; the first enabled one is that
- * type's default and the rest appear as alternatives in the device menu.
- * Clicking an enabled method promotes it to default, which is why order is
- * preserved rather than recomputed from the checkbox order.
+ *   - click a dim chip       -> enable the method (one or several can be on)
+ *   - click an enabled chip  -> promote it to default (★, reorders to the front)
+ *   - click its ×            -> remove the method (the last one can never go)
+ *
+ * Framer Motion animates the selection (spring check/star pops, a pulse on
+ * enable) and the reorder when a method is promoted.
  */
+
+const spring = { type: 'spring', stiffness: 600, damping: 28 }
+
 export default function ConnectionsSettings({ settings, onSaved }) {
   const setGlobalSettings = useSettingsStore((state) => state.setSettings)
   const [draft, setDraft] = useState(() =>
@@ -79,74 +85,135 @@ export default function ConnectionsSettings({ settings, onSaved }) {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1.5">
         <CardTitle className="flex items-center gap-2 text-sm"><PlugZap size={15} />Connection method per device type</CardTitle>
         <CardDescription className="text-[10.5px]">
-          Click a method to enable it, click an enabled one to make it the default (★), and use its × to remove it.
+          Click a method to enable it, click an enabled one to make it the default (★), and use its × to remove it. Several methods can stay enabled at once.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {DEVICE_TYPES.map((type) => {
+        <div className="grid gap-1">
+          {DEVICE_TYPES.map((type, index) => {
             const list = draft[type] || []
+            const defaultLabel = CONNECTION_METHODS[list[0]]?.label || 'None'
             return (
-              <div key={type} className="rounded-lg border border-[rgb(var(--border))] p-1.5">
-                <div className="mb-0.5 flex items-baseline justify-between gap-2">
-                  <b className="text-[11px]">{DEVICE_TYPE_DETAILS[type]?.label || type}</b>
-                  <span className="truncate text-[9px] text-[rgb(var(--muted))]">
-                    {CONNECTION_METHODS[list[0]]?.label || 'None'}
+              <motion.div
+                key={type}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.02, duration: 0.28, ease: 'easeOut' }}
+                className="flex items-center gap-2 rounded-xl border bg-[rgb(var(--surface)/.4)] py-1 pl-2.5 pr-2 transition-colors hover:bg-[rgb(var(--surface)/.7)]"
+              >
+                <div className="w-32 shrink-0 sm:w-36">
+                  <b className="block text-[11px] leading-tight">{DEVICE_TYPE_DETAILS[type]?.label || type}</b>
+                  <span className="block truncate text-[9px] leading-tight text-[rgb(var(--muted))]" title={`Default: ${defaultLabel}`}>
+                    {defaultLabel}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {CONNECTION_METHOD_IDS.map((methodId) => {
-                    const enabled = list.includes(methodId)
-                    const isDefault = list[0] === methodId
-                    const label = CONNECTION_METHODS[methodId].label
-                    // The chip is a wrapper, not a button, so the label and the
-                    // remove control can be two real sibling buttons. Nesting a
-                    // button inside a button is invalid HTML and breaks clicks.
-                    return (
-                      <span
-                        key={methodId}
-                        title={CONNECTION_METHODS[methodId].description}
-                        className={`flex items-center rounded-lg border text-[9.5px] font-semibold transition ${
-                          isDefault
-                            ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.14)] text-[rgb(var(--primary))]'
-                            : enabled
-                              ? 'border-[rgb(var(--border))] bg-[rgb(var(--border)/.4)] text-[rgb(var(--text))]'
-                              : 'border-transparent text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.35)]'
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          aria-pressed={enabled}
-                          aria-label={
-                            enabled
-                              ? (isDefault ? `${label} is the default for ${type}` : `Make ${label} the default for ${type}`)
-                              : `Enable ${label} for ${type}`
-                          }
-                          onClick={() => (enabled ? makeDefault(type, methodId) : toggle(type, methodId))}
-                          className="flex items-center gap-1 py-0.5 pl-1.5 pr-1.5"
+
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {CONNECTION_METHOD_IDS.map((methodId) => {
+                      const enabled = list.includes(methodId)
+                      const isDefault = list[0] === methodId
+                      const label = CONNECTION_METHODS[methodId].label
+                      // The chip and its remove control are sibling buttons
+                      // inside one animated wrapper (nesting buttons would be
+                      // invalid HTML), so the wrapper carries the layout
+                      // animation while both controls stay real buttons.
+                      return (
+                        <motion.span
+                          key={methodId}
+                          layout="position"
+                          transition={{ layout: { type: 'spring', stiffness: 500, damping: 35 } }}
+                          exit={{ scale: 0.6, opacity: 0, transition: { duration: 0.15 } }}
+                          className="group flex items-center"
                         >
-                          {isDefault && <Star size={9} fill="currentColor" />}
-                          {label}
-                        </button>
-                        {enabled && list.length > 1 && (
-                          <button
+                          <motion.button
                             type="button"
-                            aria-label={`Remove ${label} from ${type}`}
-                            title={`Remove ${label}`}
-                            onClick={() => toggle(type, methodId)}
-                            className="py-0.5 pl-0 pr-1.5 opacity-55 transition hover:opacity-100"
+                            whileTap={{ scale: 0.88 }}
+                            aria-pressed={enabled}
+                            title={CONNECTION_METHODS[methodId].description}
+                            aria-label={
+                              enabled
+                                ? (isDefault ? `${label} is the default for ${type}` : `Make ${label} the default for ${type}`)
+                                : `Enable ${label} for ${type}`
+                            }
+                            onClick={() => (enabled ? makeDefault(type, methodId) : toggle(type, methodId))}
+                            className={cn(
+                              'relative flex h-6 items-center gap-1 overflow-hidden rounded-md border px-2 text-[10px] font-semibold transition-colors duration-200',
+                              isDefault
+                                ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.14)] text-[rgb(var(--primary))] shadow-sm'
+                                : enabled
+                                  ? 'border-[rgb(var(--border))] bg-[rgb(var(--border)/.45)] text-[rgb(var(--text))] hover:border-[rgb(var(--primary)/.5)]'
+                                  : 'border-transparent text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.4)] hover:text-[rgb(var(--text))]'
+                            )}
                           >
-                            <X size={9} strokeWidth={3} />
-                          </button>
-                        )}
-                      </span>
-                    )
-                  })}
+                            {/* One-shot pulse when a method is switched on. */}
+                            <AnimatePresence>
+                              {enabled && (
+                                <motion.span
+                                  key="pulse"
+                                  aria-hidden="true"
+                                  initial={{ scale: 0.8, opacity: 0.65 }}
+                                  animate={{ scale: 1.25, opacity: 0 }}
+                                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                                  className="absolute inset-0 rounded-md bg-[rgb(var(--primary)/.4)]"
+                                />
+                              )}
+                            </AnimatePresence>
+
+                            <span className="relative grid h-3.5 w-3.5 place-items-center">
+                              <AnimatePresence initial={false}>
+                                {isDefault ? (
+                                  <motion.span
+                                    key="star"
+                                    className="absolute inset-0 grid place-items-center"
+                                    initial={{ scale: 0, rotate: -135 }}
+                                    animate={{ scale: 1, rotate: 0 }}
+                                    exit={{ scale: 0, rotate: 135 }}
+                                    transition={spring}
+                                  >
+                                    <Star size={11} fill="currentColor" />
+                                  </motion.span>
+                                ) : enabled ? (
+                                  <motion.span
+                                    key="check"
+                                    className="absolute inset-0 grid place-items-center opacity-55"
+                                    initial={{ scale: 0, y: 4 }}
+                                    animate={{ scale: 1, y: 0 }}
+                                    exit={{ scale: 0, y: -4 }}
+                                    transition={spring}
+                                  >
+                                    <Check size={10} strokeWidth={3.5} />
+                                  </motion.span>
+                                ) : null}
+                              </AnimatePresence>
+                            </span>
+                            {label}
+                          </motion.button>
+
+                          {enabled && list.length > 1 && (
+                            <motion.button
+                              type="button"
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              transition={spring}
+                              aria-label={`Remove ${label} from ${type}`}
+                              title={`Remove ${label}`}
+                              onClick={() => toggle(type, methodId)}
+                              className="grid h-6 w-5 shrink-0 place-items-center rounded-r-md text-[rgb(var(--muted))] opacity-45 transition hover:bg-[rgb(var(--border)/.5)] hover:text-[rgb(var(--text))] hover:opacity-100"
+                            >
+                              <X size={10} strokeWidth={3} />
+                            </motion.button>
+                          )}
+                        </motion.span>
+                      )
+                    })}
+                  </AnimatePresence>
                 </div>
-              </div>
+              </motion.div>
             )
           })}
         </div>

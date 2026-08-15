@@ -2,6 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* -----------------------------------------------------------------------------
+   Animated theme swap (v2.0.12).
+
+   lib/themes.js wraps theme picks in document.startViewTransition(), so the
+   browser snapshots the old palette and paints the new one over it through
+   these pseudo-elements. The new snapshot wipes in from the top of the page
+   while the old one fades and desaturates, which reads as the whole app
+   "re-painting" itself. Purely decorative: the theme itself is applied by
+   applyTheme(), and browsers without View Transitions just snap.
+   -------------------------------------------------------------------------- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(root) {
+  animation-name: theme-fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: theme-wipe-in;
+  z-index: 1;
+}
+
+@keyframes theme-fade-out {
+  from { opacity: 1; filter: none; }
+  to { opacity: 0.25; filter: saturate(0.35) brightness(1.03); }
+}
+
+@keyframes theme-wipe-in {
+  from {
+    opacity: 0.45;
+    clip-path: circle(0% at 50% 0%);
+    filter: saturate(0.5) brightness(1.06);
+  }
+  to {
+    opacity: 1;
+    clip-path: circle(150% at 50% 0%);
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
+}
+
 :root,
 [data-theme='aurora'] {
   --primary: 191 97 106;
