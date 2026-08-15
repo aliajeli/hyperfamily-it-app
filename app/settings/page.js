@@ -28,7 +28,7 @@ const tabs = [
   { value: 'terminal', label: 'Terminal & web', icon: <TerminalSquare size={14} /> },
   { value: 'vpn', label: 'VPN', icon: <Shield size={14} /> },
   { value: 'theme', label: 'Theme', icon: <Palette size={14} /> },
-  { value: 'typography', label: 'Fonts & scale', icon: <Type size={14} /> }
+  { value: 'typography', label: 'Fonts', icon: <Type size={14} /> }
 ]
 
 export default function SettingsPage() {

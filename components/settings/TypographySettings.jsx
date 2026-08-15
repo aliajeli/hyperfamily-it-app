@@ -61,7 +61,11 @@ export default function TypographySettings({ settings, onSaved }) {
             const sizeKey = `font_${group.id}_size`
             const size = normalizeScale(form[sizeKey])
             const sizePx = pxForScale(group.id, size)
-            const stack = fontStack(form[familyKey], catalogue)
+            // The Monospace group always shows its default (System Monospace)
+            // in the dropdown, even on installs whose stored settings predate
+            // the typography feature and carry an empty value.
+            const familyValue = form[familyKey] || (group.id === 'mono' ? 'ui-monospace' : '')
+            const stack = fontStack(familyValue, catalogue)
 
             return (
               /* The controls column is deliberately roomy so the default
@@ -85,7 +89,7 @@ export default function TypographySettings({ settings, onSaved }) {
                     <span className="sr-only">Typeface</span>
                     <Select
                       aria-label={`${group.label} font family`}
-                      value={form[familyKey] || ''}
+                      value={familyValue}
                       onChange={(event) => update(familyKey, event.target.value)}
                       className="h-7 text-[11px]"
                     >
