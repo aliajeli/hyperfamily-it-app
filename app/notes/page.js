@@ -10,7 +10,7 @@ import { getApi } from '@/lib/api'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { cn } from '@/lib/utils'
 
-const blankNote = { id: null, name: '', body: '', pinned: 0, color: 'default', priority: 0 }
+const blankNote = { id: null, name: '', body: '', pinned: 0, color: 'default', priority: 0, tags: [] }
 
 /**
  * Note colours are stored by name, not as a hex value, so every theme renders
@@ -39,13 +39,32 @@ const priorityOf = (value) => PRIORITIES.find((entry) => entry.id === Number(val
 const preview = (body) => (body || '').replace(/\s+/g, ' ').trim().slice(0, 72) || 'Empty note'
 
 /**
- * Hashtags live in the body: any #word becomes a tag (v2.0.14). Extracting
- * them (rather than storing a separate column) means tags can never drift
- * out of sync with what the note actually says.
+ * Tags live in their own column (v2.0.16) — adding one never touches the note
+ * body. The pattern below only extracts #hashtags that older notes still
+ * carry inside their text, so nothing already written loses its tags.
  */
 const TAG_PATTERN = /#[A-Za-z0-9_\u00C0-\u024F-]{1,40}/g
 
-const tagsOf = (body) => [...new Set(((body || '').match(TAG_PATTERN) || []).map((tag) => tag.toLowerCase()))]
+const normalizeTags = (value) => {
+  try {
+    if (Array.isArray(value)) return value.map(String)
+    if (typeof value === 'string') return JSON.parse(value || '[]')
+    return []
+  } catch { return [] }
+}
+
+const sanitizeTag = (tag) => String(tag).replace(/^#+/, '').trim().toLowerCase().slice(0, 40)
+
+const tagsOfBody = (body) => [...new Set(((body || '').match(TAG_PATTERN) || []).map((tag) => tag.toLowerCase()))]
+
+/** A note's full tag set: the stored tags plus any legacy body hashtags. */
+const noteTags = (note) => [...new Set([
+  ...normalizeTags(note?.tags).map(sanitizeTag).filter(Boolean),
+  ...tagsOfBody(note?.body)
+])]
+
+/** Chips read as hashtags even though tags are stored without the '#'. */
+const displayTag = (tag) => (String(tag).startsWith('#') ? tag : `#${tag}`)
 
 const when = (value) => {
   if (!value) return ''
@@ -70,7 +89,7 @@ export default function NotesPage() {
   const load = useCallback(async (selectId = null) => {
     if (!api) return
     try {
-      const rows = await api.notes.list()
+      const rows = (await api.notes.list()).map((note) => ({ ...note, tags: normalizeTags(note.tags) }))
       setNotes(rows)
       setDraft((current) => {
         if (selectId) return rows.find((note) => note.id === selectId) || current
@@ -113,9 +132,10 @@ export default function NotesPage() {
         pinned: note.pinned ? 1 : 0,
         color: note.color || 'default',
         priority: Number(note.priority || 0),
+        tags: normalizeTags(note.tags),
         ...patch
       })
-      const rows = await api.notes.list()
+      const rows = (await api.notes.list()).map((item) => ({ ...item, tags: normalizeTags(item.tags) }))
       setNotes(rows)
       setDraft((current) => (current?.id === note.id ? { ...current, ...patch } : current))
       toast.success(label)
@@ -129,33 +149,29 @@ export default function NotesPage() {
   }
 
   /**
-   * Tag helpers (v2.0.15). Tags live as #hashtags in the body, so the tag
-   * input simply appends one and removing a chip strips it back out — a tag
-   * can never drift out of sync with the note itself.
+   * Tag helpers (v2.0.16). Tags live in their own list, completely separate
+   * from the note body: adding or removing one never touches the text, and
+   * the chips sit next to the colour pickers in the toolbar.
    */
-  const escapeTag = (tag) => tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
   const addTag = () => {
-    const raw = tagInput.trim().replace(/^#+/, '').trim()
-    if (!raw) return
-    const tag = `#${raw}`
-    if (tagsOf(draft.body).includes(tag.toLowerCase())) { setTagInput(''); return }
-    setDraft({ ...draft, body: `${(draft.body || '').trim()} ${tag}`.trim() })
+    const tag = sanitizeTag(tagInput)
+    if (!tag) return
+    setDraft((current) => {
+      const tags = normalizeTags(current.tags).map(sanitizeTag).filter(Boolean)
+      if (tags.includes(tag)) return current
+      return { ...current, tags: [...tags, tag] }
+    })
     setTagInput('')
   }
 
   const removeTag = (tag) => {
-    const body = (draft.body || '')
-      .replace(new RegExp(`${escapeTag(tag)}\\b`, 'gi'), ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-    setDraft({ ...draft, body })
+    setDraft((current) => ({ ...current, tags: normalizeTags(current.tags).filter((item) => item !== tag) }))
   }
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
     const rows = needle
-      ? notes.filter((note) => `${note.name} ${note.body || ''}`.toLowerCase().includes(needle))
+      ? notes.filter((note) => `${note.name} ${note.body || ''} ${noteTags(note).join(' ')}`.toLowerCase().includes(needle))
       : notes
     // Pinned first, then the most urgent, then the most recently touched.
     return [...rows].sort((a, b) =>
@@ -174,6 +190,7 @@ export default function NotesPage() {
       || Boolean(original.pinned) !== Boolean(draft.pinned)
       || (original.color || 'default') !== (draft.color || 'default')
       || Number(original.priority || 0) !== Number(draft.priority || 0)
+      || JSON.stringify(normalizeTags(original.tags)) !== JSON.stringify(normalizeTags(draft.tags))
   }, [draft, notes])
 
   const startNew = () => {
@@ -191,7 +208,7 @@ export default function NotesPage() {
       })
       if (!ok) return
     }
-    setDraft({ ...note, body: note.body || '', color: note.color || 'default', priority: Number(note.priority || 0) })
+    setDraft({ ...note, body: note.body || '', color: note.color || 'default', priority: Number(note.priority || 0), tags: normalizeTags(note.tags) })
   }
 
   const save = async (override = {}) => {
@@ -205,10 +222,11 @@ export default function NotesPage() {
         body: payload.body || '',
         pinned: payload.pinned ? 1 : 0,
         color: payload.color || 'default',
-        priority: Number(payload.priority || 0)
+        priority: Number(payload.priority || 0),
+        tags: normalizeTags(payload.tags)
       })
       await load(saved?.id || payload.id)
-      if (saved?.id && !payload.id) setDraft({ ...saved, body: saved.body || '', color: saved.color || 'default', priority: Number(saved.priority || 0) })
+      if (saved?.id && !payload.id) setDraft({ ...saved, body: saved.body || '', color: saved.color || 'default', priority: Number(saved.priority || 0), tags: normalizeTags(saved.tags) })
       toast.success(payload.id ? 'Note saved' : 'Note created')
     } catch (error) {
       toast.error(error.message)
@@ -268,15 +286,16 @@ export default function NotesPage() {
               {loading && [0, 1, 2, 3].map((key) => <Skeleton key={key} className="h-16 w-full" />)}
               <AnimatePresence initial={false}>
                 {filtered.map((note) => {
-                  const tags = tagsOf(note.body)
+                  const tags = noteTags(note)
                   return (
                     <motion.button
                       key={note.id}
                       layout
                       initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      animate={{ opacity: 1, y: 0, scale: draft?.id === note.id ? 1.015 : 1 }}
                       exit={{ opacity: 0, height: 0 }}
                       whileHover={{ y: -2 }}
+                      transition={{ layout: { type: 'spring', stiffness: 400, damping: 32 } }}
                       type="button"
                       onClick={() => select(note)}
                       onContextMenu={(event) => {
@@ -288,13 +307,22 @@ export default function NotesPage() {
                         : undefined}
                       className={cn(
                         'group relative w-full overflow-hidden rounded-xl border bg-[rgb(var(--canvas))] p-2 text-left transition-all duration-200 hover:border-[rgb(var(--primary)/.55)] hover:shadow-md hover:shadow-black/5',
-                        draft?.id === note.id && 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.08)]',
-                        Boolean(note.pinned) && 'shadow-sm'
+                        draft?.id === note.id && 'border-[rgb(var(--primary)/.65)] bg-[rgb(var(--primary)/.08)] shadow-[0_0_0_1px_rgb(var(--primary)/.28),0_10px_30px_-14px_rgb(var(--primary)/.5)]',
+                        Boolean(note.pinned) && draft?.id !== note.id && 'shadow-sm'
                       )}
                     >
                       {/* A colour is only useful if it can be spotted without reading. */}
-                      {note.color && note.color !== 'default' && (
+                      {note.color && note.color !== 'default' && draft?.id !== note.id && (
                         <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: colorOf(note.color).swatch }} />
+                      )}
+                      {/* The open note carries the same spring-animated indicator
+                          bar as the sidebar's active page (v2.0.16). */}
+                      {draft?.id === note.id && (
+                        <motion.span
+                          layoutId="note-active-bar"
+                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                          className="absolute inset-y-0 left-0 w-1 rounded-r-full bg-[rgb(var(--primary))] shadow-[0_0_12px_rgb(var(--primary)/.75)]"
+                        />
                       )}
                       <div className="flex items-center gap-1.5">
                         {/* Pin lives on the LEFT, vertically centered in the
@@ -348,13 +376,13 @@ export default function NotesPage() {
                                 key={tag}
                                 role="button"
                                 tabIndex={0}
-                                aria-label={`Filter by ${tag}`}
-                                title={`Filter by ${tag}`}
+                                aria-label={`Filter by ${displayTag(tag)}`}
+                                title={`Filter by ${displayTag(tag)}`}
                                 onClick={(event) => { event.stopPropagation(); setQuery(tag) }}
                                 onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); setQuery(tag) } }}
                                 className="rounded-full bg-[rgb(var(--primary)/.1)] px-1.5 py-0.5 text-[8.5px] font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.2)]"
                               >
-                                {tag}
+                                {displayTag(tag)}
                               </span>
                             ))}
                             {tags.length > 3 && <span className="text-[8.5px] font-bold text-[rgb(var(--muted))]">+{tags.length - 3}</span>}
@@ -455,27 +483,27 @@ export default function NotesPage() {
                   })}
                 </div>
 
-                {/* Tags: chips (filter + remove) plus the tag input that adds
-                    new ones — useful right when a note is being created. */}
+                {/* Tags: their own list beside the colours — adding or removing
+                    one never touches the note body (v2.0.16). */}
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1" aria-label="Note tags">
                   <Hash size={11} className="shrink-0 text-[rgb(var(--muted))]" />
-                  {tagsOf(draft.body).map((tag) => (
+                  {(draft.tags || []).map((tag) => (
                     <span
                       key={tag}
                       className="flex items-center gap-0.5 rounded-full bg-[rgb(var(--primary)/.12)] pl-1.5 pr-0.5 text-[9px] font-bold text-[rgb(var(--primary))]"
                     >
                       <button
                         type="button"
-                        title={`Filter by ${tag}`}
+                        title={`Filter by ${displayTag(tag)}`}
                         onClick={() => setQuery(tag)}
                         className="py-0.5 transition hover:opacity-70"
                       >
-                        {tag}
+                        {displayTag(tag)}
                       </button>
                       <button
                         type="button"
-                        aria-label={`Remove tag ${tag}`}
-                        title={`Remove ${tag}`}
+                        aria-label={`Remove tag ${displayTag(tag)}`}
+                        title={`Remove ${displayTag(tag)}`}
                         onClick={() => removeTag(tag)}
                         className="grid h-3.5 w-3.5 place-items-center rounded-full opacity-60 transition hover:bg-[rgb(var(--primary)/.25)] hover:opacity-100"
                       >

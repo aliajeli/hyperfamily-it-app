@@ -223,6 +223,9 @@ function runMigrations(db, adminHash) {
   // changes appearance or position until it is edited.
   if (!hasColumn(db, 'notes', 'color')) db.exec("ALTER TABLE notes ADD COLUMN color TEXT NOT NULL DEFAULT 'default'")
   if (!hasColumn(db, 'notes', 'priority')) db.exec('ALTER TABLE notes ADD COLUMN priority INTEGER NOT NULL DEFAULT 0')
+  // v2.0.16: tags live in their own column (a JSON array) so they no longer
+  // need to be written into the note body.
+  if (!hasColumn(db, 'notes', 'tags')) db.exec("ALTER TABLE notes ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
   db.exec('DROP INDEX IF EXISTS idx_notes_updated')
   db.exec('CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, priority DESC, updated_at DESC)')
   db.exec(`

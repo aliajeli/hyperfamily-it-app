@@ -35,10 +35,39 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }) {
         {navItems.map((item, index) => {
           const active = pathname.startsWith(item.href)
           return <motion.div key={item.href} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.045 }} whileHover={{ x: collapsed ? 0 : 3 }}>
-            <Link href={item.href} title={collapsed ? item.label : undefined} className={cn('group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl px-3 text-[13px] font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))] hover:shadow-sm', active && 'bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]')}>
-              {active && <motion.span layoutId="nav-active" transition={{ type: 'spring', stiffness: 420, damping: 32 }} className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-[rgb(var(--primary))]" />}
-              <item.icon size={20} className="shrink-0 transition-transform duration-300 group-hover:rotate-[-5deg] group-hover:scale-110" />
-              {!collapsed && <span>{item.label}</span>}
+            <Link href={item.href} title={collapsed ? item.label : undefined} className={cn('group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl px-3 text-[13px] font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))] hover:shadow-sm', active && 'text-[rgb(var(--primary))]')}>
+              {/* The active page sits on a gradient pill with a soft glow and a
+                  spring-animated indicator bar — a modern highlight instead of
+                  a plain background wash (v2.0.16). */}
+              {active && (
+                <motion.span
+                  layoutId="nav-active-pill"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute inset-0 rounded-xl bg-gradient-to-r from-[rgb(var(--primary)/.17)] via-[rgb(var(--primary)/.07)] to-transparent shadow-[inset_0_0_0_1px_rgb(var(--primary)/.22)]"
+                />
+              )}
+              {active && (
+                <motion.span
+                  layoutId="nav-active-bar"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-[rgb(var(--primary))] shadow-[0_0_12px_rgb(var(--primary)/.75)]"
+                />
+              )}
+              <motion.span
+                animate={active ? { scale: 1.08 } : { scale: 1 }}
+                transition={{ type: 'spring', stiffness: 480, damping: 24 }}
+                className={cn('grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-colors duration-300', active ? 'bg-[rgb(var(--primary)/.16)] text-[rgb(var(--primary))]' : 'group-hover:bg-[rgb(var(--border)/.5)]')}
+              >
+                <item.icon size={17} className="transition-transform duration-300 group-hover:rotate-[-5deg] group-hover:scale-110" />
+              </motion.span>
+              {!collapsed && <span className="relative">{item.label}</span>}
+              {active && !collapsed && (
+                <motion.span
+                  layoutId="nav-active-dot"
+                  transition={{ type: 'spring', stiffness: 480, damping: 26 }}
+                  className="ml-auto h-1.5 w-1.5 rounded-full bg-[rgb(var(--primary))] shadow-[0_0_8px_rgb(var(--primary)/.9)]"
+                />
+              )}
             </Link>
           </motion.div>
         })}

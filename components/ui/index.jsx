@@ -206,7 +206,7 @@ export function Tabs({ value, onValueChange, tabs, children, className, listClas
     </TabsPrimitive.Root>
   )
 }
-export function TabsContent({ value, children, className }) { return <TabsPrimitive.Content value={value} className={cn('outline-none data-[state=active]:animate-[dashboard-overlay-in_.28s_ease-out]', className)}>{children}</TabsPrimitive.Content> }
+export function TabsContent({ value, children, className }) { return <TabsPrimitive.Content value={value} className={cn('outline-none data-[state=active]:animate-[tab-panel-in_.3s_ease-out]', className)}>{children}</TabsPrimitive.Content> }
 
 export function Switch({ checked, onCheckedChange, compact = false, className, ...props }) {
   return (

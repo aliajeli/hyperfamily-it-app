@@ -3,22 +3,30 @@
 @tailwind utilities;
 
 /* -----------------------------------------------------------------------------
-   Theme crossfade (v2.0.15).
+   Theme crossfade (v2.0.16).
 
-   While the background iris repaints the page behind the interface
-   (lib/themes.js), this class makes every element transition its colours in
-   one smooth glide instead of snapping. Colour properties only — transform
-   and opacity are left alone so framer-motion and the iris itself are never
-   affected.
+   When a theme is picked, lib/themes.js applies the new palette immediately
+   and puts this class on <html>: every element — and the page background
+   itself — then fades its colours into the new theme in one coordinated
+   ~0.65s transition. Colour properties only; transform and opacity are left
+   alone so framer-motion is never affected.
    -------------------------------------------------------------------------- */
+html.theme-crossfade,
+html.theme-crossfade body,
 html.theme-crossfade * {
   transition:
-    background-color .75s cubic-bezier(.4, 0, .2, 1),
-    color .75s cubic-bezier(.4, 0, .2, 1),
-    border-color .75s cubic-bezier(.4, 0, .2, 1),
-    fill .75s ease,
-    stroke .75s ease,
-    box-shadow .75s ease !important;
+    background-color .65s cubic-bezier(.4, 0, .2, 1),
+    color .65s cubic-bezier(.4, 0, .2, 1),
+    border-color .65s cubic-bezier(.4, 0, .2, 1),
+    fill .65s ease,
+    stroke .65s ease,
+    box-shadow .65s ease !important;
+}
+
+/* The settings tab panels glide in rather than snapping. */
+@keyframes tab-panel-in {
+  from { opacity: 0; transform: translateY(6px) scale(.995); }
+  to { opacity: 1; transform: none; }
 }
 
 :root,

@@ -75,6 +75,9 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     check: () => invoke('update:check'),
     state: () => invoke('update:state'),
     download: () => invoke('update:download'),
+    pause: () => invoke('update:pause'),
+    resume: () => invoke('update:resume'),
+    stop: () => invoke('update:stop'),
     install: () => invoke('update:install'),
     subscribe: (callback) => subscribe('update:event', callback)
   },

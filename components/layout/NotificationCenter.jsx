@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Activity, Bell, Building2, CheckCircle2, Clock3, Router, Server, ShoppingCart, TriangleAlert, WifiOff, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Activity, Bell, Building2, CheckCircle2, Clock3, Router, Rocket, ScrollText, Server, ShoppingCart, TriangleAlert, WifiOff, X } from 'lucide-react'
 import { useDevicesStore } from '@/stores/devices.store'
+import { useUpdateStore } from '@/stores/update.store'
 import DeviceStatusBadge from '@/components/dashboard/DeviceStatusBadge'
 
 const summaryMeta = [
@@ -25,9 +27,15 @@ function latestCheck(device) {
 }
 
 export default function NotificationCenter() {
+  const router = useRouter()
   const { branches, devices, generatedAt } = useDevicesStore()
+  const updateInfo = useUpdateStore((state) => state.info)
+  const updateDismissed = useUpdateStore((state) => state.dismissed)
+  const dismissUpdate = useUpdateStore((state) => state.dismiss)
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
+
+  const updateAvailable = Boolean(updateInfo?.hasUpdate && !updateDismissed)
 
   const model = useMemo(() => {
     const visible = devices.filter((device) => device.is_dashboard_visible)
@@ -68,12 +76,13 @@ export default function NotificationCenter() {
   }, [open])
 
   const alertCount = model.alerts.length
+  const totalCount = alertCount + (updateAvailable ? 1 : 0)
 
   return (
     <div ref={rootRef} className="relative">
       <motion.button
         type="button"
-        aria-label={`Notifications${alertCount ? `, ${alertCount} active alerts` : ''}`}
+        aria-label={`Notifications${totalCount ? `, ${totalCount} unread` : ''}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -84,9 +93,9 @@ export default function NotificationCenter() {
         <motion.span animate={open ? { rotate: [0, -14, 12, -7, 0] } : { rotate: 0 }} transition={{ duration: 0.45 }}>
           <Bell size={17} />
         </motion.span>
-        {alertCount > 0 ? (
+        {totalCount > 0 ? (
           <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="notification-count absolute -right-1.5 -top-1.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-nord-11 px-1 text-[8px] font-black leading-none text-white shadow-md ring-2 ring-[rgb(var(--canvas))]">
-            {alertCount > 99 ? '99+' : alertCount}
+            {totalCount > 99 ? '99+' : totalCount}
           </motion.span>
         ) : (
           <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-nord-14 ring-2 ring-[rgb(var(--surface))]" />
@@ -124,6 +133,68 @@ export default function NotificationCenter() {
                   </motion.div>
                 ))}
               </div>
+
+              {updateAvailable && (
+                <motion.article
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-2.5 rounded-xl border border-[rgb(var(--primary)/.45)] bg-[rgb(var(--primary)/.07)] p-2.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[rgb(var(--primary))] text-white shadow-md">
+                      <Rocket size={14} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[0.03em]">
+                        Update available
+                        <span className="rounded-full bg-[rgb(var(--primary)/.16)] px-1.5 py-0.5 text-[8px] font-black text-[rgb(var(--primary))]">v{updateInfo.latestVersion}</span>
+                      </p>
+                      <p className="truncate text-[8.5px] font-semibold text-[rgb(var(--muted))]">
+                        You are on v{updateInfo.currentVersion} — a newer release is ready to download.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Dismiss update notification"
+                      title="Dismiss"
+                      onClick={dismissUpdate}
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.5)] hover:text-[rgb(var(--text))]"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+
+                  {updateInfo.releaseNotes && (
+                    <div className="mt-2 rounded-lg border bg-[rgb(var(--surface)/.7)] p-2">
+                      <p className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">
+                        <ScrollText size={9} /> Changelog
+                      </p>
+                      <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-[9px] leading-relaxed text-[rgb(var(--muted))]">
+                        {updateInfo.releaseNotes}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { setOpen(false); router.push('/about') }}
+                      className="flex h-7 items-center gap-1.5 rounded-lg bg-[rgb(var(--primary))] px-2.5 text-[9.5px] font-extrabold text-white shadow-sm transition hover:brightness-110"
+                    >
+                      <Rocket size={11} /> Open About to update
+                    </button>
+                    {updateInfo.downloadUrl && (
+                      <button
+                        type="button"
+                        onClick={() => { setOpen(false); window.open(updateInfo.downloadUrl, '_blank', 'noopener,noreferrer') }}
+                        className="flex h-7 items-center gap-1.5 rounded-lg border bg-[rgb(var(--surface)/.7)] px-2.5 text-[9.5px] font-extrabold text-[rgb(var(--text))] transition hover:bg-[rgb(var(--surface))]"
+                      >
+                        GitHub release
+                      </button>
+                    )}
+                  </div>
+                </motion.article>
+              )}
 
               <div className="mb-2 mt-4 flex items-center justify-between px-0.5">
                 <p className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]"><Activity size={11} /> Active alerts</p>
