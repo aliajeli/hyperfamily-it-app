@@ -57,7 +57,7 @@ function formatDuration(seconds) {
 }
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.10', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.11', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -194,22 +194,22 @@ export default function AboutPage() {
         <div className="grid gap-2 lg:grid-cols-[1.05fr_.95fr]">
           <Card className="relative overflow-hidden">
             <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[rgb(var(--primary)/.16)] blur-3xl" />
-            <CardContent className="relative flex min-h-0 flex-col justify-center p-3">
-              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-                <BrandMark className="h-11 w-11 shrink-0" />
+            <CardContent className="relative flex min-h-0 flex-col justify-center p-2.5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <BrandMark className="h-10 w-10 shrink-0" />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-black">HyperFamily Branch Monitor</h2>
-                    <Badge status="online">v{info.version}</Badge>
+                    <h2 className="text-sm font-black">HyperFamily Branch Monitor</h2>
+                    <Badge status="online" className="px-1.5 py-0.5 text-[9px]">v{info.version}</Badge>
                   </div>
-                  <p className="mt-1 max-w-xl text-[11px] leading-snug text-[rgb(var(--muted))]">
+                  <p className="mt-0.5 max-w-xl text-[10.5px] leading-snug text-[rgb(var(--muted))]">
                     A secure desktop control center for retail branch connectivity, inventory, remote support, and operational visibility.
                   </p>
-                  <div className="mt-2 grid gap-1 text-[10.5px] sm:grid-cols-2">
-                    <span className="flex items-center gap-2"><Code2 size={13} className="text-nord-8" />Ali Ajeli Lahiji</span>
-                    <span className="flex items-center gap-2"><ShieldCheck size={13} className="text-nord-14" />HyperFamily Stores</span>
-                    <span className="flex items-center gap-2"><Calendar size={13} className="text-nord-13" />Version {info.version}</span>
-                    <span className="flex items-center gap-2"><HardDrive size={13} className="text-nord-15" />{info.platform}</span>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
+                    <span className="flex items-center gap-1.5"><Code2 size={12} className="text-nord-8" />Ali Ajeli Lahiji</span>
+                    <span className="flex items-center gap-1.5"><ShieldCheck size={12} className="text-nord-14" />HyperFamily Stores</span>
+                    <span className="flex items-center gap-1.5"><Calendar size={12} className="text-nord-13" />v{info.version}</span>
+                    <span className="flex items-center gap-1.5"><HardDrive size={12} className="text-nord-15" />{info.platform}</span>
                   </div>
                 </div>
               </div>
@@ -217,21 +217,21 @@ export default function AboutPage() {
           </Card>
 
           <Card>
-            <CardHeader className="p-3 pb-1.5">
-              <CardTitle className="flex items-center gap-2 text-sm"><Rocket size={16} />Application updates</CardTitle>
-              <CardDescription className="mt-0.5 text-[11px] leading-snug">Every release is published on GitHub as a signed Windows installer.</CardDescription>
+            <CardHeader className="p-2.5 pb-1">
+              <CardTitle className="flex items-center gap-2 text-[13px]"><Rocket size={15} />Application updates</CardTitle>
+              <CardDescription className="mt-0 text-[10.5px] leading-snug">Updates arrive as a small differential download and install themselves.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border bg-[rgb(var(--surface)/.42)] p-2.5">
+            <CardContent className="p-2.5 pt-1">
+              <div className="rounded-lg border bg-[rgb(var(--surface)/.42)] p-2">
                 <div className="flex items-center justify-between">
                   <span>
                     <small className="block text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">Installed version</small>
-                    <b className="text-sm">v{info.version}</b>
+                    <b className="text-[13px]">v{info.version}</b>
                   </span>
                   {update && (
                     <span className="text-right">
                       <small className="block text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">Latest release</small>
-                      <b className={`text-sm ${update.hasUpdate ? 'text-[rgb(var(--primary))]' : ''}`}>v{update.latestVersion}</b>
+                      <b className={`text-[13px] ${update.hasUpdate ? 'text-[rgb(var(--primary))]' : ''}`}>v{update.latestVersion}</b>
                     </span>
                   )}
                 </div>
@@ -272,7 +272,7 @@ export default function AboutPage() {
                 )}
               </div>
 
-              <div className="mt-2.5 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 <Button size="sm" onClick={check} disabled={checking} variant="secondary">
                   <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />{checking ? 'Checking…' : 'Check for updates'}
                 </Button>
@@ -302,12 +302,12 @@ export default function AboutPage() {
         </div>
 
         <Card>
-          <CardHeader className="p-3 pb-1.5">
-            <CardTitle className="text-sm">Production technology stack</CardTitle>
-            <CardDescription className="mt-0.5 text-[11px] leading-snug">Focused tools selected for a responsive, offline-first Windows application.</CardDescription>
+          <CardHeader className="p-2.5 pb-1">
+            <CardTitle className="text-[13px]">Production technology stack</CardTitle>
+            <CardDescription className="mt-0 text-[10.5px] leading-snug">Focused tools selected for a responsive, offline-first Windows application.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <CardContent className="p-2.5 pt-1">
+            <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
               {technologies.map(([name, description, brand, brandDark], index) => (
                 <motion.div
                   key={name}
@@ -317,11 +317,12 @@ export default function AboutPage() {
                   whileHover={{ y: -4, scale: 1.03 }}
                   whileTap={{ scale: .99 }}
                   style={{ '--brand': brand, '--brand-dark': brandDark }}
-                  className="tech-tile group relative overflow-hidden rounded-xl border bg-[rgb(var(--surface)/.38)] p-2.5"
+                  title={description}
+                  className="tech-tile group relative min-w-0 overflow-hidden rounded-lg border bg-[rgb(var(--surface)/.38)] px-2 py-1.5"
                 >
                   <span aria-hidden className="tech-tile-wash" />
-                  <b className="tech-tile-name relative text-[11px]">{name}</b>
-                  <p className="relative mt-0.5 text-[9.5px] leading-relaxed text-[rgb(var(--muted))]">{description}</p>
+                  <b className="tech-tile-name relative block truncate text-[10.5px]">{name}</b>
+                  <p className="relative truncate text-[9px] leading-snug text-[rgb(var(--muted))]">{description}</p>
                 </motion.div>
               ))}
             </div>
@@ -329,45 +330,39 @@ export default function AboutPage() {
         </Card>
 
         <div className="grid gap-2 lg:grid-cols-2">
-        <Card className="p-3">
-          <div className="flex h-full flex-col justify-center gap-2">
-            <div>
-              <h3 className="text-[13px] font-bold">Need help with branch infrastructure?</h3>
-              <p className="mt-0.5 text-[11px] leading-snug text-[rgb(var(--muted))]">Report a reproducible application issue or review the public source repository on GitHub.</p>
+        <Card className="p-2.5">
+          <div className="flex h-full flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-xs font-bold">Need help with branch infrastructure?</h3>
+              <p className="text-[10px] leading-snug text-[rgb(var(--muted))]">Report a reproducible issue or browse the source repository.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               <Button size="sm" variant="secondary" onClick={() => external(`${REPO}/issues/new`)}><CircleDot size={14} />Report an issue</Button>
-              <Button size="sm" onClick={() => external(REPO)}><Github size={14} />View on GitHub <ExternalLink size={12} /></Button>
+              <Button size="sm" onClick={() => external(REPO)}><Github size={14} />GitHub <ExternalLink size={12} /></Button>
             </div>
           </div>
         </Card>
 
-        <Card>
-          <CardHeader className="p-3 pb-1.5">
-            <CardTitle className="text-sm">Developer contact</CardTitle>
-            <CardDescription className="mt-0.5 text-[11px] leading-snug">Write to the developer directly. The message opens in Outlook with the address, subject and version details already filled in.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 pt-1.5">
-            <button
-              type="button"
-              onClick={emailDeveloper}
-              className="contact-card group flex w-full items-center gap-2.5 rounded-lg border bg-[rgb(var(--surface)/.38)] p-2.5 text-left transition"
-              aria-label={`Send an email to ${DEVELOPER_EMAIL}`}
-            >
-              <span className="contact-card-icon grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))] transition">
-                <Mail size={16} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <b className="block text-xs">Ali Ajeli Lahiji</b>
-                <span className="mt-0.5 block truncate font-mono text-[11px] text-[rgb(var(--primary))] underline-offset-2 group-hover:underline">{DEVELOPER_EMAIL}</span>
-              </span>
-              <ExternalLink size={14} className="shrink-0 text-[rgb(var(--muted))] transition group-hover:text-[rgb(var(--primary))]" />
-            </button>
-          </CardContent>
+        <Card className="p-2.5">
+          <button
+            type="button"
+            onClick={emailDeveloper}
+            className="contact-card group flex h-full w-full items-center gap-2.5 rounded-lg border bg-[rgb(var(--surface)/.38)] px-2.5 py-2 text-left transition"
+            aria-label={`Send an email to ${DEVELOPER_EMAIL}`}
+          >
+            <span className="contact-card-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))] transition">
+              <Mail size={15} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <b className="block text-[11px]">Developer contact · Ali Ajeli Lahiji</b>
+              <span className="block truncate font-mono text-[10.5px] text-[rgb(var(--primary))] underline-offset-2 group-hover:underline">{DEVELOPER_EMAIL}</span>
+            </span>
+            <ExternalLink size={14} className="shrink-0 text-[rgb(var(--muted))] transition group-hover:text-[rgb(var(--primary))]" />
+          </button>
         </Card>
         </div>
 
-        <footer className="pb-1 text-center text-[9.5px] uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
+        <footer className="pb-0.5 text-center text-[9px] uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
       </div>
     </AppShell>
   )

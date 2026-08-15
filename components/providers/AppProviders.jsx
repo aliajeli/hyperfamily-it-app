@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { getApi } from '@/lib/api'
-import { applyTheme, readRememberedTheme } from '@/lib/themes'
+import { applyTheme, readRememberedTheme, parseCustomColors } from '@/lib/themes'
 import { applyTypography, rememberTypography, readRememberedTypography } from '@/lib/typography'
 import { useSettingsStore } from '@/stores/settings.store'
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog'
@@ -21,7 +21,7 @@ export default function AppProviders({ children }) {
         setSettings(settings)
         // The saved setting wins, but a profile without one keeps whatever the
         // pre-paint boot script already restored instead of snapping back.
-        applyTheme(settings.theme || readRememberedTheme() || 'aurora')
+        applyTheme(settings.theme || readRememberedTheme() || 'aurora', parseCustomColors(settings.theme_custom))
         // Fonts and interface scale live in the same settings row; cache them
         // so the next launch applies them before the first paint.
         applyTypography(settings)

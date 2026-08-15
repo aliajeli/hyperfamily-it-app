@@ -251,7 +251,7 @@ function runMigrations(db, adminHash) {
   if (!userCount) db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('Admin', adminHash)
 
   const defaults = {
-    theme: 'aurora', ping_interval: 3, ping_history_count: 30,
+    theme: 'aurora', theme_custom: '', ping_interval: 3, ping_history_count: 30,
     dashboard_branch_mode: 'compact_over_four', dashboard_branch_details_view: 'modal',
     teamviewer_path: 'C:\\Program Files\\TeamViewer\\TeamViewer.exe', teamviewer_password: '',
     winbox_path: 'C:\\Program Files\\Winbox\\winbox64.exe', winbox_port: 8291,

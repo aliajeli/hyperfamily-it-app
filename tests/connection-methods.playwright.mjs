@@ -1,10 +1,12 @@
 /**
- * Connection-method matrix (Settings -> Device tools).
+ * Connection-method matrix (Settings -> Connections).
  *
  * Asserts the per-device-type defaults required by the specification and the
  * three interactions the chip grid supports: enable, promote-to-default and
  * remove. The "last method cannot be removed" case matters most -- a device
- * type with zero connection methods would be unreachable from the UI.
+ * type with zero connection methods would be unreachable from the UI. Since
+ * v2.0.11 the matrix lives on its own "Connections" tab, so the suite also
+ * asserts it is no longer rendered by "Device tools".
  *
  * Usage: build, serve out/ on :3000, then
  *   node tests/connection-methods.playwright.mjs
@@ -19,12 +21,19 @@ const t=(name,ok)=>{ ok?pass++:fail++; console.log((ok?'✔ ':'✖ ')+name) }
 
 await p.goto('http://127.0.0.1:3000/settings/',{waitUntil:'domcontentloaded',timeout:60000})
 await p.waitForTimeout(1200)
+// v2.0.11: the matrix moved off "Device tools" onto its own tab.
 await p.getByText('Device tools',{exact:true}).first().click()
+await p.waitForTimeout(2000)
+t('device tools no longer hosts the matrix',
+  (await p.locator('[aria-label$="is the default for Router"]').count())===0)
+
+await p.getByText('Connections',{exact:true}).first().click()
 await p.waitForTimeout(2500)
 
 // 1. spec defaults are the starred chip per type
 const spec = {Router:'Winbox',AccessPoint:'Winbox',Switch:'Terminal',iLO:'Browser with auto sign-in',
-              NVR:'Browser with auto sign-in',Server:'Remote Desktop',Checkout:'Remote Desktop',Client:'Remote Desktop'}
+              NVR:'Browser with auto sign-in',Server:'Remote Desktop',Checkout:'Remote Desktop',Client:'Remote Desktop',
+              Scale:'External browser',POS:'TeamViewer'}
 for (const [type,label] of Object.entries(spec)) {
   const star = p.locator(`[aria-label="${label} is the default for ${type}"]`)
   t(`${type} defaults to ${label}`, await star.count()===1)
@@ -57,7 +66,11 @@ t('last method cannot be removed',
 
 // 6. no sideways scroll on this tab
 const v = await p.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}))
-t('device tools tab does not scroll sideways', v.sw<=v.cw+1)
+t('connections tab does not scroll sideways', v.sw<=v.cw+1)
+
+// 7. the whole tab has to fit 1366x768 without vertical scrolling either
+const h = await p.evaluate(()=>({dh:document.documentElement.scrollHeight,wh:window.innerHeight}))
+t('connections tab fits one screen', h.dh<=h.wh+1)
 
 await p.screenshot({path:'/tmp/shots/matrix-after.png'})
 await b.close()

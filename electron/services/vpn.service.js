@@ -381,19 +381,40 @@ class VPNService {
       installed: Boolean(executable),
       path: executable,
       downloadUrl: FORTICLIENT_DOWNLOAD,
-      configured: Boolean(settings.vpn_gateway && settings.vpn_user)
+      // FortiClient carries the profile now, so being installed is all the
+      // configuration the app needs.
+      configured: Boolean(executable)
     }
   }
 
-  requireProfile(settings) {
-    if (!settings.vpn_gateway) throw new Error('Set the FortiClient Remote Gateway in Settings → VPN first')
-    if (!settings.vpn_user || !settings.vpn_pass) throw new Error('Set the VPN username and password in Settings → VPN first')
+  /**
+   * Describes the gateway profile, without demanding one.
+   *
+   * Signing in happens inside the FortiClient window, so the app no longer
+   * needs — or asks for — a gateway, username or password: requiring them
+   * blocked a connection the user could complete perfectly well by hand.
+   * Stored values from earlier versions are still read, purely so the status
+   * card and the audit log can name the gateway. Everything is optional.
+   */
+  profileFrom(settings) {
+    const gateway = String(settings.vpn_gateway || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '')
     return {
-      gateway: String(settings.vpn_gateway).trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, ''),
+      gateway,
       port: Number(settings.vpn_port) || 443,
-      username: String(settings.vpn_user),
-      password: String(settings.vpn_pass)
+      username: String(settings.vpn_user || ''),
+      password: String(settings.vpn_pass || '')
     }
+  }
+
+  /**
+   * The portal diagnostics still need real credentials, so that one caller —
+   * and only that one — insists on them.
+   */
+  requireProfile(settings) {
+    const profile = this.profileFrom(settings)
+    if (!profile.gateway) throw new Error('Set the FortiClient Remote Gateway in Settings → VPN first')
+    if (!profile.username || !profile.password) throw new Error('Set the VPN username and password in Settings → VPN first')
+    return profile
   }
 
   /**
@@ -413,12 +434,12 @@ class VPNService {
     if (this.state === 'connecting' || this.state.startsWith('connected')) throw new Error('A VPN session is already active')
 
     const settings = this.database.getSettings()
-    const profile = this.requireProfile(settings)
+    const profile = this.profileFrom(settings)
     this.emit('connecting', normalized)
 
     try {
       const outcome = await this.connectGlobal(profile, settings)
-      this.gateway = `${profile.gateway}:${profile.port}`
+      this.gateway = profile.gateway ? `${profile.gateway}:${profile.port}` : null
       this.stats = { requests: 0, bytes: 0, since: new Date().toISOString() }
 
       // Global mode where the user has not finished signing in yet: this is
@@ -432,7 +453,7 @@ class VPNService {
           'FortiClient is open — finish signing in there. The indicator turns green on its own as soon as the tunnel is up.')
       }
 
-      this.database.audit(actor, 'VPN_CONNECT', normalized, `Gateway ${this.gateway}`)
+      this.database.audit(actor, 'VPN_CONNECT', normalized, this.gateway ? `Gateway ${this.gateway}` : 'FortiClient tunnel')
       this.lastLive = true
       this.startHealthMonitor()
       return this.emit('connected_global', normalized)

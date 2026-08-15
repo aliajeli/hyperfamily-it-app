@@ -28,10 +28,10 @@ const columns = [
   { key: 'device', label: 'Device', width: '15%' },
   { key: 'ip', label: 'IP', width: '10%' },
   { key: 'model', label: 'Model / version', width: '12%' },
-  { key: 'location', label: 'Location', width: '8%' },
+  { key: 'location', label: 'Location', width: '7%' },
   { key: 'asset', label: 'Asset / serial', width: '12%' },
   { key: 'connection', label: 'Connection', width: '9%' },
-  { key: 'status', label: 'Status', width: '9%' },
+  { key: 'status', label: 'Status', width: '10%' },
   { key: 'actions', label: '', width: '3%' }
 ]
 
@@ -87,7 +87,7 @@ export default function InventoryTable({ devices }) {
                 </td>
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1.5">
-                    <Badge status={device.status || 'unknown'}>{device.status || 'unknown'}</Badge>
+                    <Badge status={device.status || 'unknown'} className="whitespace-nowrap px-1.5 py-0.5 text-[9px] capitalize">{device.status || 'unknown'}</Badge>
                     <span
                       className={device.is_dashboard_visible ? 'status-online-text' : 'text-[rgb(var(--muted))]'}
                       title={device.is_dashboard_visible ? 'Shown on the dashboard' : 'Hidden from the dashboard'}
