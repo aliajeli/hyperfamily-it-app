@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Shield, ShieldAlert, ShieldCheck, ChevronDown, Check, Unplug, AppWindow, Globe2, Download, Loader2 } from 'lucide-react'
+import { Shield, ShieldAlert, ShieldCheck, ChevronDown, Check, Unplug, Globe2, Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApi } from '@/lib/api'
 import { useVpnStore } from '@/stores/vpn.store'
@@ -16,13 +16,14 @@ import { cn } from '@/lib/utils'
 const STATES = {
   disconnected: { label: 'VPN off', tone: 'off', icon: Shield },
   connecting: { label: 'Connecting…', tone: 'busy', icon: Loader2 },
-  connected_in_app: { label: 'In-app tunnel', tone: 'on', icon: ShieldCheck },
   connected_global: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
   // The user is signing in inside the FortiClient window. Not an error: the
   // indicator turns green by itself as soon as the tunnel appears.
   awaiting_forticlient: { label: 'Sign in to FortiClient…', tone: 'busy', icon: Loader2 },
   // Legacy state names kept so an older stored status never breaks the header.
-  connected_split: { label: 'In-app tunnel', tone: 'on', icon: ShieldCheck },
+  // They all resolve to the single remaining mode.
+  connected_in_app: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
+  connected_split: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
   connected_full: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
   error: { label: 'VPN error', tone: 'off', icon: ShieldAlert }
 }
@@ -80,7 +81,7 @@ export default function VPNButton() {
       if (result?.state === 'awaiting_forticlient') {
         toast.info('FortiClient is open — finish signing in there. This indicator turns green on its own once the tunnel is up.', { duration: 10000 })
       } else {
-        toast.success(mode === 'in_app' ? 'In-app VPN tunnel is active' : 'FortiClient VPN tunnel is active')
+        toast.success('FortiClient VPN tunnel is active')
       }
     } catch (error) {
       setStatus({ state: 'error', mode: null, message: error.message })
@@ -127,13 +128,6 @@ export default function VPNButton() {
 
           {!live ? (
             <>
-              <button onClick={() => connect('in_app')} className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-[rgb(var(--primary)/.1)]">
-                <AppWindow size={16} className="mt-0.5 text-[rgb(var(--primary))]" />
-                <span>
-                  <b className="block text-xs">In-app tunnel</b>
-                  <small className="text-[10px] leading-relaxed text-[rgb(var(--muted))]">Routes only this application through the SSL-VPN portal proxy. Windows stays untouched.</small>
-                </span>
-              </button>
               <button onClick={() => connect('global')} className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left hover:bg-nord-14/12">
                 <Globe2 size={16} className="mt-0.5 text-nord-14" />
                 <span>

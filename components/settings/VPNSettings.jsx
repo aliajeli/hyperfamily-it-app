@@ -102,7 +102,7 @@ export default function VPNSettings({ settings, onSaved }) {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><Shield size={17} />FortiClient SSL VPN</CardTitle>
-          <CardDescription className="text-xs">One shared gateway profile. Choose in-app or global when you connect from the VPN button in the header. Credentials are encrypted with Windows DPAPI.</CardDescription>
+          <CardDescription className="text-xs">One shared gateway profile, used by the VPN button in the header. Credentials are encrypted with Windows DPAPI.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={save} className="space-y-3.5">
@@ -117,7 +117,7 @@ export default function VPNSettings({ settings, onSaved }) {
             <label className="flex items-center justify-between rounded-xl border p-3">
               <span>
                 <b className="text-xs">Connect automatically at startup</b>
-                <span className="mt-0.5 block text-[11px] text-[rgb(var(--muted))]">Starts the in-app tunnel as soon as you sign in.</span>
+                <span className="mt-0.5 block text-[11px] text-[rgb(var(--muted))]">Launches FortiClient and connects as soon as you sign in.</span>
               </span>
               <Switch checked={Boolean(form.vpn_autoconnect)} onCheckedChange={(value) => setForm({ ...form, vpn_autoconnect: value })} />
             </label>
@@ -173,7 +173,7 @@ export default function VPNSettings({ settings, onSaved }) {
               <div className="rounded-xl bg-nord-13/20 p-2 text-[#8b6e1c]"><AlertTriangle size={17} /></div>
               <div>
                 <b className="text-xs">FortiClient is not installed</b>
-                <p className="mt-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">Global mode needs the FortiClient VPN client on this computer. In-app mode works without it.</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">The VPN needs the FortiClient VPN client on this computer.</p>
                 <Button
                   type="button"
                   variant="secondary"
@@ -192,14 +192,14 @@ export default function VPNSettings({ settings, onSaved }) {
           <div className="flex items-start gap-2.5">
             <div className="rounded-xl bg-[rgb(var(--primary)/.18)] p-2 text-[rgb(var(--primary))]"><Route size={17} /></div>
             <div>
-              <b className="text-xs">How the in-app tunnel works</b>
-              <p className="mt-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">A loopback proxy is started inside the app. Pings, device web UIs, and terminal sessions are forwarded through the SSL-VPN portal, so nothing else on the machine is re-routed.</p>
+              <b className="text-xs">How the VPN works</b>
+              <p className="mt-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">The app launches the FortiClient VPN installed on this computer and watches for the tunnel. Once FortiClient reports a connection the indicator turns green on its own, and every branch device is reached through it.</p>
             </div>
           </div>
         </Card>
 
         <p className="px-1.5 text-[10px] leading-relaxed text-[rgb(var(--muted))]">
-          Gateways that enforce two-factor authentication cannot be used with the in-app tunnel; choose Global mode for those profiles.
+          Two-factor authentication is completed in the FortiClient window itself, so gateways that enforce it are fully supported.
         </p>
       </div>
     </div>

@@ -1,36 +1,38 @@
 /**
- * The Famili mark.
+ * The Famili mark: a minimal shopping trolley.
  *
- * Symbol only — no wordmark. It is the cart glyph from the Famili logo: the
- * red loop with its stroke rising to the right, riding on two teal wheels.
- * Drawn as geometry rather than shipped as a bitmap so it stays crisp at every
- * size, follows `currentColor`-free brand colours in both themes, and can be
- * inlined anywhere without a network request.
+ * Symbol only — no wordmark. Drawn as open geometry rather than a filled
+ * silhouette so it stays light at small sizes and crisp at any resolution.
  *
- * Brand colours are sampled from the supplied artwork: red #CF171F, teal #00B1C5.
+ * Brand palette (fixed, not theme-driven — a logo must not change colour with
+ * the interface theme):
+ *   #d4211f  trolley body and handle
+ *   #00b1c5  wheels
  */
+export const BRAND_RED = '#d4211f'
+export const BRAND_TEAL = '#00b1c5'
+export const BRAND_GREY = '#939598'
+
 export default function BrandMark({ className = 'h-10 w-10', title = 'Famili' }) {
   return (
     <svg className={className} viewBox="0 0 64 64" role="img" aria-label={title}>
-      <defs>
-        <linearGradient id="famili-red" x1="12" y1="12" x2="50" y2="44" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#EF3F23" />
-          <stop offset=".55" stopColor="#CF171F" />
-          <stop offset="1" stopColor="#B5121A" />
-        </linearGradient>
-      </defs>
-
-      {/* The cart body: an open loop whose stroke sweeps up to the right,
-          exactly as the original glyph does. */}
-      <g stroke="url(#famili-red)" strokeWidth="7.6" strokeLinecap="round" fill="none">
-        <path d="M43 8 L30.5 30" />
-        <path d="M31.6 20.8 A11.2 11.2 0 1 0 32 32.2 L48 32.2" />
+      {/* Handle, basket and lower rail drawn as one continuous stroke weight so
+          the mark reads as a single object rather than assembled parts. */}
+      <g
+        fill="none"
+        stroke={BRAND_RED}
+        strokeWidth="5.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5.5 14.5 h6.6 l3 8.8" />
+        <path d="M15.6 23.3 H56 l-5.2 15.8 H21.2" />
+        <path d="M15.6 23.3 l6.6 20 h26.4" />
       </g>
 
-      {/* The two teal wheels. */}
-      <g fill="none" stroke="#00B1C5" strokeWidth="3.8">
-        <circle cx="25" cy="53.5" r="4.3" />
-        <circle cx="42" cy="53.5" r="4.3" />
+      <g fill={BRAND_TEAL}>
+        <circle cx="27" cy="52.5" r="4.8" />
+        <circle cx="46" cy="52.5" r="4.8" />
       </g>
     </svg>
   )

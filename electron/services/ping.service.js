@@ -15,26 +15,22 @@ function pingHost(host, timeoutMs = 1000) {
 }
 
 class PingMonitor {
-  constructor(database, sendEvent, vpnService = null) {
+  constructor(database, sendEvent) {
     this.database = database
     this.sendEvent = sendEvent
-    // Optional: lets the monitor reach branches through an active in-app
-    // tunnel. ICMP cannot traverse an HTTP proxy, so while the in-app VPN is
-    // carrying the app's traffic a raw `ping` always reports offline even
-    // though the device is perfectly reachable inside the tunnel.
-    this.vpnService = vpnService
     this.timer = null
     this.running = false
   }
 
-  /** Reaches a device the way the current tunnel allows. */
+  /**
+   * Reaches a device.
+   *
+   * Global (FortiClient) mode routes at the operating-system level, so an
+   * ordinary ICMP ping already travels through the tunnel — no application
+   * -level detour is needed. The former proxy-aware branch was removed with
+   * the in-app tunnel it depended on.
+   */
   async probe(device) {
-    const vpn = this.vpnService
-    const viaTunnel = vpn && vpn.mode === 'in_app' && vpn.isLive?.()
-    if (viaTunnel && typeof vpn.reachThroughTunnel === 'function') {
-      const result = await vpn.reachThroughTunnel(device).catch(() => null)
-      if (result) return result
-    }
     return pingHost(device.ip)
   }
 

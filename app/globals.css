@@ -78,10 +78,18 @@
 }
 
 * { border-color: rgb(var(--border)); }
-html { background: rgb(var(--canvas)); }
+html {
+  background: rgb(var(--canvas));
+  /* `clip` rather than `hidden`: it suppresses sideways overflow WITHOUT
+     turning the root into a scroll container, so position:sticky headers and
+     scroll-into-view keep working. */
+  overflow-x: clip;
+  max-width: 100%;
+}
 body {
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100%;
   background:
     radial-gradient(circle at 86% -15%, rgb(var(--secondary) / .18), transparent 30rem),
     radial-gradient(circle at 10% 110%, rgb(var(--primary) / .12), transparent 34rem),
@@ -130,6 +138,41 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   }
   /* Nothing inside the shell may spill sideways past its own column. */
   .app-main { min-width: 0; max-width: 100%; overflow-x: clip; }
+
+  /* ------------------------------------------------- no horizontal scroll
+     A page must never scroll sideways. Three things cause it in practice, so
+     all three are neutralised structurally rather than page by page:
+
+     1. A flex/grid ITEM defaults to min-width:auto, which refuses to shrink
+        below its content. Long device names, IPs and URLs then push the whole
+        layout wider than the viewport. Resetting min-width on the shell's
+        descendants lets them shrink and wrap instead.
+     2. Replaced/native-wide elements (images, video, canvas, tables, pre)
+        carry an intrinsic width that ignores the column.
+     3. Genuinely wide content — a data table — must scroll INSIDE its own
+        container, never by moving the page.
+
+     Interactive overlays are excluded: menus, dialogs and tooltips are
+     positioned outside the flow on purpose. */
+  .app-main :where(div, section, article, header, footer, form, label, p, span, li, td, th) {
+    min-width: 0;
+  }
+  .app-main :where(img, svg, video, canvas, iframe, webview) {
+    max-width: 100%;
+  }
+  .app-main :where(pre, table) {
+    max-width: 100%;
+  }
+  /* Long unbroken strings (paths, URLs, hashes) wrap instead of widening. */
+  .app-main :where(p, span, b, small, td, th, li, h1, h2, h3, h4) {
+    overflow-wrap: anywhere;
+  }
+  /* Any deliberately wide block scrolls within itself. */
+  .scroll-x {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
 
   .glass {
     background: linear-gradient(145deg, rgb(var(--surface) / .84), rgb(var(--surface) / .64));
@@ -483,6 +526,23 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .page-subtitle { margin-top: .15rem; font-size: calc(.72rem * var(--font-info-scale)); line-height: 1rem; }
   .panel { border-radius: .85rem; }
   .dialog-content { max-height: calc(100dvh - 1rem); }
+}
+
+/* 1366×768 is the primary deployment display. At that height the browser
+   chrome leaves roughly 620 px of page, so card padding and section gaps are
+   tightened to keep the common pages within one screen. Larger displays are
+   untouched and keep the roomier spacing. */
+@media (min-width: 1024px) and (max-height: 820px) {
+  .settings-dense .card-title { font-size: calc(.9rem * var(--font-title-scale)); }
+  .app-main .space-y-5 > * + * { margin-top: .85rem; }
+  .app-main .space-y-4 > * + * { margin-top: .7rem; }
+  .app-main .space-y-3 > * + * { margin-top: .6rem; }
+
+  /* The sticky header is 56px tall but the shell reserves 72px above the
+     content. On a 768px screen that slack is the difference between fitting
+     and scrolling, so it is reclaimed here (and only here). The doubled
+     class raises specificity above the Tailwind padding utility. */
+  .app-main.app-main { padding-top: 60px; padding-bottom: .625rem; }
 }
 
 @media (max-height: 680px) {
