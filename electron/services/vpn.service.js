@@ -45,11 +45,35 @@ const FORTICLIENT_DOWNLOAD = 'https://www.fortinet.com/support/product-downloads
  * this ladder and stops at the first rung that completes a handshake. Modern
  * gateways stay on rung 0 and keep full-strength crypto.
  */
+/**
+ * Handshake retry ladder, from strictest to most permissive.
+ *
+ * Electron links against BoringSSL, NOT OpenSSL. BoringSSL rejects OpenSSL's
+ * `@SECLEVEL=n` cipher-string syntax outright with
+ * `ERR_SSL_INVALID_COMMAND ... INVALID_COMMAND`, so a `DEFAULT:@SECLEVEL=0`
+ * rung — the fix quoted all over the web for this error — throws before a
+ * packet is ever sent and silently defeats the whole ladder. Setting
+ * `secureProtocol` together with `minVersion` is rejected as well
+ * (ERR_TLS_PROTOCOL_VERSION_CONFLICT). Every rung below is verified to be
+ * accepted by the Electron runtime this app actually ships.
+ *
+ * The gateway's failure (`RSA routines: FIRST_OCTET_INVALID` during
+ * `write EPROTO`) is an old appliance negotiating a legacy RSA key exchange,
+ * so the ladder widens the version floor, the curves and the cipher list, and
+ * finally offers the plain RSA suites modern defaults no longer include.
+ */
 const TLS_PROFILES = [
   {},
-  { minVersion: 'TLSv1.2', ciphers: 'DEFAULT:@SECLEVEL=0', ecdhCurve: 'auto' },
-  { minVersion: 'TLSv1', ciphers: 'DEFAULT:@SECLEVEL=0', ecdhCurve: 'auto', sigalgs: 'RSA+SHA1:RSA+SHA256:RSA+SHA384:ECDSA+SHA1:ECDSA+SHA256' },
-  { minVersion: 'TLSv1', ciphers: 'ALL:@SECLEVEL=0', ecdhCurve: 'secp384r1:P-256:P-521', secureProtocol: 'TLS_method' }
+  { minVersion: 'TLSv1.2', ecdhCurve: 'auto' },
+  { minVersion: 'TLSv1', ecdhCurve: 'auto', ciphers: 'DEFAULT', sigalgs: 'RSA+SHA1:RSA+SHA256:RSA+SHA384:ECDSA+SHA1:ECDSA+SHA256' },
+  { minVersion: 'TLSv1', ecdhCurve: 'P-521:P-384:P-256', ciphers: 'ALL' },
+  {
+    minVersion: 'TLSv1',
+    ecdhCurve: 'P-521:P-384:P-256',
+    // Explicit legacy RSA key-exchange suites: the ones an appliance that
+    // trips FIRST_OCTET_INVALID typically still wants to speak.
+    ciphers: 'AES128-SHA:AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA'
+  }
 ]
 
 /** True when an error is a TLS negotiation failure worth retrying lower down. */
@@ -1054,4 +1078,4 @@ class VPNService {
   }
 }
 
-module.exports = { VPNService, findFortiClient, FORTICLIENT_DOWNLOAD }
+module.exports = { VPNService, findFortiClient, FORTICLIENT_DOWNLOAD, TLS_PROFILES }
