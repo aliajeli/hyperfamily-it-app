@@ -2,19 +2,35 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { RefreshCw, Download, Rocket, Github, CircleDot, Calendar, HardDrive, ShieldCheck, Code2, ExternalLink, CheckCircle2 } from 'lucide-react'
+import { RefreshCw, Download, Rocket, Github, CircleDot, Calendar, HardDrive, ShieldCheck, Code2, ExternalLink, CheckCircle2, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BrandMark from '@/components/layout/BrandMark'
 import { Badge, Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
 import { getApi } from '@/lib/api'
 
+/**
+ * Each entry carries the brand colour of the technology it names. The tiles
+ * rest in the neutral surface palette and bloom into that colour on hover, so
+ * the stack reads as a calm grid until the pointer explores it.
+ */
 const technologies = [
-  ['Next.js 15', 'Static App Router UI'], ['Electron 41', 'Secure Windows shell'], ['Encrypted SQLite', 'Local operational data'],
-  ['Framer Motion 11', 'Interface motion'], ['shadcn/ui', 'Accessible components'], ['Recharts', 'Live response charts'],
-  ['Zustand', 'Focused client state'], ['Tailwind CSS', 'Themeable design system'], ['Lucide Icons', 'Interface iconography'],
-  ['ssh2', 'In-app SSH terminal'], ['ExcelJS', 'Inventory workbooks'], ['Windows DPAPI', 'Secret encryption']
+  ['Next.js 15', 'Static App Router UI', '#000000', '#8FBCBB'],
+  ['Electron 41', 'Secure Windows shell', '#2B2E3A', '#9FEAF9'],
+  ['Encrypted SQLite', 'Local operational data', '#0F80CC', '#6FC3F7'],
+  ['Framer Motion 11', 'Interface motion', '#BB4B96', '#E879C4'],
+  ['shadcn/ui', 'Accessible components', '#111827', '#A3AEC2'],
+  ['Recharts', 'Live response charts', '#22B5BF', '#5FD8E0'],
+  ['Zustand', 'Focused client state', '#7A5233', '#C79A6B'],
+  ['Tailwind CSS', 'Themeable design system', '#38BDF8', '#7DD3FC'],
+  ['Lucide Icons', 'Interface iconography', '#F56565', '#FCA5A5'],
+  ['ssh2', 'In-app SSH terminal', '#4C8B2B', '#A3BE8C'],
+  ['ExcelJS', 'Inventory workbooks', '#1D6F42', '#6FCF97'],
+  ['Windows DPAPI', 'Secret encryption', '#0078D4', '#69B7F0']
 ]
+
+/** Developer contact. mailto: hands the address to the default mail client. */
+const DEVELOPER_EMAIL = 'Lahiji.ali@hyperfamili.com'
 
 const REPO = 'https://github.com/aliajeli/hyperfamily-it-app'
 
@@ -41,7 +57,7 @@ function formatDuration(seconds) {
 }
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.7', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.8', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -114,6 +130,24 @@ export default function AboutPage() {
   }
 
   const external = (url) => getApi().app.openExternal(url).catch((e) => toast.error(e.message))
+
+  /**
+   * Opens the default mail client (Outlook on the target Windows machines) with
+   * a message already addressed to the developer. Subject and body carry the
+   * app version and platform so a report arrives with its context attached.
+   */
+  const emailDeveloper = () => {
+    const subject = `HyperFamily Branch Monitor ${info.version} — feedback`
+    const body = [
+      'Hello Ali,',
+      '',
+      '',
+      '---',
+      `Application: HyperFamily Branch Monitor ${info.version}`,
+      `Platform: ${info.platform || 'Windows'}`
+    ].join('\r\n')
+    external(`mailto:${DEVELOPER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`)
+  }
 
   /**
    * Downloads the installer in the background. The service already falls back
@@ -274,17 +308,20 @@ export default function AboutPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-              {technologies.map(([name, description], index) => (
+              {technologies.map(([name, description, brand, brandDark], index) => (
                 <motion.div
                   key={name}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * .02 }}
-                  whileHover={{ y: -2 }}
-                  className="rounded-xl border bg-[rgb(var(--surface)/.38)] p-2.5"
+                  whileHover={{ y: -4, scale: 1.03 }}
+                  whileTap={{ scale: .99 }}
+                  style={{ '--brand': brand, '--brand-dark': brandDark }}
+                  className="tech-tile group relative overflow-hidden rounded-xl border bg-[rgb(var(--surface)/.38)] p-2.5"
                 >
-                  <b className="text-[11px]">{name}</b>
-                  <p className="mt-0.5 text-[9.5px] leading-relaxed text-[rgb(var(--muted))]">{description}</p>
+                  <span aria-hidden className="tech-tile-wash" />
+                  <b className="tech-tile-name relative text-[11px]">{name}</b>
+                  <p className="relative mt-0.5 text-[9.5px] leading-relaxed text-[rgb(var(--muted))]">{description}</p>
                 </motion.div>
               ))}
             </div>
@@ -302,6 +339,30 @@ export default function AboutPage() {
               <Button size="sm" onClick={() => external(REPO)}><Github size={14} />View on GitHub <ExternalLink size={12} /></Button>
             </div>
           </div>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2.5">
+            <CardTitle className="text-base">Developer contact</CardTitle>
+            <CardDescription className="text-xs">Write to the developer directly. The message opens in Outlook with the address, subject and version details already filled in.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <button
+              type="button"
+              onClick={emailDeveloper}
+              className="contact-card group flex w-full items-center gap-3 rounded-xl border bg-[rgb(var(--surface)/.38)] p-3 text-left transition"
+              aria-label={`Send an email to ${DEVELOPER_EMAIL}`}
+            >
+              <span className="contact-card-icon grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))] transition">
+                <Mail size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <b className="block text-xs">Ali Ajeli Lahiji</b>
+                <span className="mt-0.5 block truncate font-mono text-[11px] text-[rgb(var(--primary))] underline-offset-2 group-hover:underline">{DEVELOPER_EMAIL}</span>
+              </span>
+              <ExternalLink size={14} className="shrink-0 text-[rgb(var(--muted))] transition group-hover:text-[rgb(var(--primary))]" />
+            </button>
+          </CardContent>
         </Card>
 
         <footer className="pb-2 text-center text-[9.5px] uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>

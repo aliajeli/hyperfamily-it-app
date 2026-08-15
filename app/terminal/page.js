@@ -193,7 +193,7 @@ function TerminalWorkspaceInner() {
         'flex flex-col gap-3',
         fullscreen
           // Escapes the app shell so the console gets the whole window.
-          ? 'fixed inset-0 z-50 h-screen bg-[rgb(var(--canvas))] p-3'
+          ? 'surface-fullscreen fixed inset-0 h-screen bg-[rgb(var(--canvas))] p-3'
           // 1366x768 has ~660px of usable height, so the floor must stay under it.
           : 'h-[calc(100vh-7rem)] min-h-[420px]'
       )}>
@@ -226,20 +226,6 @@ function TerminalWorkspaceInner() {
                 {FONT_SIZES.map((value) => <option key={value} value={value}>{value}px</option>)}
               </select>
             </div>
-            {fullscreen && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSnippets((value) => !value)}
-                aria-label={showSnippets ? 'Hide snippets' : 'Show snippets'}
-                aria-pressed={showSnippets}
-                title={showSnippets ? 'Hide snippets' : 'Show snippets'}
-                className={cn(showSnippets && 'text-[rgb(var(--primary))]')}
-              >
-                {showSnippets ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-                <span className="hidden text-[11px] sm:inline">Snippets</span>
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="sm"
@@ -358,6 +344,25 @@ function TerminalWorkspaceInner() {
 
           {(!fullscreen || showSnippets) && (
             <SnippetPanel snippets={snippets} onSave={saveSnippet} onDelete={deleteSnippet} onRun={runSnippet} disabled={status.state !== 'connected'} />
+          )}
+
+          {/* Fullscreen Snippets handle, docked to the right edge of the screen
+              so the panel is revealed and hidden from the side it lives on. */}
+          {fullscreen && (
+            <button
+              type="button"
+              onClick={() => setShowSnippets((value) => !value)}
+              aria-label={showSnippets ? 'Hide snippets' : 'Show snippets'}
+              aria-pressed={showSnippets}
+              title={showSnippets ? 'Hide snippets' : 'Show snippets'}
+              className={cn(
+                'group fixed right-0 top-1/2 z-[70] flex -translate-y-1/2 items-center gap-1.5 rounded-l-xl border border-r-0 bg-[rgb(var(--surface))] py-3 pl-2 pr-1.5 shadow-lg transition-all hover:bg-[rgb(var(--primary)/.1)]',
+                showSnippets && 'text-[rgb(var(--primary))]'
+              )}
+            >
+              {showSnippets ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+              <span className="text-[10px] font-bold uppercase tracking-widest [writing-mode:vertical-rl]">Snippets</span>
+            </button>
           )}
         </div>
       </div>

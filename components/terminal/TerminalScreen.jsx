@@ -182,7 +182,16 @@ export default function TerminalScreen({
 
     // ---- Command picker navigation takes priority while it is open ----
     if (picker) {
-      if (event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
+      // Tab and Enter both *accept* the highlighted command — the completion is
+      // written followed by a space, ready for the next argument. Cycling is on
+      // the arrow keys (and Shift+Tab, which steps back without accepting).
+      if (event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey)) {
+        event.preventDefault()
+        applyCompletion(picker.items[picker.index])
+        setPicker(null)
+        return
+      }
+      if (event.key === 'ArrowDown') {
         event.preventDefault()
         setPicker((p) => ({ ...p, index: (p.index + 1) % p.items.length }))
         return
@@ -190,12 +199,6 @@ export default function TerminalScreen({
       if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
         event.preventDefault()
         setPicker((p) => ({ ...p, index: (p.index - 1 + p.items.length) % p.items.length }))
-        return
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault()
-        applyCompletion(picker.items[picker.index])
-        setPicker(null)
         return
       }
       if (event.key === 'Escape') { event.preventDefault(); setPicker(null); return }

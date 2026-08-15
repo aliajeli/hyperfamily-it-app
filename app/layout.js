@@ -52,8 +52,6 @@ var F=${JSON.stringify(BOOT_FONTS)},G=${JSON.stringify(BOOT_GROUPS)};
 var raw=localStorage.getItem(${JSON.stringify(TYPOGRAPHY_STORAGE_KEY)});
 if(!raw)return;
 var cfg=JSON.parse(raw),el=document.documentElement;
-var sc=Number(cfg.ui_scale);
-if(sc>=50&&sc<=200){el.style.fontSize=(16*sc/100)+'px';el.dataset.uiScale=String(sc);}
 for(var j=0;j<G.length;j++){
 var g=G[j],fam=cfg['font_'+g.i+'_family'],st=fam?(g.m?F.mono[fam]:F.ui[fam]||F.mono[fam]):'';
 if(st)el.style.setProperty(g.v,st);

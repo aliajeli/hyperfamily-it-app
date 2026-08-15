@@ -21,7 +21,7 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }) {
   const pathname = usePathname()
   return (
     <>
-    <aside className="app-rail glass fixed inset-y-0 left-0 z-30 hidden flex-col border-y-0 border-l-0 md:flex">
+    <aside className="app-rail glass fixed inset-y-0 left-0 hidden flex-col border-y-0 border-l-0 md:flex">
       <div className={cn('flex h-16 items-center gap-2.5 overflow-hidden border-b px-4', collapsed && 'justify-center px-2.5')}>
         <motion.div whileHover={{ rotate: -5, scale: 1.06 }} transition={{ type: 'spring', stiffness: 350 }}><BrandMark className="h-9 w-9 shrink-0" /></motion.div>
         <AnimatePresence initial={false}>
