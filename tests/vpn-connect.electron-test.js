@@ -170,3 +170,40 @@ test('liveness tracking flips the indicator when the tunnel dies', async (t) => 
   assert.equal(vpn.proxy, null)
   assert.equal(vpn.healthTimer, null, 'the health monitor must stop with the tunnel')
 })
+
+/**
+ * Every rung of the TLS retry ladder must be accepted by the runtime that
+ * actually ships.
+ *
+ * Electron links against BoringSSL, not OpenSSL, and BoringSSL rejects
+ * OpenSSL's `@SECLEVEL=n` cipher syntax with ERR_SSL_INVALID_COMMAND. A rung
+ * carrying invalid options throws before a single packet leaves the machine,
+ * so the ladder would appear to "try everything" while never actually
+ * downgrading anything — the gateway would stay unreachable and the logs would
+ * blame the network. This test fails loudly if such a rung is ever added.
+ */
+test('every TLS profile is valid for this runtime', () => {
+  const tls = require('node:tls')
+  const { TLS_PROFILES } = require('../electron/services/vpn.service.js')
+
+  assert.ok(Array.isArray(TLS_PROFILES) && TLS_PROFILES.length >= 2,
+    'the ladder must expose at least a default and one downgraded profile')
+
+  TLS_PROFILES.forEach((profile, index) => {
+    let socket
+    try {
+      // Port 1 never answers; the point is whether the OPTIONS are accepted,
+      // which is decided synchronously before any connection is attempted.
+      socket = tls.connect({ host: '127.0.0.1', port: 1, ...profile })
+      socket.on('error', () => {})
+    } catch (error) {
+      assert.fail(`TLS profile ${index} (${JSON.stringify(profile)}) is rejected by this runtime: ${error.code} ${error.message}`)
+    } finally {
+      if (socket) socket.destroy()
+    }
+  })
+
+  const text = JSON.stringify(TLS_PROFILES)
+  assert.ok(!text.includes('SECLEVEL'),
+    'BoringSSL rejects @SECLEVEL cipher strings — such a rung can never negotiate')
+})
