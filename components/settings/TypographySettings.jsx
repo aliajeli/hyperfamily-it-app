@@ -6,8 +6,9 @@ import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Select } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import {
-  FONT_GROUPS, MONO_FONTS, SCALE_MAX, SCALE_MIN, SCALE_STEP, UI_FONTS,
-  applyTypography, fontStack, normalizeScale, rememberTypography, typographySnapshot
+  FONT_GROUPS, MONO_FONTS, UI_FONTS,
+  applyTypography, fontStack, normalizeScale, pxForScale, pxOptionsFor,
+  rememberTypography, scaleForPx, typographySnapshot
 } from '@/lib/typography'
 import { useSettingsStore } from '@/stores/settings.store'
 
@@ -59,10 +60,13 @@ export default function TypographySettings({ settings, onSaved }) {
             const familyKey = `font_${group.id}_family`
             const sizeKey = `font_${group.id}_size`
             const size = normalizeScale(form[sizeKey])
+            const sizePx = pxForScale(group.id, size)
             const stack = fontStack(form[familyKey], catalogue)
 
             return (
-              <div key={group.id} className="grid items-center gap-2 rounded-lg border p-1.5 lg:grid-cols-[7rem_minmax(0,1fr)_15rem]">
+              /* The controls column is deliberately roomy so the default
+                 values ("Default Font", "24px (default)") never truncate. */
+              <div key={group.id} className="grid items-center gap-2 rounded-lg border p-1.5 lg:grid-cols-[7rem_minmax(0,1fr)_19rem]">
                 <div className="min-w-0">
                   <b className="text-[11px]">{group.label}</b>
                   <span className="block truncate text-[9.5px] leading-snug text-[rgb(var(--muted))]" title={group.description}>{group.description}</span>
@@ -88,16 +92,18 @@ export default function TypographySettings({ settings, onSaved }) {
                       {catalogue.map((font) => <option key={font.id || 'default'} value={font.id}>{font.label}</option>)}
                     </Select>
                   </label>
-                  <label className="w-[4.5rem]">
+                  <label className="w-[8.5rem] shrink-0">
                     <span className="sr-only">Size</span>
                     <Select
                       aria-label={`${group.label} font size`}
-                      value={String(size)}
-                      onChange={(event) => update(sizeKey, Number(event.target.value))}
+                      value={String(sizePx)}
+                      onChange={(event) => update(sizeKey, scaleForPx(group.id, Number(event.target.value)))}
                       className="h-7 text-[11px]"
                     >
-                      {Array.from({ length: (SCALE_MAX - SCALE_MIN) / SCALE_STEP + 1 }, (_, index) => SCALE_MIN + index * SCALE_STEP)
-                        .map((value) => <option key={value} value={value}>{value}%</option>)}
+                      {pxOptionsFor(group.id).map((px) => {
+                        const isDefault = px === pxForScale(group.id, 100)
+                        return <option key={px} value={px}>{isDefault ? `${px}px (default)` : `${px}px`}</option>
+                      })}
                     </Select>
                   </label>
                 </div>

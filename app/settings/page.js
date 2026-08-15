@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SlidersHorizontal, KeyRound, Link2, MonitorCog, PlugZap, TerminalSquare, Shield, Palette, Type } from 'lucide-react'
+import { SlidersHorizontal, KeyRound, Link2, MonitorCog, PlugZap, TerminalSquare, Shield, Palette, Type, LayoutDashboard } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import GeneralSettings from '@/components/settings/GeneralSettings'
@@ -13,12 +13,14 @@ import TerminalSettings from '@/components/settings/TerminalSettings'
 import VPNSettings from '@/components/settings/VPNSettings'
 import ThemeSettings from '@/components/settings/ThemeSettings'
 import TypographySettings from '@/components/settings/TypographySettings'
+import DashboardSettings from '@/components/settings/DashboardSettings'
 import { Card, Skeleton, Tabs, TabsContent } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import { DEFAULT_SETTINGS } from '@/lib/constants'
 
 const tabs = [
   { value: 'general', label: 'General', icon: <SlidersHorizontal size={14} /> },
+  { value: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
   { value: 'credentials', label: 'Credentials', icon: <KeyRound size={14} /> },
   { value: 'assignments', label: 'Assignments', icon: <Link2 size={14} /> },
   { value: 'connections', label: 'Connections', icon: <PlugZap size={14} /> },
@@ -44,7 +46,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-[1600px] space-y-3">
         <div>
           <h1 className="page-title">Application settings</h1>
-          <p className="page-subtitle">Security, monitoring, credentials and their assignments, connection methods, device tools, terminal, VPN, and appearance.</p>
+          <p className="page-subtitle">Security, monitoring, the dashboard experience, credentials and their assignments, connection methods, device tools, terminal, VPN, and appearance.</p>
         </div>
 
         {!settings ? (
@@ -55,6 +57,7 @@ export default function SettingsPage() {
           <Tabs value={tab} onValueChange={setTab} tabs={tabs} listClassName="mb-2.5 w-fit max-w-full">
             <Card className="p-3">
               <TabsContent value="general"><GeneralSettings settings={settings} onSaved={setSettings} /></TabsContent>
+              <TabsContent value="dashboard"><DashboardSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="credentials"><CredentialsSettings /></TabsContent>
               <TabsContent value="assignments"><AssignmentsSettings /></TabsContent>
               <TabsContent value="connections"><ConnectionsSettings settings={settings} onSaved={setSettings} /></TabsContent>

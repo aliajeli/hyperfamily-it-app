@@ -11,6 +11,7 @@ import {
   THEME_VAR_DETAILS,
   CUSTOM_THEME_ID,
   applyTheme,
+  applyThemeAnimated,
   findTheme,
   buildCustomTheme,
   defaultCustomColors,
@@ -69,7 +70,8 @@ export default function ThemeSettings({ settings, onSaved }) {
 
   const choose = async (theme) => {
     const previous = findTheme(settings.theme, parseCustomColors(settings.theme_custom))
-    applyTheme(theme)
+    // The whole app repaints through a view-transition wipe; see applyThemeAnimated.
+    applyThemeAnimated(theme)
     setBusy(theme.id)
     await persist({ theme: theme.id }, `${theme.name} applied`, () => applyTheme(previous))
     setBusy('')
@@ -85,7 +87,7 @@ export default function ThemeSettings({ settings, onSaved }) {
 
   const saveCustom = async () => {
     setBusy(CUSTOM_THEME_ID)
-    applyTheme(customTheme)
+    applyThemeAnimated(customTheme)
     await persist(
       { theme: CUSTOM_THEME_ID, theme_custom: JSON.stringify(custom) },
       'Custom theme saved',
