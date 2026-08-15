@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* -----------------------------------------------------------------------------
+   Theme crossfade (v2.0.15).
+
+   While the background iris repaints the page behind the interface
+   (lib/themes.js), this class makes every element transition its colours in
+   one smooth glide instead of snapping. Colour properties only — transform
+   and opacity are left alone so framer-motion and the iris itself are never
+   affected.
+   -------------------------------------------------------------------------- */
+html.theme-crossfade * {
+  transition:
+    background-color .75s cubic-bezier(.4, 0, .2, 1),
+    color .75s cubic-bezier(.4, 0, .2, 1),
+    border-color .75s cubic-bezier(.4, 0, .2, 1),
+    fill .75s ease,
+    stroke .75s ease,
+    box-shadow .75s ease !important;
+}
+
 :root,
 [data-theme='aurora'] {
   --primary: 191 97 106;
@@ -90,6 +109,11 @@ body {
   min-height: 100vh;
   overflow-x: clip;
   max-width: 100%;
+  /* Isolation makes body its own stacking context: the theme-swap iris
+     (a fixed child with z-index -1, see lib/themes.js) then paints ABOVE
+     the body background but BELOW every element of the interface, so the
+     whole effect plays out in the background of the app. */
+  isolation: isolate;
   background:
     radial-gradient(circle at 86% -15%, rgb(var(--secondary) / .18), transparent 30rem),
     radial-gradient(circle at 10% 110%, rgb(var(--primary) / .12), transparent 34rem),

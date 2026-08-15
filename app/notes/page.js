@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Check, ChevronsUp, Hash, Minus, NotebookPen, Palette, Pin, PinOff, Plus, Save, Search, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, ChevronsUp, Hash, Minus, NotebookPen, Palette, Pin, PinOff, Plus, Save, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import { Button, EmptyState, Input, Skeleton, Textarea } from '@/components/ui'
@@ -64,6 +64,7 @@ export default function NotesPage() {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
   const [menu, setMenu] = useState(null) // { x, y, noteId } — right-click menu
+  const [tagInput, setTagInput] = useState('')
   const nameRef = useRef(null)
 
   const load = useCallback(async (selectId = null) => {
@@ -125,6 +126,30 @@ export default function NotesPage() {
 
   const togglePin = async (note) => {
     await quickUpdate(note, { pinned: note.pinned ? 0 : 1 }, note.pinned ? 'Note unpinned' : 'Note pinned')
+  }
+
+  /**
+   * Tag helpers (v2.0.15). Tags live as #hashtags in the body, so the tag
+   * input simply appends one and removing a chip strips it back out — a tag
+   * can never drift out of sync with the note itself.
+   */
+  const escapeTag = (tag) => tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  const addTag = () => {
+    const raw = tagInput.trim().replace(/^#+/, '').trim()
+    if (!raw) return
+    const tag = `#${raw}`
+    if (tagsOf(draft.body).includes(tag.toLowerCase())) { setTagInput(''); return }
+    setDraft({ ...draft, body: `${(draft.body || '').trim()} ${tag}`.trim() })
+    setTagInput('')
+  }
+
+  const removeTag = (tag) => {
+    const body = (draft.body || '')
+      .replace(new RegExp(`${escapeTag(tag)}\\b`, 'gi'), ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    setDraft({ ...draft, body })
   }
 
   const filtered = useMemo(() => {
@@ -430,26 +455,55 @@ export default function NotesPage() {
                   })}
                 </div>
 
-                {/* Hashtags typed in the body surface here as chips. */}
-                {tagsOf(draft.body).length > 0 && (
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1" aria-label="Note tags">
-                    <Hash size={11} className="shrink-0 text-[rgb(var(--muted))]" />
-                    {tagsOf(draft.body).slice(0, 5).map((tag) => (
+                {/* Tags: chips (filter + remove) plus the tag input that adds
+                    new ones — useful right when a note is being created. */}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1" aria-label="Note tags">
+                  <Hash size={11} className="shrink-0 text-[rgb(var(--muted))]" />
+                  {tagsOf(draft.body).map((tag) => (
+                    <span
+                      key={tag}
+                      className="flex items-center gap-0.5 rounded-full bg-[rgb(var(--primary)/.12)] pl-1.5 pr-0.5 text-[9px] font-bold text-[rgb(var(--primary))]"
+                    >
                       <button
-                        key={tag}
                         type="button"
                         title={`Filter by ${tag}`}
                         onClick={() => setQuery(tag)}
-                        className="rounded-full bg-[rgb(var(--primary)/.12)] px-1.5 py-0.5 text-[9px] font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.22)]"
+                        className="py-0.5 transition hover:opacity-70"
                       >
                         {tag}
                       </button>
-                    ))}
-                    {tagsOf(draft.body).length > 5 && (
-                      <span className="text-[9px] font-bold text-[rgb(var(--muted))]">+{tagsOf(draft.body).length - 5}</span>
-                    )}
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        aria-label={`Remove tag ${tag}`}
+                        title={`Remove ${tag}`}
+                        onClick={() => removeTag(tag)}
+                        className="grid h-3.5 w-3.5 place-items-center rounded-full opacity-60 transition hover:bg-[rgb(var(--primary)/.25)] hover:opacity-100"
+                      >
+                        <X size={8} strokeWidth={3} />
+                      </button>
+                    </span>
+                  ))}
+                  <span className="flex items-center gap-0.5 rounded-full border border-dashed bg-[rgb(var(--canvas)/.6)] py-0.5 pl-2 pr-0.5">
+                    <input
+                      value={tagInput}
+                      onChange={(event) => setTagInput(event.target.value)}
+                      onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addTag() } }}
+                      placeholder="Add #tag"
+                      aria-label="New tag"
+                      className="w-16 bg-transparent text-[9px] font-bold text-[rgb(var(--text))] outline-none placeholder:text-[rgb(var(--muted)/.7)]"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Add tag"
+                      title="Add tag"
+                      onClick={addTag}
+                      disabled={!tagInput.trim()}
+                      className="grid h-3.5 w-3.5 place-items-center rounded-full bg-[rgb(var(--primary)/.2)] text-[rgb(var(--primary))] transition enabled:hover:bg-[rgb(var(--primary)/.35)] disabled:opacity-40"
+                    >
+                      <Plus size={8} strokeWidth={3.5} />
+                    </button>
+                  </span>
+                </div>
 
                 <div className="ml-auto flex items-center gap-1" role="group" aria-label="Note priority">
                   {PRIORITIES.map((level) => {
