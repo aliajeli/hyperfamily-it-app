@@ -58,7 +58,7 @@ function formatDuration(seconds) {
 }
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.16', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.17', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -247,7 +247,7 @@ export default function AboutPage() {
             <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[rgb(var(--primary)/.16)] blur-3xl" />
             <CardContent className="relative flex min-h-0 flex-col justify-center p-2.5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <BrandMark className="h-10 w-10 shrink-0" />
+                <BrandMark className="h-10 w-10 shrink-0" symbol />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-sm font-black">HyperFamily Branch Monitor</h2>

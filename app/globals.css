@@ -3,24 +3,24 @@
 @tailwind utilities;
 
 /* -----------------------------------------------------------------------------
-   Theme crossfade (v2.0.16).
+   Theme crossfade (v2.0.17).
 
    When a theme is picked, lib/themes.js applies the new palette immediately
    and puts this class on <html>: every element — and the page background
-   itself — then fades its colours into the new theme in one coordinated
-   ~0.65s transition. Colour properties only; transform and opacity are left
-   alone so framer-motion is never affected.
+   itself — then fades its colours into the new theme in one quick, coordinated
+   fade. Colour properties only; transform and opacity are left alone so
+   framer-motion is never affected.
    -------------------------------------------------------------------------- */
 html.theme-crossfade,
 html.theme-crossfade body,
 html.theme-crossfade * {
   transition:
-    background-color .65s cubic-bezier(.4, 0, .2, 1),
-    color .65s cubic-bezier(.4, 0, .2, 1),
-    border-color .65s cubic-bezier(.4, 0, .2, 1),
-    fill .65s ease,
-    stroke .65s ease,
-    box-shadow .65s ease !important;
+    background-color .3s cubic-bezier(.4, 0, .2, 1),
+    color .3s cubic-bezier(.4, 0, .2, 1),
+    border-color .3s cubic-bezier(.4, 0, .2, 1),
+    fill .3s ease,
+    stroke .3s ease,
+    box-shadow .3s ease !important;
 }
 
 /* The settings tab panels glide in rather than snapping. */
