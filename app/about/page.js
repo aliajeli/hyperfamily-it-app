@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { RefreshCw, Download, Rocket, Github, CircleDot, Calendar, HardDrive, ShieldCheck, Code2, ExternalLink, CheckCircle2, Mail } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { RefreshCw, Download, Rocket, Github, CircleDot, Calendar, HardDrive, ShieldCheck, Code2, ExternalLink, CheckCircle2, Mail, Pause, Play, Square, ScrollText, X } from 'lucide-react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BrandMark from '@/components/layout/BrandMark'
@@ -57,12 +58,14 @@ function formatDuration(seconds) {
 }
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.15', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.16', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
   const [downloading, setDownloading] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
+  const [changelogOpen, setChangelogOpen] = useState(false)
   // Live transfer figures: how much has arrived, how much is left, how fast.
   const [transfer, setTransfer] = useState({ transferred: 0, total: 0, remaining: 0, bytesPerSecond: 0, etaSeconds: null })
   const [installing, setInstalling] = useState(false)
@@ -76,6 +79,7 @@ export default function AboutPage() {
     api.update.state?.().then((state) => {
       if (!state) return
       setDownloading(Boolean(state.downloading))
+      setPaused(Boolean(state.paused))
       setDownloaded(Boolean(state.downloaded))
       setProgress(Number(state.percent) || 0)
       setTransfer({
@@ -90,6 +94,7 @@ export default function AboutPage() {
     const unsubscribe = api.update.subscribe((event) => {
       if (event.type === 'progress') {
         setDownloading(true)
+        setPaused(false)
         setProgress(Math.round(event.percent || 0))
         setTransfer({
           transferred: Number(event.transferred) || 0,
@@ -108,9 +113,27 @@ export default function AboutPage() {
       }
       if (event.type === 'error') {
         setDownloading(false)
+        setPaused(false)
         setProgress(0)
         setTransfer({ transferred: 0, total: 0, remaining: 0, bytesPerSecond: 0, etaSeconds: null })
         toast.error(event.message)
+      }
+      if (event.type === 'paused') {
+        setDownloading(false)
+        setPaused(true)
+        toast.info('Download paused', { description: 'Resume it whenever you are ready.' })
+      }
+      if (event.type === 'resumed') {
+        setPaused(false)
+        setDownloading(true)
+        toast.info('Download resumed')
+      }
+      if (event.type === 'stopped') {
+        setDownloading(false)
+        setPaused(false)
+        setProgress(0)
+        setTransfer({ transferred: 0, total: 0, remaining: 0, bytesPerSecond: 0, etaSeconds: null })
+        toast.info('Download cancelled')
       }
     })
     return () => unsubscribe?.()
@@ -168,6 +191,34 @@ export default function AboutPage() {
       external(target)
     } finally {
       setDownloading(false)
+    }
+  }
+
+  /** Pauses the download; the service keeps the progress so it can resume. */
+  const pause = async () => {
+    try {
+      await getApi().update.pause()
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  /** Continues a paused download from where it stopped. */
+  const resume = async () => {
+    try {
+      setPaused(false)
+      await getApi().update.resume()
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  /** Cancels the download entirely and clears the progress. */
+  const stop = async () => {
+    try {
+      await getApi().update.stop()
+    } catch (error) {
+      toast.error(error.message)
     }
   }
 
@@ -248,7 +299,7 @@ export default function AboutPage() {
                 {(downloading || progress > 0 || downloaded) && (
                   <div className="mt-3" aria-label="Update download progress">
                     <div className="mb-1 flex justify-between text-[9.5px]">
-                      <span>{downloaded ? 'Update ready to install' : 'Downloading update'}</span>
+                      <span>{downloaded ? 'Update ready to install' : paused ? 'Download paused' : 'Downloading update'}</span>
                       <b>{progress}%</b>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-[rgb(var(--border))]">
@@ -276,17 +327,39 @@ export default function AboutPage() {
                 <Button size="sm" onClick={check} disabled={checking} variant="secondary">
                   <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />{checking ? 'Checking…' : 'Check for updates'}
                 </Button>
-                {update?.hasUpdate && !downloaded && (
-                  <Button size="sm" onClick={download} disabled={downloading}>
-                    {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-                    {downloading
-                      ? `Downloading ${progress}%`
-                      : `Download v${update.latestVersion}${update.downloadSize > 0 ? ` (${formatBytes(update.downloadSize)})` : ''}`}
+                {update?.hasUpdate && !downloaded && !downloading && !paused && (
+                  <Button size="sm" onClick={download}>
+                    <Download size={14} />Download v{update.latestVersion}{update.downloadSize > 0 ? ` (${formatBytes(update.downloadSize)})` : ''}
                   </Button>
+                )}
+                {downloading && !paused && (
+                  <>
+                    <Button size="sm" variant="secondary" onClick={pause}>
+                      <Pause size={14} />Pause
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={stop}>
+                      <Square size={14} />Stop
+                    </Button>
+                  </>
+                )}
+                {paused && (
+                  <>
+                    <Button size="sm" onClick={resume}>
+                      <Play size={14} />Resume
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={stop}>
+                      <Square size={14} />Stop
+                    </Button>
+                  </>
                 )}
                 {downloaded && (
                   <Button size="sm" variant="success" onClick={install} disabled={installing}>
                     <Rocket size={14} />{installing ? 'Installing…' : 'Install and restart'}
+                  </Button>
+                )}
+                {update?.hasUpdate && update.releaseNotes && (
+                  <Button size="sm" variant="ghost" onClick={() => setChangelogOpen(true)}>
+                    <ScrollText size={14} />View changelog
                   </Button>
                 )}
                 {update?.hasUpdate && (
@@ -296,7 +369,9 @@ export default function AboutPage() {
                 )}
               </div>
 
-              {update?.releaseNotes && <p className="mt-2 line-clamp-2 whitespace-pre-line text-[11px] leading-relaxed text-[rgb(var(--muted))]">{update.releaseNotes}</p>}
+              {update?.hasUpdate && update.releaseNotes && (
+                <p className="mt-2 line-clamp-2 whitespace-pre-line text-[11px] leading-relaxed text-[rgb(var(--muted))]">{update.releaseNotes}</p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -363,6 +438,57 @@ export default function AboutPage() {
         </div>
 
         <footer className="pb-0.5 text-center text-[9px] uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
+
+        {/* Changelog of the available update, over a blurred page (v2.0.16). */}
+        <DialogPrimitive.Root open={changelogOpen} onOpenChange={setChangelogOpen}>
+          <AnimatePresence>
+            {changelogOpen && update?.hasUpdate && (
+              <DialogPrimitive.Portal forceMount>
+                <DialogPrimitive.Overlay asChild forceMount>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 z-[70] bg-nord-0/55 backdrop-blur-md"
+                  />
+                </DialogPrimitive.Overlay>
+                <DialogPrimitive.Content asChild forceMount>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: 8 }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    className="dialog-content glass fixed left-1/2 top-1/2 z-[80] flex max-h-[80vh] w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border bg-[rgb(var(--surface))] p-3.5 shadow-2xl outline-none"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><ScrollText size={15} /></div>
+                      <div>
+                        <DialogPrimitive.Title className="text-sm font-extrabold">What's new in v{update.latestVersion}</DialogPrimitive.Title>
+                        <DialogPrimitive.Description className="text-[10px] text-[rgb(var(--muted))]">The release notes published with this update.</DialogPrimitive.Description>
+                      </div>
+                      <DialogPrimitive.Close asChild>
+                        <button
+                          type="button"
+                          aria-label="Close changelog"
+                          className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.5)] hover:text-[rgb(var(--text))]"
+                        >
+                          <X size={15} />
+                        </button>
+                      </DialogPrimitive.Close>
+                    </div>
+                    <div className="mt-2.5 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-xl border bg-[rgb(var(--canvas)/.6)] p-3 text-[11px] leading-relaxed">
+                      {update.releaseNotes}
+                    </div>
+                    <div className="mt-2.5 flex items-center justify-end border-t pt-2.5">
+                      <DialogPrimitive.Close asChild><Button size="sm">Close</Button></DialogPrimitive.Close>
+                    </div>
+                  </motion.div>
+                </DialogPrimitive.Content>
+              </DialogPrimitive.Portal>
+            )}
+          </AnimatePresence>
+        </DialogPrimitive.Root>
       </div>
     </AppShell>
   )

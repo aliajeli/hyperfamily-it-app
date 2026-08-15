@@ -129,6 +129,9 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   // Lets the About page restore the Download/Install button after navigation.
   ipcMain.handle('update:state', secure(() => updateService.state()))
   ipcMain.handle('update:download', secure(() => updateService.download()))
+  ipcMain.handle('update:pause', secure(() => updateService.pause()))
+  ipcMain.handle('update:resume', secure(() => updateService.resume()))
+  ipcMain.handle('update:stop', secure(() => updateService.stop()))
   ipcMain.handle('update:install', secure(() => updateService.install()))
   ipcMain.handle('audit:list', secure((_event, limit) => database.listAudit(limit)))
 

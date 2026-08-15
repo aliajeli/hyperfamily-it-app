@@ -30,6 +30,9 @@ class UpdateService {
     this.sendEvent = sendEvent
     this.status = { ...UpdateService.idleStatus() }
     this.installerPath = null
+    this.paused = false
+    this.cancellationToken = null
+    this.fallbackAbort = null
 
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
@@ -76,6 +79,7 @@ class UpdateService {
   static idleStatus() {
     return {
       downloading: false,
+      paused: false,
       downloaded: false,
       percent: 0,
       version: null,
@@ -102,6 +106,7 @@ class UpdateService {
    * on-screen speed unreadable.
    */
   reportProgress({ transferred, total, bytesPerSecond }) {
+    if (this.paused) return
     const now = Date.now()
     if (!this.rateWindow || this.rateWindow.start > now) this.resetRate(transferred, now)
 
@@ -148,6 +153,7 @@ class UpdateService {
   }
 
   markDownloaded(version, installerPath, viaFallback) {
+    this.paused = false
     const total = this.status.total || 0
     this.status = {
       ...UpdateService.idleStatus(),
@@ -165,6 +171,48 @@ class UpdateService {
   /** Lets the UI restore the Download/Install button after a page change. */
   state() {
     return { ...this.status, canInstall: this.status.downloaded, isPackaged: app.isPackaged }
+  }
+
+  /**
+   * Pauses the download in place.
+   *
+   * electron-updater's download carries a CancellationToken, so pausing asks
+   * the token to stop; the in-flight promise rejects quietly and is NOT
+   * allowed to fall back to the GitHub download. Progress numbers are kept so
+   * the About page can show exactly where the download stopped. The fallback
+   * (direct GitHub fetch) pauses through its own AbortController.
+   */
+  async pause() {
+    if (this.status.paused) return this.state()
+    if (!this.status.downloading) throw new Error('No download is running')
+    this.paused = true
+    try { this.cancellationToken?.cancel() } catch { /* token may be gone */ }
+    try { this.fallbackAbort?.abort() } catch { /* no fallback running */ }
+    this.status.paused = true
+    this.status.downloading = false
+    this.emit({ type: 'paused', percent: this.status.percent })
+    return this.state()
+  }
+
+  /** Continues a paused download from the top. */
+  async resume() {
+    if (!this.status.paused) throw new Error('Nothing is paused')
+    this.status.paused = false
+    this.paused = false
+    this.emit({ type: 'resumed' })
+    return this.download()
+  }
+
+  /** Cancels the download entirely and returns to the idle state. */
+  async stop() {
+    this.paused = false
+    try { this.cancellationToken?.cancel() } catch { /* token may be gone */ }
+    try { this.fallbackAbort?.abort() } catch { /* no fallback running */ }
+    this.cancellationToken = null
+    this.fallbackAbort = null
+    this.status = { ...UpdateService.idleStatus() }
+    this.emit({ type: 'stopped' })
+    return this.state()
   }
 
   async check() {
@@ -219,6 +267,7 @@ class UpdateService {
     if (this.status.downloading) throw new Error('A download is already running')
     if (this.status.downloaded) return this.state()
 
+    this.paused = false
     const knownTotal = this.latestInstaller?.size || this.status.total || 0
     this.status = { ...UpdateService.idleStatus(), downloading: true, total: knownTotal, remaining: knownTotal }
     this.resetRate(0)
@@ -229,6 +278,9 @@ class UpdateService {
       const result = await this.downloadWithUpdater()
       if (result) return this.state()
     } catch (error) {
+      // A pause cancels the updater's token on purpose: that is not an
+      // error and must not fall back to the GitHub download.
+      if (this.paused) return this.state()
       this.lastUpdaterError = error
     }
 
@@ -238,6 +290,7 @@ class UpdateService {
       await this.downloadFromGitHub()
       return this.state()
     } catch (error) {
+      if (this.paused) return this.state()
       this.status = { ...UpdateService.idleStatus() }
       const detail = this.lastUpdaterError?.message ? ` (${this.lastUpdaterError.message})` : ''
       const message = `${error.message}${detail}`
@@ -254,10 +307,12 @@ class UpdateService {
     try {
       const checkResult = await autoUpdater.checkForUpdates()
       if (!checkResult?.updateInfo) throw new Error('electron-updater found no update metadata')
+      // Keep the token so pause() can cancel the download in place.
+      this.cancellationToken = checkResult.cancellationToken || null
       // A differential pass writes only the changed blocks; if the blockmap is
       // missing or unusable electron-updater silently falls back to the full
       // file, so this stays a single call either way.
-      const files = await autoUpdater.downloadUpdate(checkResult.cancellationToken)
+      const files = await autoUpdater.downloadUpdate(this.cancellationToken)
       if (updaterError) throw updaterError
       const file = (Array.isArray(files) ? files.find((item) => String(item).toLowerCase().endsWith('.exe')) || files[0] : null) || null
       if (file) this.installerPath = file
@@ -274,7 +329,8 @@ class UpdateService {
     const asset = this.latestInstaller
     if (!asset?.url) throw new Error('No Windows installer is attached to the latest release')
 
-    const response = await fetch(asset.url, { headers: { 'User-Agent': REQUEST_HEADERS['User-Agent'] }, redirect: 'follow' })
+    this.fallbackAbort = new AbortController()
+    const response = await fetch(asset.url, { headers: { 'User-Agent': REQUEST_HEADERS['User-Agent'] }, redirect: 'follow', signal: this.fallbackAbort.signal })
     if (!response.ok || !response.body) throw new Error(`Downloading the installer failed (${response.status})`)
 
     const total = Number(response.headers.get('content-length')) || asset.size || 0
@@ -290,6 +346,8 @@ class UpdateService {
     this.resetRate(0)
     try {
       for await (const chunk of response.body) {
+        // A pause aborts the stream: stop writing and keep the numbers frozen.
+        if (this.paused) break
         transferred += chunk.length
         if (!handle.write(Buffer.from(chunk))) await new Promise((resolve) => handle.once('drain', resolve))
         // Emit on a timer rather than per chunk: often enough for a smooth
@@ -305,7 +363,13 @@ class UpdateService {
     } catch (error) {
       handle.destroy()
       try { fs.unlinkSync(partial) } catch { /* nothing to clean up */ }
+      if (this.paused) return null
       throw new Error(`Downloading the installer failed: ${error.message}`)
+    }
+
+    if (this.paused) {
+      try { fs.unlinkSync(partial) } catch { /* nothing to clean up */ }
+      return null
     }
 
     if (total && transferred !== total) {

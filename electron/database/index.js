@@ -28,6 +28,25 @@ function normalizeSwitchPorts(ports) {
 }
 
 class AppDatabase {
+  /** Parses the JSON tag array stored on a note; anything invalid yields []. */
+  static parseTags(raw) {
+    try {
+      const value = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw
+      return AppDatabase.sanitiseTags(value)
+    } catch { return [] }
+  }
+
+  /**
+   * Normalises incoming tags: strings only, no leading #, lower-cased,
+   * deduplicated, capped at 20 entries of 40 characters.
+   */
+  static sanitiseTags(value) {
+    if (!Array.isArray(value)) return []
+    return [...new Set(value
+      .map((tag) => String(tag).replace(/^#+/, '').trim().toLowerCase().slice(0, 40))
+      .filter(Boolean))].slice(0, 20)
+  }
+
   constructor(userDataPath, vault) {
     this.vault = vault
     this.filePath = path.join(userDataPath, 'hyperfamily-monitor.db')
@@ -579,8 +598,10 @@ class AppDatabase {
 
   listNotes() {
     // Pinned first, then by priority, then by recency: the order the notes page
-    // renders in without needing to sort client-side.
-    return this.db.prepare('SELECT id, name, body, pinned, color, priority, created_at, updated_at FROM notes ORDER BY pinned DESC, priority DESC, updated_at DESC').all()
+    // renders in without needing to sort client-side. Tags are stored as a
+    // JSON array and parsed before they reach the renderer.
+    return this.db.prepare('SELECT id, name, body, pinned, color, priority, tags, created_at, updated_at FROM notes ORDER BY pinned DESC, priority DESC, updated_at DESC').all()
+      .map((row) => ({ ...row, tags: AppDatabase.parseTags(row.tags) }))
   }
 
   saveNote(payload = {}, actor = 'System') {
@@ -590,18 +611,21 @@ class AppDatabase {
     const pinned = payload.pinned ? 1 : 0
     // Unknown colours fall back to neutral and priority is clamped to the
     // three defined levels, so a malformed payload can never write a value the
-    // interface has no rendering for.
+    // interface has no rendering for. Tags are sanitised the same way: lower-
+    // cased, deduplicated, capped at 20, and never written into the body.
     const color = NOTE_COLORS.includes(payload.color) ? payload.color : 'default'
     const priority = Math.min(2, Math.max(0, Number.parseInt(payload.priority, 10) || 0))
+    const tags = AppDatabase.sanitiseTags(payload.tags)
+    const tagsJson = JSON.stringify(tags)
     if (payload.id) {
-      this.db.prepare('UPDATE notes SET name = ?, body = ?, pinned = ?, color = ?, priority = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-        .run(name, body, pinned, color, priority, Number(payload.id))
+      this.db.prepare('UPDATE notes SET name = ?, body = ?, pinned = ?, color = ?, priority = ?, tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(name, body, pinned, color, priority, tagsJson, Number(payload.id))
       this.audit(actor, 'NOTE_UPDATE', name, `Note ${payload.id}`)
-      return this.db.prepare('SELECT * FROM notes WHERE id = ?').get(Number(payload.id))
+      return { ...this.db.prepare('SELECT * FROM notes WHERE id = ?').get(Number(payload.id)), tags }
     }
-    const info = this.db.prepare('INSERT INTO notes (name, body, pinned, color, priority) VALUES (?, ?, ?, ?, ?)').run(name, body, pinned, color, priority)
+    const info = this.db.prepare('INSERT INTO notes (name, body, pinned, color, priority, tags) VALUES (?, ?, ?, ?, ?, ?)').run(name, body, pinned, color, priority, tagsJson)
     this.audit(actor, 'NOTE_CREATE', name, `Note ${info.lastInsertRowid}`)
-    return this.db.prepare('SELECT * FROM notes WHERE id = ?').get(info.lastInsertRowid)
+    return { ...this.db.prepare('SELECT * FROM notes WHERE id = ?').get(info.lastInsertRowid), tags }
   }
 
   deleteNote(id, actor = 'System') {

@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { toast } from 'sonner'
 import { getApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth.store'
 import { useDevicesStore } from '@/stores/devices.store'
+import { useUpdateStore } from '@/stores/update.store'
 import Sidebar from './Sidebar'
 import Header from './Header'
 
@@ -21,7 +23,16 @@ export default function AppShell({ children, compact = false }) {
   const router = useRouter()
   const { user, hydrated, logout } = useAuthStore()
   const setSnapshot = useDevicesStore((s) => s.setSnapshot)
-  const [collapsed, setCollapsed] = useState(false)
+  // The rail stays exactly as the user left it: collapsed until the collapse
+  // button is clicked again — never expanded by a hover, a route change or a
+  // restart (v2.0.16). The choice is remembered across sessions.
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return window.localStorage.getItem('hyperfamily.sidebar') === 'collapsed' } catch { return false }
+  })
+
+  useEffect(() => {
+    try { window.localStorage.setItem('hyperfamily.sidebar', collapsed ? 'collapsed' : 'expanded') } catch { /* storage may be unavailable */ }
+  }, [collapsed])
 
   useEffect(() => {
     if (hydrated && !user) router.replace('/login')
@@ -39,6 +50,35 @@ export default function AppShell({ children, compact = false }) {
     unsubscribe = getApi().monitor.subscribe(setSnapshot)
     return () => unsubscribe?.()
   }, [user, setSnapshot])
+
+  // Automatic update check (v2.0.16): once on launch, then every six hours.
+  // When a newer version exists, the Notification Center announces it with
+  // its changelog and a toast points the operator at the About page.
+  const setUpdateInfo = useUpdateStore((state) => state.setInfo)
+  useEffect(() => {
+    if (!user) return undefined
+    const api = getApi()
+    if (!api?.update?.check) return undefined
+    let announced = false
+    const runCheck = async () => {
+      try {
+        const result = await api.update.check()
+        if (result?.hasUpdate) {
+          setUpdateInfo(result)
+          if (!announced) {
+            announced = true
+            toast.message('A new version is available', {
+              description: `HyperFamily ${result.latestVersion} is ready — open the bell for the changelog.`,
+              action: { label: 'View', onClick: () => router.push('/about') }
+            })
+          }
+        }
+      } catch { /* offline or a failed check must stay silent */ }
+    }
+    runCheck()
+    const timer = setInterval(runCheck, 6 * 60 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [user, setUpdateInfo, router])
 
   const onLogout = async () => {
     await getApi().auth.logout().catch(() => {})
