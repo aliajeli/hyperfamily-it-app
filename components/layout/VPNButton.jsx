@@ -18,6 +18,9 @@ const STATES = {
   connecting: { label: 'Connecting…', tone: 'busy', icon: Loader2 },
   connected_in_app: { label: 'In-app tunnel', tone: 'on', icon: ShieldCheck },
   connected_global: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
+  // The user is signing in inside the FortiClient window. Not an error: the
+  // indicator turns green by itself as soon as the tunnel appears.
+  awaiting_forticlient: { label: 'Sign in to FortiClient…', tone: 'busy', icon: Loader2 },
   // Legacy state names kept so an older stored status never breaks the header.
   connected_split: { label: 'In-app tunnel', tone: 'on', icon: ShieldCheck },
   connected_full: { label: 'FortiClient VPN', tone: 'on', icon: ShieldCheck },
@@ -74,7 +77,11 @@ export default function VPNButton() {
     try {
       const result = await getApi().vpn.connect(mode)
       setStatus(result)
-      toast.success(mode === 'in_app' ? 'In-app VPN tunnel is active' : 'FortiClient VPN launched — finish signing in there')
+      if (result?.state === 'awaiting_forticlient') {
+        toast.info('FortiClient is open — finish signing in there. This indicator turns green on its own once the tunnel is up.', { duration: 10000 })
+      } else {
+        toast.success(mode === 'in_app' ? 'In-app VPN tunnel is active' : 'FortiClient VPN tunnel is active')
+      }
     } catch (error) {
       setStatus({ state: 'error', mode: null, message: error.message })
       toast.error(error.message, {

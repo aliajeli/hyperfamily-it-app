@@ -311,6 +311,122 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     .select-content[data-state='closed'] { animation-duration: .01ms; }
   }
 
+/* --------------------------------------------------------- About: contact card */
+.contact-card:hover {
+  border-color: rgb(var(--primary) / .5);
+  background: rgb(var(--primary) / .07);
+  box-shadow: 0 12px 30px rgb(var(--primary) / .16);
+  transform: translateY(-2px);
+}
+.contact-card:hover .contact-card-icon {
+  background: rgb(var(--primary));
+  color: #fff;
+  transform: scale(1.06) rotate(-4deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .contact-card, .contact-card-icon { transition-duration: .01ms; }
+  .contact-card:hover { transform: none; }
+}
+
+/* --------------------------------------------------- About: technology tiles
+   Each tile carries its technology's brand colour in --brand. At rest the grid
+   is calm and monochrome; on hover the colour washes in from the bottom-left,
+   the border and title adopt the brand hue and a soft tinted glow lifts the
+   tile. Everything animates on compositor-friendly properties only. */
+.tech-tile {
+  transition: border-color .38s cubic-bezier(.16, 1, .3, 1), box-shadow .38s cubic-bezier(.16, 1, .3, 1);
+  will-change: transform;
+}
+.tech-tile-wash {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  background:
+    radial-gradient(120% 120% at 0% 100%, var(--brand) 0%, transparent 62%),
+    linear-gradient(135deg, var(--brand) 0%, transparent 78%);
+  transition: opacity .42s cubic-bezier(.16, 1, .3, 1);
+  pointer-events: none;
+}
+.tech-tile:hover .tech-tile-wash { opacity: .16; }
+.tech-tile-name {
+  transition: color .34s cubic-bezier(.16, 1, .3, 1);
+}
+.tech-tile:hover { border-color: color-mix(in srgb, var(--brand) 58%, transparent); }
+.tech-tile:hover .tech-tile-name { color: var(--brand); }
+.tech-tile:hover { box-shadow: 0 14px 34px color-mix(in srgb, var(--brand) 26%, transparent); }
+
+/* Dark mode: the light brand variant keeps the text legible on a dark tile. */
+:root[data-color-mode='dark'] .tech-tile:hover .tech-tile-name { color: var(--brand-dark); }
+:root[data-color-mode='dark'] .tech-tile:hover { border-color: color-mix(in srgb, var(--brand-dark) 52%, transparent); }
+:root[data-color-mode='dark'] .tech-tile-wash {
+  background:
+    radial-gradient(120% 120% at 0% 100%, var(--brand-dark) 0%, transparent 62%),
+    linear-gradient(135deg, var(--brand-dark) 0%, transparent 78%);
+}
+:root[data-color-mode='dark'] .tech-tile:hover .tech-tile-wash { opacity: .2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tech-tile, .tech-tile-wash, .tech-tile-name { transition-duration: .01ms; }
+}
+
+/* ------------------------------------------------------------------ z-order
+   One authoritative stacking scale for the whole application.
+
+   The Notification and VPN panels are anchored inside the header, so their
+   own `z-50` used to be trapped in the header's stacking context: any card in
+   the main column that gained a stacking context on hover (a transform, an
+   opacity change, a framer-motion `layout` animation) could paint straight
+   over an open panel. Raising the card's z-index would not help — it is being
+   compared against the *header*, not against the panel.
+
+   The fix is structural rather than cosmetic:
+     1. the header is lifted above the main column, so nothing inside main can
+        ever out-rank it, whatever it does on hover;
+     2. the panels are pinned to the top of the scale;
+     3. hover effects inside the main column are explicitly denied a z-index
+        that could compete.
+   ------------------------------------------------------------------------ */
+:root {
+  --z-rail: 30;
+  --z-header: 60;
+  /* Fullscreen surfaces deliberately cover the header — they replace the whole
+     screen — so they sit just above it, and still below dialogs. */
+  --z-fullscreen: 70;
+  --z-panel: 90;
+  --z-modal: 100;
+}
+
+/* The header outranks every page-level element, so a panel hanging off it is
+   compared against the main column as a whole and always wins. */
+.app-header { z-index: var(--z-header); }
+.app-rail { z-index: var(--z-rail); }
+/* The main column is deliberately left WITHOUT a stacking context. Giving it
+   one would trap genuinely-fullscreen surfaces (the terminal) underneath the
+   header. Page content stays below the header simply because nothing inside it
+   is allowed a z-index that reaches --z-header. */
+
+/* The two panels that must never be covered by anything. */
+.notification-popup,
+.vpn-popup {
+  z-index: var(--z-panel);
+  /* Own stacking context, so descendants cannot escape upward either. */
+  isolation: isolate;
+}
+
+/* A fullscreen surface (the terminal) escapes the main column's layer. */
+.surface-fullscreen { z-index: var(--z-fullscreen); }
+
+/* Cards animate with transform/shadow only. Denying them a positive z-index
+   keeps a hovered card from creating a layer that competes with the header,
+   which is exactly what let a branch card slide over an open panel. */
+.branch-card:hover,
+.device-card:hover,
+.router-monitor-card:hover,
+.directory-branch-card:hover,
+.directory-device-card:hover,
+.device-type-option:hover { z-index: 0; }
+
 :root[data-color-mode='dark'] .branch-card:hover,
 :root[data-color-mode='dark'] .device-card:hover,
 :root[data-color-mode='dark'] .router-monitor-card:hover,

@@ -11,7 +11,7 @@ const titles = { dashboard: 'Operations overview', devices: 'Branches & devices'
 export default function Header({ user }) {
   const pathname = usePathname()
   const key = pathname.split('/')[1] || 'dashboard'
-  return <header className="app-header drag-region fixed right-0 top-0 z-20 flex h-14 items-center justify-between border-b bg-[rgb(var(--canvas)/.76)] px-3.5 backdrop-blur-xl md:px-5">
+  return <header className="app-header drag-region fixed right-0 top-0 flex h-14 items-center justify-between border-b bg-[rgb(var(--canvas)/.76)] px-3.5 backdrop-blur-xl md:px-5">
     <motion.div key={key} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}><h1 className="text-sm font-bold tracking-[0.02em] md:text-base">{titles[key] || 'HyperFamily'}</h1><p className="hidden text-[10px] uppercase tracking-widest text-[rgb(var(--muted))] sm:block">Infrastructure control center</p></motion.div>
     <div className="no-drag flex items-center gap-2.5">
       <GlobalSearch />

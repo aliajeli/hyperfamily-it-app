@@ -32,6 +32,38 @@ const FORTICLIENT_CANDIDATES = [
 
 const FORTICLIENT_DOWNLOAD = 'https://www.fortinet.com/support/product-downloads#vpn'
 
+/**
+ * FortiGate appliances are long-lived and many still terminate TLS with a
+ * legacy stack: RSA key exchange, SHA-1 signature algorithms, or a narrow ECDH
+ * curve set. Electron ships BoringSSL with a modern security level, which
+ * rejects those handshakes outright and surfaces the failure as
+ *   write EPROTO ... RSA routines:OPENSSL_internal:FIRST_OCTET_INVALID
+ * long before any certificate is ever inspected — which is why
+ * `rejectUnauthorized: false` alone never helped.
+ *
+ * Rather than permanently weakening every connection, each TLS attempt walks
+ * this ladder and stops at the first rung that completes a handshake. Modern
+ * gateways stay on rung 0 and keep full-strength crypto.
+ */
+const TLS_PROFILES = [
+  {},
+  { minVersion: 'TLSv1.2', ciphers: 'DEFAULT:@SECLEVEL=0', ecdhCurve: 'auto' },
+  { minVersion: 'TLSv1', ciphers: 'DEFAULT:@SECLEVEL=0', ecdhCurve: 'auto', sigalgs: 'RSA+SHA1:RSA+SHA256:RSA+SHA384:ECDSA+SHA1:ECDSA+SHA256' },
+  { minVersion: 'TLSv1', ciphers: 'ALL:@SECLEVEL=0', ecdhCurve: 'secp384r1:P-256:P-521', secureProtocol: 'TLS_method' }
+]
+
+/** True when an error is a TLS negotiation failure worth retrying lower down. */
+function isHandshakeFailure(error) {
+  if (!error) return false
+  const text = `${error.code || ''} ${error.message || ''}`
+  return /EPROTO|ERR_SSL|SSL routines|RSA routines|FIRST_OCTET_INVALID|wrong version number|no ciphers|unsupported protocol|handshake|DECRYPTION_FAILED|sslv3 alert/i.test(text)
+}
+
+/** Merges a TLS profile into request options. */
+function withTls(options, profile) {
+  return { ...options, ...profile }
+}
+
 /** How long the Global mode waits for the user to finish signing in. */
 const GLOBAL_TUNNEL_TIMEOUT_MS = 90000
 
@@ -50,6 +82,9 @@ class VPNService {
     this.process = null
     this.mode = null
     this.state = 'disconnected'
+    // Index into TLS_PROFILES that this gateway last completed a handshake on.
+    this.tlsProfileIndex = 0
+    this.tlsDowngraded = false
     this.proxy = null
     this.proxyPort = 0
     this.portalCookie = ''
@@ -129,7 +164,7 @@ class VPNService {
     // The real tunnel is probed every tick regardless of the mode we think we
     // are in, so a tunnel raised or dropped in FortiClient itself is reflected
     // in the indicator within one second either way.
-    const probe = await VPNService.detectGlobalTunnel()
+    const probe = await VPNService.detectGlobalTunnel(this.globalBaseline || null)
     this.serviceRunning = probe.serviceRunning
     this.forticlientRunning = probe.serviceRunning
     this.tunnelUp = probe.live
@@ -151,11 +186,19 @@ class VPNService {
     }
 
     // A tunnel was raised in FortiClient outside the app: adopt it, so the
-    // header turns green for a connection the user made themselves.
+    // header turns green for a connection the user made themselves. This also
+    // completes a Global connect whose sign-in outlasted the initial wait.
     if (!claimsConnected && this.mode !== 'in_app' && probe.live) {
+      const wasAwaiting = this.state === 'awaiting_forticlient'
       this.mode = 'global'
       this.lastLive = true
-      this.emit('connected_global', 'global', 'FortiClient tunnel detected')
+      this.globalBaseline = null
+      if (wasAwaiting) {
+        try { this.database.audit('Admin', 'VPN_CONNECT', 'global', `Gateway ${this.gateway || ''}`) } catch {}
+      }
+      this.emit('connected_global', 'global', wasAwaiting
+        ? 'FortiClient signed in — the tunnel is up'
+        : 'FortiClient tunnel detected')
       return
     }
 
@@ -210,22 +253,53 @@ class VPNService {
    * The virtual adapter only receives an address once the tunnel is
    * established, and loses it the moment the user disconnects.
    */
-  static isTunnelAdapterUp() {
+  static TUNNEL_NAME_PATTERN = /forti|ppp|ssl.?vpn|tap.?windows|vpn/i
+
+  /** Every usable non-internal IPv4 address, keyed by adapter name. */
+  static ipv4Addresses() {
+    const found = []
     try {
-      const interfaces = os.networkInterfaces()
-      for (const [name, addresses] of Object.entries(interfaces)) {
-        if (!/forti|ppp|ssl.?vpn/i.test(name)) continue
+      for (const [name, addresses] of Object.entries(os.networkInterfaces())) {
         for (const address of addresses || []) {
-          const family = address.family === 4 || address.family === 'IPv4'
-          if (!family || address.internal) continue
+          const isV4 = address.family === 4 || address.family === 'IPv4'
+          if (!isV4 || address.internal) continue
           // 169.254.x.x is an APIPA self-assignment: the adapter is present
           // but the tunnel never came up.
           if (/^169\.254\./.test(address.address)) continue
-          if (address.address && address.address !== '0.0.0.0') return true
+          if (!address.address || address.address === '0.0.0.0') continue
+          found.push({ name, address: address.address })
         }
       }
     } catch {}
-    return false
+    return found
+  }
+
+  /**
+   * Name-based detection only. Windows lets an adapter be renamed, so the
+   * FortiClient adapter frequently surfaces as plain "Ethernet 5" — which is
+   * why this can never be the only signal (see detectGlobalTunnel).
+   */
+  static isTunnelAdapterUp() {
+    return VPNService.ipv4Addresses().some((entry) => VPNService.TUNNEL_NAME_PATTERN.test(entry.name))
+  }
+
+  /**
+   * Adapter *descriptions* via PowerShell. The friendly name can be anything,
+   * but the hardware description keeps the vendor string, so this catches a
+   * renamed FortiClient adapter that the name test misses.
+   */
+  static isTunnelAdapterUpByDescription() {
+    if (process.platform !== 'win32') return Promise.resolve(false)
+    return new Promise((resolve) => {
+      const script = "Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | " +
+        "Where-Object { $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1' } | " +
+        "ForEach-Object { (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue).InterfaceDescription }"
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
+        { windowsHide: true, timeout: 8000 }, (error, stdout) => {
+          if (error) return resolve(false)
+          resolve(/forti|ssl.?vpn|pangp|tap-windows/i.test(stdout || ''))
+        })
+    })
   }
 
   /** Is a FortiClient VPN tunnel process running? (suite presence, not state) */
@@ -247,14 +321,37 @@ class VPNService {
    * requiring the service too keeps the reading stable while Windows tears a
    * disconnected adapter down.
    */
-  static async detectGlobalTunnel() {
+  static async detectGlobalTunnel(baseline = null) {
     if (process.platform !== 'win32') return { serviceRunning: false, adapterUp: false, live: false }
-    const [serviceRunning, processRunning] = await Promise.all([
+    const [serviceRunning, processRunning, byDescription] = await Promise.all([
       VPNService.isVpnServiceRunning(),
-      VPNService.isForticlientProcessRunning()
+      VPNService.isForticlientProcessRunning(),
+      VPNService.isTunnelAdapterUpByDescription()
     ])
-    const adapterUp = VPNService.isTunnelAdapterUp()
-    return { serviceRunning: serviceRunning || processRunning, adapterUp, live: adapterUp }
+
+    const byName = VPNService.isTunnelAdapterUp()
+
+    // Third signal: an interface that simply was not there before the connect
+    // attempt began. A renamed adapter defeats both string tests, but it still
+    // has to appear, and it only appears because the tunnel came up.
+    let byBaseline = false
+    if (baseline) {
+      const current = VPNService.ipv4Addresses()
+      byBaseline = current.some((entry) => !baseline.has(`${entry.name}|${entry.address}`))
+    }
+
+    const adapterUp = byName || byDescription || byBaseline
+    return {
+      serviceRunning: serviceRunning || processRunning,
+      adapterUp,
+      live: adapterUp,
+      signals: { byName, byDescription, byBaseline }
+    }
+  }
+
+  /** Snapshot of the current addresses, used as the before-connect baseline. */
+  static addressBaseline() {
+    return new Set(VPNService.ipv4Addresses().map((entry) => `${entry.name}|${entry.address}`))
   }
 
   isForticlientInstalled() {
@@ -300,10 +397,23 @@ class VPNService {
     this.emit('connecting', normalized)
 
     try {
+      let outcome = null
       if (normalized === 'in_app') await this.connectInApp(profile)
-      else await this.connectGlobal(profile, settings)
+      else outcome = await this.connectGlobal(profile, settings)
       this.gateway = `${profile.gateway}:${profile.port}`
       this.stats = { requests: 0, bytes: 0, since: new Date().toISOString() }
+
+      // Global mode where the user has not finished signing in yet: this is
+      // not a failure. Keep watching and let refreshHealth flip the indicator
+      // to green the moment the tunnel appears.
+      if (outcome && outcome.pending) {
+        this.mode = 'global'
+        this.lastLive = false
+        this.startHealthMonitor()
+        return this.emit('awaiting_forticlient', 'global',
+          'FortiClient is open — finish signing in there. The indicator turns green on its own as soon as the tunnel is up.')
+      }
+
       this.database.audit(actor, 'VPN_CONNECT', normalized, `Gateway ${this.gateway}`)
       this.lastLive = true
       this.startHealthMonitor()
@@ -335,7 +445,31 @@ class VPNService {
    * Both the real login and the "Test & diagnose" button run through here, so
    * what the user sees in the diagnostics is exactly what the login logic saw.
    */
-  portalRequest(profile) {
+  /**
+   * Walks the TLS ladder until a handshake succeeds, then remembers the rung
+   * that worked so every later connection in the session starts there.
+   */
+  async portalRequest(profile) {
+    const start = this.tlsProfileIndex || 0
+    const order = [start, ...TLS_PROFILES.keys()].filter((index, position, all) => all.indexOf(index) === position)
+    let lastError = null
+    for (const index of order) {
+      try {
+        const result = await this.portalRequestWith(profile, TLS_PROFILES[index])
+        this.tlsProfileIndex = index
+        if (index > 0) this.tlsDowngraded = true
+        return result
+      } catch (error) {
+        lastError = error
+        // Only a handshake failure justifies trying weaker crypto; a refused
+        // login or an unreachable host must surface immediately.
+        if (!isHandshakeFailure(error)) throw error
+      }
+    }
+    throw lastError
+  }
+
+  portalRequestWith(profile, tlsProfile = {}) {
     return new Promise((resolve, reject) => {
       const body = new URLSearchParams({
         ajax: '1',
@@ -360,11 +494,12 @@ class VPNService {
         }
       }
       // Older Node builds may refuse the option outright; fall back silently.
+      const tuned = withTls(options, tlsProfile)
       let request
       try {
-        request = https.request({ ...options, insecureHTTPParser: true })
+        request = https.request({ ...tuned, insecureHTTPParser: true })
       } catch {
-        request = https.request(options)
+        request = https.request(tuned)
       }
 
       let settled = false
@@ -413,9 +548,12 @@ class VPNService {
         // Headers already arrived — the response framing broke, not the login.
         if (result.statusCode || result.cookies.length) return done()
         settled = true
-        const message = /parse error/i.test(error.message)
-          ? `${error.message} — the gateway sent a malformed reply. Check that the Remote Gateway host and port point at the SSL-VPN portal, or use the Global (FortiClient) mode.`
-          : error.message
+        let message = error.message
+        if (/parse error/i.test(error.message)) {
+          message = `${error.message} — the gateway sent a malformed reply. Check that the Remote Gateway host and port point at the SSL-VPN portal, or use the Global (FortiClient) mode.`
+        } else if (isHandshakeFailure(error)) {
+          message = `${error.message} — the gateway refused the TLS handshake. Its SSL-VPN service may be listening on a different port, or it only offers ciphers this build cannot negotiate. Verify the Remote Gateway port (commonly 443 or 10443) in Settings, or use the Global (FortiClient) mode.`
+        }
         reject(new Error(`Unable to reach the VPN gateway: ${message}`))
       })
       request.write(body)
@@ -621,8 +759,9 @@ class VPNService {
         timeout: 15000,
         headers: { Cookie: cookie, 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: '*/*', Connection: 'close' }
       }
+      const tuned = withTls(options, TLS_PROFILES[this.tlsProfileIndex || 0])
       let request
-      try { request = https.request({ ...options, insecureHTTPParser: true }) } catch { request = https.request(options) }
+      try { request = https.request({ ...tuned, insecureHTTPParser: true }) } catch { request = https.request(tuned) }
 
       request.on('response', (response) => {
         const jar = (response.headers['set-cookie'] || [])
@@ -666,14 +805,14 @@ class VPNService {
           return
         }
 
-        const upstream = https.request({
+        const upstream = https.request(withTls({
           host: profile.gateway,
           port: profile.port,
           method: clientRequest.method,
           path: `/proxy/http/${target.host}${target.pathname}${target.search}`,
           rejectUnauthorized: false,
           headers: { ...clientRequest.headers, cookie: this.portalCookie, host: target.host }
-        }, (upstreamResponse) => {
+        }, TLS_PROFILES[this.tlsProfileIndex || 0]), (upstreamResponse) => {
           this.stats.requests += 1
           clientResponse.writeHead(upstreamResponse.statusCode || 502, upstreamResponse.headers)
           upstreamResponse.on('data', (chunk) => { this.stats.bytes += chunk.length })
@@ -734,12 +873,12 @@ class VPNService {
     let settled = false
     const done = (error, socket) => { if (!settled) { settled = true; callback(error, socket) } }
 
-    const socket = tls.connect({
+    const socket = tls.connect(withTls({
       host: profile.gateway,
       port: profile.port,
       rejectUnauthorized: false,
       servername: profile.gateway
-    }, () => {
+    }, TLS_PROFILES[this.tlsProfileIndex || 0]), () => {
       socket.write(
         `CONNECT ${host}:${port} HTTP/1.1\r\n` +
         `Host: ${host}:${port}\r\n` +
@@ -833,31 +972,46 @@ class VPNService {
       throw error
     }
 
+    // Record which addresses existed *before* FortiClient starts, so a tunnel
+    // adapter that Windows has renamed is still recognised: it is simply an
+    // interface that was not there a moment ago.
+    this.globalBaseline = VPNService.addressBaseline()
+
+    // A tunnel may already be up from an earlier FortiClient session.
+    const already = await VPNService.detectGlobalTunnel(null)
+    if (already.live) {
+      this.tunnelUp = true
+      this.serviceRunning = true
+      this.forticlientRunning = true
+      return { adopted: true }
+    }
+
     // Launch the installed client so the user completes the connection there.
     const child = spawn(executable, [], { detached: true, stdio: 'ignore', windowsHide: false, shell: false })
     child.unref()
     this.process = null
 
-    // Opening FortiClient is not the same as connecting through it. The user
-    // still has to press Connect in that window, so we wait for a real tunnel
-    // to appear instead of reporting success immediately — that false green
-    // light was the whole complaint about the Full VPN button.
-    const appeared = await this.waitForTunnel(GLOBAL_TUNNEL_TIMEOUT_MS)
-    if (!appeared) {
-      const error = new Error('FortiClient is open — finish signing in there. The indicator turns green as soon as the tunnel is up.')
-      error.code = 'FORTICLIENT_PENDING'
-      throw error
-    }
+    // Opening FortiClient is not the same as connecting through it: the user
+    // still has to sign in there, and that can take longer than any timeout we
+    // pick (2FA, a password prompt, a coffee). Waiting and then *failing* was
+    // the bug — the tunnel would come up seconds later with the app still
+    // insisting it had not. So the wait is now advisory: if it elapses we stay
+    // in a watching state and the health monitor adopts the tunnel the instant
+    // it appears, instead of throwing the session away.
+    const appeared = await this.waitForTunnel(GLOBAL_TUNNEL_TIMEOUT_MS, this.globalBaseline)
+    if (!appeared) return { pending: true }
+
     this.tunnelUp = true
     this.serviceRunning = true
     this.forticlientRunning = true
+    return { adopted: false }
   }
 
   /** Polls for a real tunnel adapter, resolving true as soon as one appears. */
-  async waitForTunnel(timeoutMs) {
+  async waitForTunnel(timeoutMs, baseline = null) {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
-      const probe = await VPNService.detectGlobalTunnel()
+      const probe = await VPNService.detectGlobalTunnel(baseline)
       if (probe.live) return true
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }

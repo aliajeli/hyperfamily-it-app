@@ -286,6 +286,133 @@ async function main() {
     await context.close()
   }
 
+  /* ---------------------------------------------------------- methods 16-21
+   * The faults the earlier methods all missed.
+   *
+   * These run on /notes/, whose text boxes are inline rather than inside a
+   * dialog: the wreckage has to be injected with NO modal open, because while
+   * a real modal is open the guard is supposed to stand down and not touch
+   * anything (method 22 proves that side).
+   *
+   * The guard neutralises a stale overlay rather than deleting it — the node
+   * still belongs to React, and removing it behind React's back breaks the
+   * next render. So the assertion is the one that matters to a user: does the
+   * scrim still intercept clicks? */
+  {
+    const { context, page } = await openPage(browser, '/notes/')
+    const title = page.locator('input[placeholder*="title" i], input[placeholder*="name" i]').first()
+    const haveField = await title.count()
+
+    /* -- method 16: an orphaned overlay must stop intercepting clicks ------- */
+    await page.evaluate(() => {
+      const overlay = document.createElement('div')
+      overlay.className = 'dialog-overlay fixed inset-0 z-50'
+      document.body.appendChild(overlay)
+    })
+    await page.waitForTimeout(1400)
+    const intercepts = await page.evaluate(() => {
+      const o = document.querySelector('.dialog-overlay')
+      if (!o) return false
+      const s = getComputedStyle(o)
+      return s.display !== 'none' && s.pointerEvents !== 'none'
+    })
+    record('16. an orphaned dialog overlay no longer intercepts clicks', intercepts === false,
+      `still intercepting=${intercepts}`)
+
+    /* -- method 17: and a real click therefore reaches the field ----------- */
+    if (haveField) {
+      await title.click({ timeout: 8000 }).catch(() => {})
+      await page.keyboard.type('overlay-cleared', { delay: 12 })
+      const value = await title.inputValue()
+      record('17. a real click reaches the text box after an orphaned overlay',
+        value.includes('overlay-cleared'), `value="${value}"`)
+    } else record('17. a real click reaches the text box after an orphaned overlay', false, 'no field')
+
+    /* -- method 18: stale aria-hidden / inert on the app root -------------- */
+    await page.evaluate(() => {
+      document.querySelectorAll('body > div').forEach((n) => {
+        n.setAttribute('aria-hidden', 'true')
+        n.setAttribute('inert', '')
+      })
+    })
+    await page.waitForTimeout(1400)
+    const stuck = await page.evaluate(() => ({
+      hidden: document.querySelectorAll('body > [aria-hidden="true"]').length,
+      inert: document.querySelectorAll('body > [inert]').length
+    }))
+    record('18. stale aria-hidden/inert on the app root is cleared',
+      stuck.hidden === 0 && stuck.inert === 0, JSON.stringify(stuck))
+
+    /* -- method 19: focus and typing work again ---------------------------- */
+    if (haveField) {
+      await title.click({ timeout: 8000 }).catch(() => {})
+      await page.keyboard.type('-inert-cleared', { delay: 12 })
+      const value = await title.inputValue()
+      record('19. typing works again after the app root was left inert',
+        value.includes('inert-cleared'), `value="${value}"`)
+    } else record('19. typing works again after the app root was left inert', false, 'no field')
+
+    /* -- method 20: all three faults at once, repeatedly ------------------- */
+    let recovered = 0
+    const rounds = 6
+    for (let i = 0; i < rounds; i++) {
+      await page.evaluate(() => {
+        document.body.style.pointerEvents = 'none'
+        document.body.setAttribute('data-scroll-locked', '')
+        const o = document.createElement('div')
+        o.className = 'dialog-overlay fixed inset-0 z-50'
+        document.body.appendChild(o)
+        document.querySelectorAll('body > div').forEach((n) => n.setAttribute('aria-hidden', 'true'))
+      })
+      await page.waitForTimeout(1300)
+      const clean = await page.evaluate(() => {
+        const scrimAlive = Array.from(document.querySelectorAll('.dialog-overlay')).some((o) => {
+          const s = getComputedStyle(o)
+          return s.display !== 'none' && s.pointerEvents !== 'none'
+        })
+        return document.body.style.pointerEvents !== 'none'
+          && !scrimAlive
+          && document.querySelectorAll('body > [aria-hidden="true"]').length === 0
+      })
+      if (clean) recovered += 1
+    }
+    record(`20. ${rounds} rounds of combined wreckage all recover`, recovered === rounds, `${recovered}/${rounds}`)
+
+    /* -- method 21: the field still works at the end of all that ----------- */
+    if (haveField) {
+      await title.click({ timeout: 8000 }).catch(() => {})
+      const before21 = await title.inputValue()
+      // The caret lands wherever the click put it, so assert that the keystroke
+      // was *accepted* rather than that it landed at the end of the string.
+      await page.keyboard.type('OK21', { delay: 12 })
+      const value = await title.inputValue()
+      record('21. text box is still usable after repeated combined wreckage',
+        value.includes('OK21') && value !== before21, `value="${value}"`)
+    } else record('21. text box is still usable after repeated combined wreckage', false, 'no field')
+
+    await context.close()
+  }
+
+  /* --------------------------------------------------------------- method 22
+   * A genuinely open dialog must NOT be dismantled by the guard — the cure
+   * must not become a new bug. */
+  {
+    const { context, page } = await openPage(browser, '/devices/')
+    const trigger = page.getByRole('button', { name: /add branch|add device|new branch|add/i }).first()
+    await trigger.click({ timeout: 6000 }).catch(() => {})
+    await page.waitForTimeout(1600)
+    const before = await page.locator('[role="dialog"]').count()
+    await page.waitForTimeout(1600) // let several guard sweeps run
+    const after = await page.locator('[role="dialog"]').count()
+    const overlayVisible = await page.evaluate(() => {
+      const o = document.querySelector('.dialog-overlay')
+      return o ? getComputedStyle(o).display !== 'none' : false
+    })
+    record('22. an open dialog and its overlay survive the guard',
+      before > 0 && after === before && overlayVisible, `dialogs ${before} -> ${after}, overlay visible=${overlayVisible}`)
+    await context.close()
+  }
+
   await browser.close()
 
   const failed = results.filter((r) => !r.passed)

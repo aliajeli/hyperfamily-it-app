@@ -263,7 +263,6 @@ function runMigrations(db, adminHash) {
     webview_autologin: true,
     // Typography groups and the global interface scale. An empty family means
     // "inherit the application default" so a fresh install looks unchanged.
-    ui_scale: 100,
     font_header_family: '', font_header_size: 100,
     font_title_family: '', font_title_size: 100,
     font_text_family: '', font_text_size: 100,
