@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Check, ChevronsUp, Minus, NotebookPen, Palette, Pin, PinOff, Plus, Save, Search, Trash2 } from 'lucide-react'
+import { AlertTriangle, Check, ChevronsUp, Hash, Minus, NotebookPen, Palette, Pin, PinOff, Plus, Save, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import { Button, EmptyState, Input, Skeleton, Textarea } from '@/components/ui'
@@ -38,6 +38,15 @@ const priorityOf = (value) => PRIORITIES.find((entry) => entry.id === Number(val
 
 const preview = (body) => (body || '').replace(/\s+/g, ' ').trim().slice(0, 72) || 'Empty note'
 
+/**
+ * Hashtags live in the body: any #word becomes a tag (v2.0.14). Extracting
+ * them (rather than storing a separate column) means tags can never drift
+ * out of sync with what the note actually says.
+ */
+const TAG_PATTERN = /#[A-Za-z0-9_\u00C0-\u024F-]{1,40}/g
+
+const tagsOf = (body) => [...new Set(((body || '').match(TAG_PATTERN) || []).map((tag) => tag.toLowerCase()))]
+
 const when = (value) => {
   if (!value) return ''
   const date = new Date(String(value).includes('T') ? value : `${value}Z`)
@@ -54,6 +63,7 @@ export default function NotesPage() {
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [menu, setMenu] = useState(null) // { x, y, noteId } — right-click menu
   const nameRef = useRef(null)
 
   const load = useCallback(async (selectId = null) => {
@@ -74,6 +84,48 @@ export default function NotesPage() {
   }, [api])
 
   useEffect(() => { load() }, [load])
+
+  // The right-click menu closes on Escape and on window blur.
+  useEffect(() => {
+    if (!menu) return undefined
+    const onKey = (event) => { if (event.key === 'Escape') setMenu(null) }
+    const onBlur = () => setMenu(null)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [menu])
+
+  /**
+   * Applies a small patch (pin, colour, priority) to a saved note without
+   * disturbing the editor: the list is re-read and, when the note is the one
+   * currently open, the draft follows along.
+   */
+  const quickUpdate = async (note, patch, label) => {
+    try {
+      await api.notes.save({
+        id: note.id,
+        name: note.name,
+        body: note.body || '',
+        pinned: note.pinned ? 1 : 0,
+        color: note.color || 'default',
+        priority: Number(note.priority || 0),
+        ...patch
+      })
+      const rows = await api.notes.list()
+      setNotes(rows)
+      setDraft((current) => (current?.id === note.id ? { ...current, ...patch } : current))
+      toast.success(label)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  const togglePin = async (note) => {
+    await quickUpdate(note, { pinned: note.pinned ? 0 : 1 }, note.pinned ? 'Note unpinned' : 'Note pinned')
+  }
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -184,73 +236,113 @@ export default function NotesPage() {
           <aside className="flex min-h-0 flex-col gap-2 rounded-2xl border bg-[rgb(var(--surface))] p-3">
             <div className="relative">
               <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))]" />
-              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search notes" className="pl-8 text-[12px]" aria-label="Search notes" />
+              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search notes or #tags" className="pl-8 text-[12px]" aria-label="Search notes" />
             </div>
 
             <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-0.5">
               {loading && [0, 1, 2, 3].map((key) => <Skeleton key={key} className="h-16 w-full" />)}
               <AnimatePresence initial={false}>
-                {filtered.map((note) => (
-                  <motion.button
-                    key={note.id}
-                    layout
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    whileHover={{ y: -2 }}
-                    type="button"
-                    onClick={() => select(note)}
-                    style={note.color && note.color !== 'default' && draft?.id !== note.id
-                      ? { background: colorOf(note.color).tint, borderColor: colorOf(note.color).edge }
-                      : undefined}
-                    className={cn(
-                      'group relative w-full overflow-hidden rounded-xl border bg-[rgb(var(--canvas))] p-2.5 pl-3 text-left transition-all duration-200 hover:border-[rgb(var(--primary)/.55)] hover:shadow-md hover:shadow-black/5',
-                      draft?.id === note.id && 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.08)]',
-                      Boolean(note.pinned) && 'shadow-sm'
-                    )}
-                  >
-                    {/* A colour is only useful if it can be spotted without reading. */}
-                    {note.color && note.color !== 'default' && (
-                      <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: colorOf(note.color).swatch }} />
-                    )}
-                    {/* Pinned notes get a floating badge so they read at a glance. */}
-                    {Boolean(note.pinned) && (
-                      <span aria-hidden className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[rgb(var(--primary))] text-white shadow ring-2 ring-[rgb(var(--surface))]">
-                        <Pin size={10} fill="currentColor" />
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1.5 pr-5">
-                      {Number(note.priority) > 0 && (() => {
-                        const level = priorityOf(note.priority)
-                        const Icon = level.icon
-                        return (
-                          <span
-                            className="flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5 text-[8.5px] font-extrabold uppercase"
-                            style={{ color: level.tone, background: 'rgb(var(--surface)/.85)' }}
-                          >
-                            <Icon size={9} /> {level.short}
-                          </span>
-                        )
-                      })()}
-                      <span className="min-w-0 flex-1 truncate text-[12px] font-extrabold">{note.name}</span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Delete ${note.name}`}
-                        onClick={(event) => { event.stopPropagation(); remove(note) }}
-                        onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); remove(note) } }}
-                        className="shrink-0 rounded-md p-1 text-[rgb(var(--muted))] opacity-0 transition hover:bg-nord-11/15 hover:text-nord-11 group-hover:opacity-100"
-                      >
-                        <Trash2 size={12} />
-                      </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-[10px] text-[rgb(var(--muted))]">{preview(note.body)}</p>
-                    <p className="mt-1 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
-                      <span className="h-1 w-1 rounded-full bg-[rgb(var(--border))]" />
-                      {when(note.updated_at)}
-                    </p>
-                  </motion.button>
-                ))}
+                {filtered.map((note) => {
+                  const tags = tagsOf(note.body)
+                  return (
+                    <motion.button
+                      key={note.id}
+                      layout
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      whileHover={{ y: -2 }}
+                      type="button"
+                      onClick={() => select(note)}
+                      onContextMenu={(event) => {
+                        event.preventDefault()
+                        setMenu({ x: event.clientX, y: event.clientY, noteId: note.id })
+                      }}
+                      style={note.color && note.color !== 'default' && draft?.id !== note.id
+                        ? { background: colorOf(note.color).tint, borderColor: colorOf(note.color).edge }
+                        : undefined}
+                      className={cn(
+                        'group relative w-full overflow-hidden rounded-xl border bg-[rgb(var(--canvas))] p-2 text-left transition-all duration-200 hover:border-[rgb(var(--primary)/.55)] hover:shadow-md hover:shadow-black/5',
+                        draft?.id === note.id && 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.08)]',
+                        Boolean(note.pinned) && 'shadow-sm'
+                      )}
+                    >
+                      {/* A colour is only useful if it can be spotted without reading. */}
+                      {note.color && note.color !== 'default' && (
+                        <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: colorOf(note.color).swatch }} />
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        {/* Pin lives on the LEFT, vertically centered in the
+                            card — one click pins/unpins right from the list. */}
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={note.pinned ? `Unpin ${note.name}` : `Pin ${note.name}`}
+                          title={note.pinned ? 'Unpin note' : 'Pin note'}
+                          onClick={(event) => { event.stopPropagation(); togglePin(note) }}
+                          onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); togglePin(note) } }}
+                          className={cn(
+                            'grid h-7 w-6 shrink-0 place-items-center self-center rounded-md transition',
+                            note.pinned
+                              ? 'text-[rgb(var(--primary))]'
+                              : 'text-[rgb(var(--muted))] opacity-40 hover:opacity-100 group-hover:opacity-100'
+                          )}
+                        >
+                          <Pin size={13} fill={note.pinned ? 'currentColor' : 'none'} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            {Number(note.priority) > 0 && (() => {
+                              const level = priorityOf(note.priority)
+                              const Icon = level.icon
+                              return (
+                                <span
+                                  className="flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5 text-[8.5px] font-extrabold uppercase"
+                                  style={{ color: level.tone, background: 'rgb(var(--surface)/.85)' }}
+                                >
+                                  <Icon size={9} /> {level.short}
+                                </span>
+                              )
+                            })()}
+                            <span className="min-w-0 flex-1 truncate text-[12px] font-extrabold">{note.name}</span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Delete ${note.name}`}
+                              onClick={(event) => { event.stopPropagation(); remove(note) }}
+                              onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); remove(note) } }}
+                              className="shrink-0 rounded-md p-1 text-[rgb(var(--muted))] opacity-0 transition hover:bg-nord-11/15 hover:text-nord-11 group-hover:opacity-100"
+                            >
+                              <Trash2 size={12} />
+                            </span>
+                          </div>
+                          <p className="mt-0.5 truncate text-[10px] text-[rgb(var(--muted))]">{preview(note.body)}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {tags.slice(0, 3).map((tag) => (
+                              <span
+                                key={tag}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Filter by ${tag}`}
+                                title={`Filter by ${tag}`}
+                                onClick={(event) => { event.stopPropagation(); setQuery(tag) }}
+                                onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); setQuery(tag) } }}
+                                className="rounded-full bg-[rgb(var(--primary)/.1)] px-1.5 py-0.5 text-[8.5px] font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.2)]"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {tags.length > 3 && <span className="text-[8.5px] font-bold text-[rgb(var(--muted))]">+{tags.length - 3}</span>}
+                            <span className="ml-auto flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
+                              <span className="h-1 w-1 rounded-full bg-[rgb(var(--border))]" />
+                              {when(note.updated_at)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.button>
+                  )
+                })}
               </AnimatePresence>
 
               {!loading && !filtered.length && (
@@ -311,8 +403,8 @@ export default function NotesPage() {
                   </Button>
                 </div>
 
-              {/* Colour and priority sit above the body: both describe the whole
-                  note, and both are one click rather than a buried menu. */}
+              {/* Colour, tags and priority sit above the body: all describe the
+                  whole note, and each is one click rather than a buried menu. */}
               <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-[rgb(var(--canvas))] px-2.5 py-2">
                 <div className="flex items-center gap-1.5" role="group" aria-label="Note colour">
                   <Palette size={13} className="text-[rgb(var(--muted))]" />
@@ -337,6 +429,27 @@ export default function NotesPage() {
                     )
                   })}
                 </div>
+
+                {/* Hashtags typed in the body surface here as chips. */}
+                {tagsOf(draft.body).length > 0 && (
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1" aria-label="Note tags">
+                    <Hash size={11} className="shrink-0 text-[rgb(var(--muted))]" />
+                    {tagsOf(draft.body).slice(0, 5).map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        title={`Filter by ${tag}`}
+                        onClick={() => setQuery(tag)}
+                        className="rounded-full bg-[rgb(var(--primary)/.12)] px-1.5 py-0.5 text-[9px] font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.22)]"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                    {tagsOf(draft.body).length > 5 && (
+                      <span className="text-[9px] font-bold text-[rgb(var(--muted))]">+{tagsOf(draft.body).length - 5}</span>
+                    )}
+                  </div>
+                )}
 
                 <div className="ml-auto flex items-center gap-1" role="group" aria-label="Note priority">
                   {PRIORITIES.map((level) => {
@@ -365,7 +478,7 @@ export default function NotesPage() {
               <Textarea
                 value={draft.body}
                 onChange={(event) => setDraft({ ...draft, body: event.target.value })}
-                placeholder="Write anything — steps, IP plans, passwords you rotate, reminders…"
+                placeholder="Write anything — steps, IP plans, #tags, passwords you rotate, reminders…"
                 aria-label="Note body"
                 className="min-h-0 flex-1 resize-none font-mono text-[12px] leading-relaxed"
               />
@@ -395,6 +508,83 @@ export default function NotesPage() {
             </section>
           )}
         </div>
+
+        {/* Right-click menu: colour + priority for the note under the cursor. */}
+        {menu && (() => {
+          const target = notes.find((note) => note.id === menu.noteId)
+          if (!target) return null
+          const width = 236
+          const height = 268
+          const left = Math.min(menu.x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - width - 12)
+          const top = Math.min(menu.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - height - 12)
+          return (
+            <>
+              <div
+                className="fixed inset-0 z-[70]"
+                onClick={() => setMenu(null)}
+                onContextMenu={(event) => { event.preventDefault(); setMenu(null) }}
+              />
+              <motion.div
+                role="menu"
+                aria-label={`Actions for ${target.name}`}
+                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="dialog-content fixed z-[80] rounded-xl border bg-[rgb(var(--surface))] p-2 shadow-2xl"
+                style={{ left, top, width }}
+              >
+                <p className="px-1 text-[9px] font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">Colour</p>
+                <div className="mt-1 flex items-center gap-1.5 px-1">
+                  {NOTE_COLORS.map((entry) => {
+                    const active = (target.color || 'default') === entry.id
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        aria-label={`Set ${entry.label} colour`}
+                        title={entry.label}
+                        onClick={() => { setMenu(null); quickUpdate(target, { color: entry.id }, 'Note colour updated') }}
+                        className={cn(
+                          'grid h-6 w-6 place-items-center rounded-full border-2 transition-all duration-150 hover:scale-110',
+                          active ? 'border-[rgb(var(--text))]' : 'border-transparent'
+                        )}
+                        style={{ background: entry.swatch }}
+                      >
+                        {active && <Check size={10} className="text-[rgb(var(--canvas))]" strokeWidth={3.5} />}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="my-1.5 h-px bg-[rgb(var(--border)/.7)]" />
+
+                <p className="px-1 text-[9px] font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">Priority</p>
+                <div className="mt-1 grid gap-0.5 px-0.5">
+                  {PRIORITIES.map((level) => {
+                    const Icon = level.icon
+                    const active = Number(target.priority || 0) === level.id
+                    return (
+                      <button
+                        key={level.id}
+                        type="button"
+                        aria-label={`Set ${level.label} priority`}
+                        onClick={() => { setMenu(null); quickUpdate(target, { priority: level.id }, 'Priority updated') }}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[10.5px] font-bold transition',
+                          active ? 'bg-[rgb(var(--border)/.4)]' : 'hover:bg-[rgb(var(--border)/.4)]'
+                        )}
+                      >
+                        <Icon size={11} style={{ color: level.tone }} />
+                        <span>{level.label}</span>
+                        {active && <Check size={11} className="ml-auto" strokeWidth={3} />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            </>
+          )
+        })()}
       </div>
     </AppShell>
   )

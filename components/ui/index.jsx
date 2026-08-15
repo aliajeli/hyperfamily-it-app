@@ -188,9 +188,10 @@ export function Dialog({ open, onOpenChange, trigger, title, description, childr
 export function Tabs({ value, onValueChange, tabs, children, className, listClassName }) {
   return (
     <TabsPrimitive.Root value={value} onValueChange={onValueChange} className={className}>
-      {/* Compact triggers (v2.0.13): the ten settings tabs fit one line at
-          1366×768 without the strip growing a horizontal scrollbar. */}
-      <TabsPrimitive.List className={cn('flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-0.5', listClassName || 'mb-3.5')}>
+      {/* Compact triggers with breathing room (v2.0.14): the strip keeps a
+          padding around the buttons and a real gap between them, so triggers
+          never touch the container edge or each other. */}
+      <TabsPrimitive.List className={cn('flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl border bg-[rgb(var(--surface)/.48)] p-1', listClassName || 'mb-3.5')}>
         {tabs.map((tab) => (
           <TabsPrimitive.Trigger
             key={tab.value}

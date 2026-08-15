@@ -1,9 +1,10 @@
 /**
- * Connection-method settings (Settings -> Connections), master/detail edition.
+ * Connection-method settings (Settings -> Connections), cards + dialog
+ * edition (v2.0.14).
  *
- * Since v2.0.13 the device types live in a list on the left and picking one
- * opens its connection methods on the right, so this suite selects each type
- * before asserting its chips. It still covers the three interactions — enable,
+ * Every device type is a card; clicking one opens a centered dialog where its
+ * methods are picked, so this suite opens the card for each type before
+ * asserting its chips. It still covers the three interactions — enable,
  * promote-to-default and remove — and the "last method cannot be removed"
  * guard, plus the two layout requirements (no sideways scroll, one screen at
  * 1366x768). The matrix must not be rendered by "Device tools" either.
@@ -25,21 +26,25 @@ await p.waitForTimeout(1200)
 await p.getByText('Device tools',{exact:true}).first().click()
 await p.waitForTimeout(2000)
 t('device tools no longer hosts the matrix',
-  (await p.locator('[role="tablist"][aria-label="Device types"]').count())===0)
+  (await p.locator('[aria-label^="Open connection methods for"]').count())===0)
 
 await p.getByText('Connections',{exact:true}).first().click()
 await p.waitForTimeout(2500)
 
-const pick = async (label) => {
-  await p.locator(`[aria-label="Edit connection methods for ${label}"]`).click()
-  await p.waitForTimeout(450)
+const open = async (label) => {
+  await p.locator(`[aria-label="Open connection methods for ${label}"]`).click()
+  await p.waitForTimeout(500)
+}
+const close = async () => {
+  await p.keyboard.press('Escape')
+  await p.waitForTimeout(400)
 }
 
-// 1. the type list holds all ten types
-t('all ten device types are listed',
-  (await p.locator('[role="tablist"][aria-label="Device types"] [role="tab"]').count())===10)
+// 1. all ten device cards are listed
+t('all ten device cards are shown',
+  (await p.locator('[aria-label^="Open connection methods for"]').count())===10)
 
-// 2. spec defaults are the starred chip per type
+// 2. spec defaults are the starred chip per type (inside the dialog)
 const LABEL = {Router:'Router',AccessPoint:'Access Point',Switch:'Switch',iLO:'iLO',
               NVR:'NVR',Server:'Server',Checkout:'Checkout',Client:'Client',
               Scale:'Scale',POS:'POS'}
@@ -47,13 +52,14 @@ const spec = {Router:'Winbox',AccessPoint:'Winbox',Switch:'Terminal',iLO:'Browse
               NVR:'Browser with auto sign-in',Server:'Remote Desktop',Checkout:'Remote Desktop',Client:'Remote Desktop',
               Scale:'External browser',POS:'TeamViewer'}
 for (const [type,label] of Object.entries(spec)) {
-  await pick(LABEL[type])
+  await open(LABEL[type])
   const star = p.locator(`[aria-label="${label} is the default for ${type}"]`)
   t(`${type} defaults to ${label}`, await star.count()===1)
+  await close()
 }
 
 // 3. Client must offer BOTH Remote Desktop and TeamViewer per spec
-await pick('Client')
+await open('Client')
 t('Client offers TeamViewer as well',
   (await p.locator('[aria-label="Remove TeamViewer from Client"]').count())===1)
 
@@ -77,6 +83,7 @@ await p.locator('[aria-label="Remove Remote Desktop from Client"]').click()
 await p.waitForTimeout(300)
 t('last method cannot be removed',
   (await p.locator('[aria-label="Remove TeamViewer from Client"]').count())===0)
+await close()
 
 // 7. no sideways scroll on this tab
 const v = await p.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}))
