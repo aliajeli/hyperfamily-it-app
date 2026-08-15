@@ -7,15 +7,19 @@ import { Monitor, Eye, Box, Globe, Terminal, ChevronRight, KeyRound, MoreVertica
 import { toast } from 'sonner'
 import { getApi } from '@/lib/api'
 import { currentPalette } from '@/lib/palette'
+import { useSettingsStore } from '@/stores/settings.store'
+import { CONNECTION_METHODS, resolveConnectionMethods } from '@/lib/connection-methods'
 
-const methods = [
-  { id: 'webview', label: 'Open with auto sign-in', icon: MonitorSmartphone, types: ['iLO', 'NVR'] },
-  { id: 'terminal', label: 'Terminal (SSH / Telnet)', icon: Terminal, types: ['Switch'] },
-  { id: 'rdp', label: 'Remote Desktop', icon: Monitor, types: ['Server', 'Client', 'Checkout'] },
-  { id: 'teamviewer', label: 'TeamViewer (LAN)', icon: Eye, types: ['Server', 'Client', 'Checkout', 'POS'] },
-  { id: 'winbox', label: 'Winbox', icon: Box, types: ['Router', 'AccessPoint'] },
-  { id: 'browser', label: 'Open in browser', icon: Globe, types: ['Router', 'Switch', 'iLO', 'NVR', 'AccessPoint', 'Scale', 'POS'] }
-]
+// Presentation for each method id. What each device type may use — and in what
+// order — lives in lib/connection-methods.js and is configurable in Settings.
+const METHOD_ICONS = {
+  webview: MonitorSmartphone,
+  terminal: Terminal,
+  rdp: Monitor,
+  teamviewer: Eye,
+  winbox: Box,
+  browser: Globe
+}
 
 const CREDENTIAL_METHODS = ['webview', 'rdp', 'winbox', 'browser']
 const METHOD_LABELS = { webview: 'Auto sign-in window', browser: 'Browser', winbox: 'Winbox', rdp: 'Remote Desktop', teamviewer: 'TeamViewer' }
@@ -25,6 +29,7 @@ const itemClass = 'flex cursor-default select-none items-center gap-2.5 rounded-
 
 export default function DeviceActionsMenu({ device, size = 12, className = '' }) {
   const router = useRouter()
+  const settings = useSettingsStore((state) => state.settings)
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -67,7 +72,9 @@ export default function DeviceActionsMenu({ device, size = 12, className = '' })
     }
   }
 
-  const available = methods.filter((method) => method.types.includes(device.device_type))
+  // Ordered per device type: the first entry is that type's default method.
+  const available = resolveConnectionMethods(device.device_type, settings)
+    .map((id) => ({ id, label: CONNECTION_METHODS[id].label, icon: METHOD_ICONS[id] || Globe }))
 
   return (
     <DropdownMenu.Root open={open} onOpenChange={handleOpenChange}>

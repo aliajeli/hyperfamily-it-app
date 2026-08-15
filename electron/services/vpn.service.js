@@ -1,26 +1,23 @@
 const fs = require('node:fs')
 const path = require('node:path')
-const http = require('node:http')
 const https = require('node:https')
-const tls = require('node:tls')
 const os = require('node:os')
 const { execFile, spawn } = require('node:child_process')
-const { URL } = require('node:url')
 
 /**
- * Two VPN modes are supported.
+ * One VPN mode is supported: "global".
  *
- * 1. "in_app"  — Application-level tunnel. A loopback HTTP/CONNECT proxy is
- *                started inside the main process and every request the app
- *                makes to branch equipment is forwarded through the FortiGate
- *                SSL-VPN web portal (HTTP POST authentication + the portal's
- *                HTTP proxy endpoint). Only the application's own traffic is
- *                routed; the rest of Windows is untouched.
+ * It launches the FortiClient VPN installed on the system so the user
+ * completes the connection there, then watches for the resulting virtual
+ * adapter and adopts it. If FortiClient is not installed the user is warned
+ * with a download hint instead of a generic failure.
  *
- * 2. "global"  — Launches the FortiClient VPN that is installed on the system
- *                so the user completes the connection there. If FortiClient is
- *                not installed the user is warned with a download hint instead
- *                of a generic failure.
+ * An application-level tunnel ("in_app") used to sit alongside this: a
+ * loopback HTTP/CONNECT proxy that carried the app's own traffic through the
+ * FortiGate web portal. It never completed a TLS handshake against the
+ * production gateway and was removed in v2.0.10. The portal HTTP layer below
+ * is retained because Settings → VPN "Test & diagnose" still uses it to report
+ * exactly how the gateway answers a sign-in.
  */
 
 const FORTICLIENT_CANDIDATES = [
@@ -109,9 +106,6 @@ class VPNService {
     // Index into TLS_PROFILES that this gateway last completed a handshake on.
     this.tlsProfileIndex = 0
     this.tlsDowngraded = false
-    this.proxy = null
-    this.proxyPort = 0
-    this.portalCookie = ''
     this.gateway = null
     this.stats = { requests: 0, bytes: 0, since: null }
     this.healthTimer = null
@@ -135,7 +129,6 @@ class VPNService {
       state: this.state,
       mode: this.mode,
       message: '',
-      proxyPort: this.proxyPort || null,
       gateway: this.gateway,
       stats: this.stats,
       live: this.isLive(),
@@ -149,12 +142,10 @@ class VPNService {
    * True when the tunnel is genuinely carrying traffic right now.
    *
    * The UI indicator must reflect reality rather than the last thing that was
-   * clicked: an in-app tunnel is live only while its loopback proxy is still
-   * listening, and the global mode is live only while a FortiClient tunnel
-   * process is actually running.
+   * clicked: the tunnel is live only while a FortiClient virtual adapter is
+   * actually routable.
    */
   isLive() {
-    if (this.mode === 'in_app') return Boolean(this.proxy && this.proxy.listening)
     // Global mode is live only when a real tunnel exists. Launching (or merely
     // installing) FortiClient is NOT a connection: its tray app and background
     // service run permanently on a healthy Windows box, so neither can be used
@@ -196,23 +187,17 @@ class VPNService {
     const live = this.isLive()
     const claimsConnected = this.state.startsWith('connected')
 
-    // The tunnel died underneath us (proxy closed, FortiClient disconnected).
+    // The tunnel died underneath us (FortiClient disconnected or dropped).
     if (claimsConnected && !live) {
-      const wasMode = this.mode
-      this.portalCookie = ''
       this.gateway = null
-      this.proxyPort = 0
-      if (wasMode === 'in_app') this.clearSessionProxy().catch(() => {})
-      this.emit('disconnected', null, wasMode === 'global'
-        ? 'The FortiClient tunnel is no longer connected'
-        : 'The tunnel closed')
+      this.emit('disconnected', null, 'The FortiClient tunnel is no longer connected')
       return
     }
 
     // A tunnel was raised in FortiClient outside the app: adopt it, so the
     // header turns green for a connection the user made themselves. This also
     // completes a Global connect whose sign-in outlasted the initial wait.
-    if (!claimsConnected && this.mode !== 'in_app' && probe.live) {
+    if (!claimsConnected && probe.live) {
       const wasAwaiting = this.state === 'awaiting_forticlient'
       this.mode = 'global'
       this.lastLive = true
@@ -411,9 +396,20 @@ class VPNService {
     }
   }
 
-  async connect(mode, actor = 'Admin') {
-    const normalized = mode === 'split' ? 'in_app' : mode === 'full' ? 'global' : mode
-    if (!['in_app', 'global'].includes(normalized)) throw new Error('Invalid VPN mode')
+  /**
+   * Opens the VPN.
+   *
+   * Only one mode exists: "global", which drives the installed FortiClient.
+   * The former application-level tunnel ("in_app") was removed — it could not
+   * complete a TLS handshake against this gateway and offered no path that the
+   * FortiClient route does not already cover. Legacy mode names are accepted
+   * and folded into global so an old renderer, a queued IPC call or a stored
+   * preference cannot fail with "Invalid VPN mode".
+   */
+  async connect(mode = 'global', actor = 'Admin') {
+    const requested = mode === 'split' ? 'in_app' : mode === 'full' ? 'global' : mode
+    if (requested && !['in_app', 'global'].includes(requested)) throw new Error('Invalid VPN mode')
+    const normalized = 'global'
     if (this.state === 'connecting' || this.state.startsWith('connected')) throw new Error('A VPN session is already active')
 
     const settings = this.database.getSettings()
@@ -421,9 +417,7 @@ class VPNService {
     this.emit('connecting', normalized)
 
     try {
-      let outcome = null
-      if (normalized === 'in_app') await this.connectInApp(profile)
-      else outcome = await this.connectGlobal(profile, settings)
+      const outcome = await this.connectGlobal(profile, settings)
       this.gateway = `${profile.gateway}:${profile.port}`
       this.stats = { requests: 0, bytes: 0, since: new Date().toISOString() }
 
@@ -441,7 +435,7 @@ class VPNService {
       this.database.audit(actor, 'VPN_CONNECT', normalized, `Gateway ${this.gateway}`)
       this.lastLive = true
       this.startHealthMonitor()
-      return this.emit(normalized === 'in_app' ? 'connected_in_app' : 'connected_global', normalized)
+      return this.emit('connected_global', normalized)
     } catch (error) {
       this.database.audit(actor, 'VPN_ERROR', normalized, error.message)
       this.emit('error', null, error.message)
@@ -681,309 +675,6 @@ class VPNService {
     }
   }
 
-  /**
-   * Authenticates against the FortiGate SSL-VPN web portal with an HTTP POST
-   * and resolves with the cookie string the proxy should present.
-   */
-  async portalLogin(profile) {
-    const reply = await this.portalRequest(profile)
-    const verdict = VPNService.verdict(reply)
-    if (verdict.outcome === 'rejected' || verdict.outcome === 'two_factor' || verdict.outcome === 'unreachable') {
-      const error = new Error(verdict.reason)
-      error.diagnosable = true
-      throw error
-    }
-    return reply.cookie || reply.cookies.join('; ')
-  }
-
-  /* ------------------------------------------------------------- in-app mode */
-
-  /**
-   * Brings up the in-app tunnel: authenticate to the portal, then start the
-   * loopback proxy that carries the app's traffic.
-   *
-   * Real gateways frequently answer `/remote/logincheck` with only a temporary
-   * `SVPNTMPCOOKIE` plus `redir=/remote/hostcheck_install`, deferring the real
-   * `SVPNCOOKIE` until the host check is acknowledged. Following that redirect
-   * with the temporary cookie is what turns it into a session cookie, so the
-   * proxy is given a usable credential instead of a placeholder.
-   */
-  async connectInApp(profile) {
-    const cookie = await this.portalLogin(profile)
-    this.portalCookie = await this.completeHostCheck(profile, cookie)
-    await this.startProxy(profile)
-    // Starting the proxy is only half the job: nothing reaches it until the
-    // Electron session is told to use it. Without this the tunnel reported
-    // "Connected" while every request still went out over the plain link.
-    await this.applySessionProxy()
-  }
-
-  /**
-   * Points Electron's network stack at the loopback proxy so the app's own
-   * traffic (device web UIs, iLO/NVR webviews, update checks) is carried by
-   * the tunnel. Loopback is excluded so the app can still talk to itself.
-   */
-  async applySessionProxy() {
-    if (!this.proxyPort) return
-    const electronSession = VPNService.electronSession()
-    if (!electronSession) return
-    await electronSession.setProxy({
-      proxyRules: `http=127.0.0.1:${this.proxyPort};https=127.0.0.1:${this.proxyPort}`,
-      proxyBypassRules: '<local>;127.0.0.1;localhost'
-    })
-  }
-
-  /** Restores direct networking when the in-app tunnel goes away. */
-  async clearSessionProxy() {
-    const electronSession = VPNService.electronSession()
-    if (!electronSession) return
-    await electronSession.setProxy({ mode: 'direct' }).catch(() => {})
-  }
-
-  /** The default Electron session, or null outside a packaged main process. */
-  static electronSession() {
-    try {
-      const { session } = require('electron')
-      return session?.defaultSession || null
-    } catch { return null }
-  }
-
-  /**
-   * Exchanges a temporary portal cookie for a full session cookie by following
-   * the hostcheck/portal redirect. Best-effort: if the gateway does not use the
-   * hostcheck flow, or the follow-up fails, the original cookie is kept.
-   */
-  async completeHostCheck(profile, cookie) {
-    if (!cookie) return cookie
-    const hasSession = /(^|;\s*)SVPNCOOKIE=[^;\s]+/.test(cookie)
-    if (hasSession) return cookie
-
-    const paths = ['/remote/hostcheck_install', '/remote/portal']
-    let current = cookie
-    for (const target of paths) {
-      const next = await this.followPortalPath(profile, target, current).catch(() => null)
-      if (!next) continue
-      current = VPNService.mergeCookies(current, next)
-      if (/(^|;\s*)SVPNCOOKIE=[^;\s]+/.test(current)) break
-    }
-    return current
-  }
-
-  /** GETs a portal path with the current cookie and returns any new cookies. */
-  followPortalPath(profile, target, cookie) {
-    return new Promise((resolve) => {
-      let settled = false
-      const finish = (value) => { if (!settled) { settled = true; resolve(value) } }
-      const options = {
-        host: profile.gateway,
-        port: profile.port,
-        path: target,
-        method: 'GET',
-        rejectUnauthorized: false,
-        timeout: 15000,
-        headers: { Cookie: cookie, 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: '*/*', Connection: 'close' }
-      }
-      const tuned = withTls(options, TLS_PROFILES[this.tlsProfileIndex || 0])
-      let request
-      try { request = https.request({ ...tuned, insecureHTTPParser: true }) } catch { request = https.request(tuned) }
-
-      request.on('response', (response) => {
-        const jar = (response.headers['set-cookie'] || [])
-          .map((item) => item.split(';')[0])
-          .filter((item) => item.slice(item.indexOf('=') + 1).trim().length > 0)
-        response.resume()
-        response.on('end', () => finish(jar.join('; ')))
-        response.on('error', () => finish(jar.join('; ')))
-      })
-      request.on('timeout', () => request.destroy())
-      request.on('error', () => finish(''))
-      request.end()
-    })
-  }
-
-  /** Merges two cookie strings, letting the newer value win per cookie name. */
-  static mergeCookies(existing, incoming) {
-    const jar = new Map()
-    for (const part of `${existing}; ${incoming}`.split(';')) {
-      const item = part.trim()
-      if (!item || !item.includes('=')) continue
-      const name = item.slice(0, item.indexOf('='))
-      const value = item.slice(item.indexOf('=') + 1)
-      if (!value.trim()) continue
-      jar.set(name, value)
-    }
-    return [...jar].map(([name, value]) => `${name}=${value}`).join('; ')
-  }
-
-  /**
-   * Loopback proxy. Plain HTTP requests are forwarded to the portal's web-mode
-   * HTTP proxy; CONNECT tunnels are relayed over a TLS socket to the gateway so
-   * that TCP services (SSH/Telnet, Winbox, HTTPS device UIs) work.
-   */
-  startProxy(profile) {
-    return new Promise((resolve, reject) => {
-      const server = http.createServer((clientRequest, clientResponse) => {
-        let target
-        try { target = new URL(clientRequest.url, `http://${clientRequest.headers.host}`) } catch {
-          clientResponse.writeHead(400).end('Invalid request target')
-          return
-        }
-
-        const upstream = https.request(withTls({
-          host: profile.gateway,
-          port: profile.port,
-          method: clientRequest.method,
-          path: `/proxy/http/${target.host}${target.pathname}${target.search}`,
-          rejectUnauthorized: false,
-          headers: { ...clientRequest.headers, cookie: this.portalCookie, host: target.host }
-        }, TLS_PROFILES[this.tlsProfileIndex || 0]), (upstreamResponse) => {
-          this.stats.requests += 1
-          clientResponse.writeHead(upstreamResponse.statusCode || 502, upstreamResponse.headers)
-          upstreamResponse.on('data', (chunk) => { this.stats.bytes += chunk.length })
-          upstreamResponse.pipe(clientResponse)
-        })
-
-        upstream.on('error', (error) => {
-          if (!clientResponse.headersSent) clientResponse.writeHead(502)
-          clientResponse.end(`VPN proxy error: ${error.message}`)
-        })
-        clientRequest.pipe(upstream)
-      })
-
-      // CONNECT tunnels are relayed *through the gateway*, never opened
-      // straight to the target. Dialling the target directly is what made the
-      // in-app tunnel look connected while quietly carrying nothing: the
-      // socket succeeded only for hosts that were already reachable without
-      // the VPN, and branch equipment stayed unreachable.
-      server.on('connect', (request, clientSocket, head) => {
-        const [host, rawPort] = request.url.split(':')
-        const port = Number(rawPort) || 443
-        this.openGatewayTunnel(profile, host, port, (error, tunnel) => {
-          if (error || !tunnel) {
-            try { clientSocket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n') } catch {}
-            return
-          }
-          clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
-          if (head?.length) tunnel.write(head)
-          this.stats.requests += 1
-          tunnel.on('data', (chunk) => { this.stats.bytes += chunk.length })
-          tunnel.pipe(clientSocket)
-          clientSocket.pipe(tunnel)
-          const drop = () => { try { tunnel.destroy() } catch {}; try { clientSocket.destroy() } catch {} }
-          tunnel.on('error', drop)
-          clientSocket.on('error', drop)
-          clientSocket.on('close', () => { try { tunnel.destroy() } catch {} })
-        })
-      })
-
-      server.on('error', (error) => reject(new Error(`Unable to start the in-app VPN proxy: ${error.message}`)))
-      server.listen(0, '127.0.0.1', () => {
-        this.proxy = server
-        this.proxyPort = server.address().port
-        resolve()
-      })
-    })
-  }
-
-
-  /**
-   * Opens a TCP relay to `host:port` through the FortiGate SSL-VPN gateway.
-   *
-   * The socket is established to the gateway over TLS and a CONNECT request is
-   * issued there with the portal session cookie, so the far end of the socket
-   * is the branch device as seen from inside the tunnel.
-   */
-  openGatewayTunnel(profile, host, port, callback) {
-    let settled = false
-    const done = (error, socket) => { if (!settled) { settled = true; callback(error, socket) } }
-
-    const socket = tls.connect(withTls({
-      host: profile.gateway,
-      port: profile.port,
-      rejectUnauthorized: false,
-      servername: profile.gateway
-    }, TLS_PROFILES[this.tlsProfileIndex || 0]), () => {
-      socket.write(
-        `CONNECT ${host}:${port} HTTP/1.1\r\n` +
-        `Host: ${host}:${port}\r\n` +
-        `User-Agent: HyperFamily-Branch-Monitor\r\n` +
-        (this.portalCookie ? `Cookie: ${this.portalCookie}\r\n` : '') +
-        'Proxy-Connection: Keep-Alive\r\n\r\n'
-      )
-    })
-
-    let banner = Buffer.alloc(0)
-    const onData = (chunk) => {
-      banner = Buffer.concat([banner, chunk])
-      const end = banner.indexOf('\r\n\r\n')
-      if (end === -1) {
-        if (banner.length > 65536) { socket.destroy(); done(new Error('Malformed gateway reply')) }
-        return
-      }
-      const head = banner.slice(0, end).toString('latin1')
-      socket.removeListener('data', onData)
-      if (!/^HTTP\/1\.[01]\s+2\d\d/.test(head)) {
-        socket.destroy()
-        return done(new Error(`Gateway refused the tunnel: ${head.split('\r\n')[0]}`))
-      }
-      const rest = banner.slice(end + 4)
-      if (rest.length) socket.unshift(rest)
-      done(null, socket)
-    }
-
-    socket.on('data', onData)
-    socket.setTimeout(20000, () => { socket.destroy(); done(new Error('The gateway tunnel timed out')) })
-    socket.on('error', (error) => done(error))
-    socket.on('close', () => done(new Error('The gateway closed the tunnel')))
-  }
-
-
-  /**
-   * Reachability probe for a device while the in-app tunnel is active.
-   *
-   * ICMP cannot be carried by an HTTP proxy, so the monitor would report every
-   * branch as offline the moment the in-app tunnel took over. Instead a TCP
-   * tunnel to a port the device is expected to answer on is opened through the
-   * gateway and timed; that round trip is a truthful reachability signal.
-   */
-  reachThroughTunnel(device) {
-    if (!this.isLive() || this.mode !== 'in_app') return Promise.resolve(null)
-    const profile = (() => {
-      try { return this.requireProfile(this.safeSettings()) } catch { return null }
-    })()
-    if (!profile) return Promise.resolve(null)
-
-    const port = Number(device.connection_port) || Number(device.port) || VPNService.probePort(device.device_type)
-    const started = Date.now()
-    return new Promise((resolve) => {
-      let done = false
-      const finish = (value) => { if (!done) { done = true; resolve(value) } }
-      const timer = setTimeout(() => finish({ status: 'offline', ping_time: null }), 5000)
-
-      this.openGatewayTunnel(profile, device.ip, port, (error, socket) => {
-        clearTimeout(timer)
-        if (socket) { try { socket.destroy() } catch {} }
-        if (error) return finish({ status: 'offline', ping_time: null })
-        const elapsed = Math.max(1, Date.now() - started)
-        finish({ status: elapsed <= 300 ? 'online' : 'warning', ping_time: elapsed })
-      })
-    })
-  }
-
-  /** A port the given device type is expected to be listening on. */
-  static probePort(deviceType) {
-    switch (deviceType) {
-      case 'Switch': return 22
-      case 'Router': return 8291
-      case 'iLO':
-      case 'NVR': return 443
-      case 'Server':
-      case 'Client':
-      case 'Checkout': return 3389
-      default: return 80
-    }
-  }
-
   /* ------------------------------------------------------------------ global */
 
   async connectGlobal(profile, settings) {
@@ -1046,13 +737,6 @@ class VPNService {
 
   async disconnect(actor = 'Admin') {
     this.stopHealthMonitor()
-    if (this.proxy) {
-      await new Promise((resolve) => this.proxy.close(resolve))
-      this.proxy = null
-      this.proxyPort = 0
-    }
-    await this.clearSessionProxy()
-    this.portalCookie = ''
 
     if (this.mode === 'global' && process.platform === 'win32') {
       const settings = this.safeSettings()
@@ -1073,7 +757,6 @@ class VPNService {
 
   stop() {
     this.stopHealthMonitor()
-    if (this.proxy) { try { this.proxy.close() } catch {} }
     if (this.process) { try { this.process.kill() } catch {} }
   }
 }

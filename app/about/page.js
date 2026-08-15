@@ -57,7 +57,7 @@ function formatDuration(seconds) {
 }
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.9', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.10', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -185,27 +185,27 @@ export default function AboutPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1400px] space-y-2.5">
+      <div className="mx-auto max-w-[1400px] space-y-2">
         <div>
           <h1 className="page-title">About HyperFamily Monitor</h1>
           <p className="page-subtitle">Product information, secure updates, technology credits, and support.</p>
         </div>
 
-        <div className="grid gap-2.5 lg:grid-cols-[1.05fr_.95fr]">
+        <div className="grid gap-2 lg:grid-cols-[1.05fr_.95fr]">
           <Card className="relative overflow-hidden">
             <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[rgb(var(--primary)/.16)] blur-3xl" />
-            <CardContent className="relative flex min-h-44 flex-col justify-center p-4">
-              <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center">
-                <BrandMark className="h-14 w-14 shrink-0" />
+            <CardContent className="relative flex min-h-0 flex-col justify-center p-3">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                <BrandMark className="h-11 w-11 shrink-0" />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-black">HyperFamily Branch Monitor</h2>
+                    <h2 className="text-base font-black">HyperFamily Branch Monitor</h2>
                     <Badge status="online">v{info.version}</Badge>
                   </div>
-                  <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-[rgb(var(--muted))]">
+                  <p className="mt-1 max-w-xl text-[11px] leading-snug text-[rgb(var(--muted))]">
                     A secure desktop control center for retail branch connectivity, inventory, remote support, and operational visibility.
                   </p>
-                  <div className="mt-3 grid gap-1.5 text-[11px] sm:grid-cols-2">
+                  <div className="mt-2 grid gap-1 text-[10.5px] sm:grid-cols-2">
                     <span className="flex items-center gap-2"><Code2 size={13} className="text-nord-8" />Ali Ajeli Lahiji</span>
                     <span className="flex items-center gap-2"><ShieldCheck size={13} className="text-nord-14" />HyperFamily Stores</span>
                     <span className="flex items-center gap-2"><Calendar size={13} className="text-nord-13" />Version {info.version}</span>
@@ -217,12 +217,12 @@ export default function AboutPage() {
           </Card>
 
           <Card>
-            <CardHeader className="pb-2.5">
-              <CardTitle className="flex items-center gap-2 text-base"><Rocket size={16} />Application updates</CardTitle>
-              <CardDescription className="text-xs">Every release is published on GitHub as a signed Windows installer.</CardDescription>
+            <CardHeader className="p-3 pb-1.5">
+              <CardTitle className="flex items-center gap-2 text-sm"><Rocket size={16} />Application updates</CardTitle>
+              <CardDescription className="mt-0.5 text-[11px] leading-snug">Every release is published on GitHub as a signed Windows installer.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-xl border bg-[rgb(var(--surface)/.42)] p-3">
+              <div className="rounded-lg border bg-[rgb(var(--surface)/.42)] p-2.5">
                 <div className="flex items-center justify-between">
                   <span>
                     <small className="block text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">Installed version</small>
@@ -272,7 +272,7 @@ export default function AboutPage() {
                 )}
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 <Button size="sm" onClick={check} disabled={checking} variant="secondary">
                   <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />{checking ? 'Checking…' : 'Check for updates'}
                 </Button>
@@ -296,15 +296,15 @@ export default function AboutPage() {
                 )}
               </div>
 
-              {update?.releaseNotes && <p className="mt-3 line-clamp-3 whitespace-pre-line text-[11px] leading-relaxed text-[rgb(var(--muted))]">{update.releaseNotes}</p>}
+              {update?.releaseNotes && <p className="mt-2 line-clamp-2 whitespace-pre-line text-[11px] leading-relaxed text-[rgb(var(--muted))]">{update.releaseNotes}</p>}
             </CardContent>
           </Card>
         </div>
 
         <Card>
-          <CardHeader className="pb-2.5">
-            <CardTitle className="text-base">Production technology stack</CardTitle>
-            <CardDescription className="text-xs">Focused tools selected for a responsive, offline-first Windows application.</CardDescription>
+          <CardHeader className="p-3 pb-1.5">
+            <CardTitle className="text-sm">Production technology stack</CardTitle>
+            <CardDescription className="mt-0.5 text-[11px] leading-snug">Focused tools selected for a responsive, offline-first Windows application.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
@@ -328,11 +328,12 @@ export default function AboutPage() {
           </CardContent>
         </Card>
 
-        <Card className="p-3.5">
-          <div className="flex flex-col justify-between gap-2.5 md:flex-row md:items-center">
+        <div className="grid gap-2 lg:grid-cols-2">
+        <Card className="p-3">
+          <div className="flex h-full flex-col justify-center gap-2">
             <div>
-              <h3 className="text-sm font-bold">Need help with branch infrastructure?</h3>
-              <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">Report a reproducible application issue or review the public source repository on GitHub.</p>
+              <h3 className="text-[13px] font-bold">Need help with branch infrastructure?</h3>
+              <p className="mt-0.5 text-[11px] leading-snug text-[rgb(var(--muted))]">Report a reproducible application issue or review the public source repository on GitHub.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => external(`${REPO}/issues/new`)}><CircleDot size={14} />Report an issue</Button>
@@ -342,19 +343,19 @@ export default function AboutPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2.5">
-            <CardTitle className="text-base">Developer contact</CardTitle>
-            <CardDescription className="text-xs">Write to the developer directly. The message opens in Outlook with the address, subject and version details already filled in.</CardDescription>
+          <CardHeader className="p-3 pb-1.5">
+            <CardTitle className="text-sm">Developer contact</CardTitle>
+            <CardDescription className="mt-0.5 text-[11px] leading-snug">Write to the developer directly. The message opens in Outlook with the address, subject and version details already filled in.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-1.5">
             <button
               type="button"
               onClick={emailDeveloper}
-              className="contact-card group flex w-full items-center gap-3 rounded-xl border bg-[rgb(var(--surface)/.38)] p-3 text-left transition"
+              className="contact-card group flex w-full items-center gap-2.5 rounded-lg border bg-[rgb(var(--surface)/.38)] p-2.5 text-left transition"
               aria-label={`Send an email to ${DEVELOPER_EMAIL}`}
             >
-              <span className="contact-card-icon grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))] transition">
-                <Mail size={18} />
+              <span className="contact-card-icon grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))] transition">
+                <Mail size={16} />
               </span>
               <span className="min-w-0 flex-1">
                 <b className="block text-xs">Ali Ajeli Lahiji</b>
@@ -364,8 +365,9 @@ export default function AboutPage() {
             </button>
           </CardContent>
         </Card>
+        </div>
 
-        <footer className="pb-2 text-center text-[9.5px] uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
+        <footer className="pb-1 text-center text-[9.5px] uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
       </div>
     </AppShell>
   )

@@ -1,14 +1,17 @@
 /**
  * Regression guard for the VPN connect path.
  *
- * v2.0.5 shipped a refactor that left `connect()` calling a `connectInApp()`
- * that no longer existed, so every in-app connection died with
- * "TypeError: this.connectInApp is not a function". Nothing in the suite
- * exercised `connect()`, so the break reached users. This test drives the real
- * service against a mock FortiGate that replays the exact reply shape of the
- * production gateway: `ret=1` with a hostcheck redirect, expired placeholder
- * SVPNCOOKIE values, and the real session only reachable by following the
- * redirect while carrying SVPNTMPCOOKIE.
+ * v2.0.10 removed the application-level ("in_app") tunnel: it never completed
+ * a TLS handshake against the production gateway. Only the FortiClient-driven
+ * "global" mode remains. These tests pin that contract down:
+ *
+ *   1. The portal HTTP/TLS layer still works, because Settings → VPN
+ *      "Test & diagnose" depends on it. It is exercised against a mock
+ *      FortiGate replaying the production reply shape: `ret=1` with a
+ *      hostcheck redirect and expired placeholder SVPNCOOKIE values.
+ *   2. No caller can resurrect the in-app tunnel — legacy mode names must fold
+ *      into global instead of starting a loopback proxy.
+ *   3. Every rung of the TLS ladder is valid for the shipping runtime.
  *
  * Must run under Electron: cross-env ELECTRON_RUN_AS_NODE=1 electron --test
  */
@@ -79,12 +82,13 @@ u3Wn5XFhSi2R1A4QZeAGDAMUQqVSgixKbdj5l3e6eIM=
 const LOGIN_REPLY = 'ret=1,redir=/remote/hostcheck_install?auth_type=1&user=6C6168696A692E616C69&&grpname=&portal=66756C6C2D616363657373&rip=5.122.241.27&realm='
 
 function startGateway() {
-  const state = { hostcheckHits: 0, hostcheckCookie: '', loginBody: '' }
+  const state = { hostcheckHits: 0, hostcheckCookie: '', loginBody: '', loginHits: 0 }
   const server = https.createServer({ key: KEY, cert: CERT }, (req, res) => {
     if (req.url === '/remote/logincheck') {
       const chunks = []
       req.on('data', (chunk) => chunks.push(chunk))
       req.on('end', () => {
+        state.loginHits += 1
         state.loginBody = Buffer.concat(chunks).toString()
         res.writeHead(200, {
           'Content-Type': 'text/plain',
@@ -120,55 +124,60 @@ function makeService(port, events) {
   return new VPNService(database, require('node:os').tmpdir(), (_channel, payload) => events.push(payload.state))
 }
 
-test('in-app connect works end to end against a hostcheck gateway', async (t) => {
+test('the portal layer still reaches the gateway for Test & diagnose', async (t) => {
   const { server, state, port } = await startGateway()
   const events = []
   const vpn = makeService(port, events)
   t.after(() => { vpn.stop(); server.close() })
 
-  // The regression itself: this threw "connectInApp is not a function".
-  const status = await vpn.connect('in_app', 'Admin')
+  const report = await vpn.diagnose()
 
-  assert.equal(status.state, 'connected_in_app')
-  assert.ok(Number(status.proxyPort) > 0, 'a loopback proxy port must be allocated')
+  assert.equal(report.ok, true, `diagnose must reach the gateway: ${report.reason || ''}`)
+  assert.equal(report.outcome, 'accepted')
   assert.match(state.loginBody, /username=lahiji\.ali/)
   assert.match(state.loginBody, /credential=secret/)
   // Realm was removed from the profile, so it must always go out empty.
   assert.doesNotMatch(state.loginBody, /realm=[^&]/, 'realm must no longer be sent')
-
-  // The real session cookie only exists after the hostcheck redirect is followed.
-  assert.equal(state.hostcheckHits, 1, 'the hostcheck redirect must be followed exactly once')
-  assert.match(state.hostcheckCookie, /SVPNTMPCOOKIE=TMPVALUE123/)
-  assert.match(vpn.portalCookie, /SVPNCOOKIE=REALSESSION/)
-  assert.doesNotMatch(vpn.portalCookie, /SVPNCOOKIE=(;|$|\s)/, 'the expired placeholder must not survive')
 })
 
-test('liveness tracking flips the indicator when the tunnel dies', async (t) => {
-  const { server, port } = await startGateway()
+/**
+ * The in-app tunnel must stay gone.
+ *
+ * A stored preference, a queued IPC call or an older renderer can still ask
+ * for `in_app`/`split`. None of them may start a loopback proxy again: the
+ * request has to fold into the single remaining FortiClient mode. This also
+ * guards the removal itself — every proxy entry point must be absent.
+ */
+test('the in-app tunnel is gone and legacy modes fold into global', async (t) => {
+  const { server, state, port } = await startGateway()
   const events = []
   const vpn = makeService(port, events)
   t.after(() => { vpn.stop(); server.close() })
 
-  await vpn.connect('in_app', 'Admin')
-  assert.equal(vpn.isLive(), true)
-  assert.equal(vpn.getStatus().live, true)
+  for (const method of ['connectInApp', 'startProxy', 'openGatewayTunnel', 'applySessionProxy',
+    'clearSessionProxy', 'reachThroughTunnel', 'completeHostCheck', 'followPortalPath']) {
+    assert.equal(typeof vpn[method], 'undefined', `${method} must be removed with the in-app tunnel`)
+  }
+  assert.equal(vpn.proxy, undefined, 'no proxy handle may remain on the service')
+  assert.equal(vpn.getStatus().proxyPort, undefined, 'status must not advertise a proxy port')
 
-  // Kill the proxy behind the service's back, the way a real drop would.
-  await new Promise((resolve) => vpn.proxy.close(resolve))
-  await vpn.refreshHealth()
+  // Legacy names must not be rejected, and must not open a portal session:
+  // they take the FortiClient path, which is Windows-only.
+  for (const legacy of ['in_app', 'split']) {
+    vpn.state = 'disconnected'
+    const error = await vpn.connect(legacy, 'Admin').then(() => null, (e) => e)
+    assert.ok(error, `connect('${legacy}') must not silently succeed off-Windows`)
+    assert.doesNotMatch(error.message, /Invalid VPN mode/,
+      `connect('${legacy}') must fold into global, not be rejected outright`)
+    assert.match(error.message, /Windows desktop build|FortiClient/,
+      `connect('${legacy}') must take the FortiClient path`)
+  }
+  assert.equal(state.loginHits, 0, 'the removed tunnel must never authenticate to the portal again')
 
-  assert.equal(vpn.state, 'disconnected', 'a dead tunnel must not keep reporting connected')
-  assert.equal(vpn.isLive(), false)
-  assert.ok(events.includes('disconnected'), 'the drop must be pushed to the renderer')
-
-  // A drop must not wedge the service; reconnecting has to work.
-  const again = await vpn.connect('in_app', 'Admin')
-  assert.equal(again.state, 'connected_in_app')
-
-  await vpn.disconnect('Admin')
-  assert.equal(vpn.state, 'disconnected')
-  assert.equal(vpn.proxy, null)
-  assert.equal(vpn.healthTimer, null, 'the health monitor must stop with the tunnel')
+  // A genuinely unknown mode is still an error.
+  vpn.state = 'disconnected'
+  const bogus = await vpn.connect('carrier-pigeon', 'Admin').then(() => null, (e) => e)
+  assert.match(bogus.message, /Invalid VPN mode/)
 })
 
 /**
