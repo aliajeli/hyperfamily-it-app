@@ -9,7 +9,7 @@ function hasColumn(db, table, column) {
   return db.prepare(`PRAGMA table_info(${table})`).all().some((item) => item.name === column)
 }
 
-function runMigrations(db, adminHash) {
+function runMigrations(db, adminHash, adminRecovery = '') {
   db.exec(`
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
@@ -226,6 +226,9 @@ function runMigrations(db, adminHash) {
   // v2.0.16: tags live in their own column (a JSON array) so they no longer
   // need to be written into the note body.
   if (!hasColumn(db, 'notes', 'tags')) db.exec("ALTER TABLE notes ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
+  // v2.0.18: a DPAPI-encrypted copy of the administrator password, so the
+  // bundled Credential Recovery tool can display the current credentials.
+  if (!hasColumn(db, 'users', 'password_recovery')) db.exec("ALTER TABLE users ADD COLUMN password_recovery TEXT NOT NULL DEFAULT ''")
   db.exec('DROP INDEX IF EXISTS idx_notes_updated')
   db.exec('CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, priority DESC, updated_at DESC)')
   db.exec(`
@@ -251,7 +254,7 @@ function runMigrations(db, adminHash) {
   }
 
   const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count
-  if (!userCount) db.prepare('INSERT INTO users (username, password) VALUES (?, ?)').run('Admin', adminHash)
+  if (!userCount) db.prepare('INSERT INTO users (username, password, password_recovery) VALUES (?, ?, ?)').run('Admin', adminHash, adminRecovery)
 
   const defaults = {
     theme: 'aurora', theme_custom: '', ping_interval: 3, ping_history_count: 30,

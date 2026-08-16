@@ -56,6 +56,7 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('branches:list', secure(() => database.listBranches()))
   ipcMain.handle('branches:save', secure((event, payload) => database.saveBranch(payload, sessions.get(event.sender.id).username)))
   ipcMain.handle('branches:remove', secure((event, id) => database.deleteBranch(id, sessions.get(event.sender.id).username)))
+  ipcMain.handle('branches:remove-all', secure((event) => database.deleteAllBranchesAndDevices(sessions.get(event.sender.id).username)))
   ipcMain.handle('devices:list', secure(() => database.listDevices()))
   ipcMain.handle('devices:save', secure((event, payload) => database.saveDevice(payload, sessions.get(event.sender.id).username)))
   ipcMain.handle('devices:remove', secure((event, id) => database.deleteDevice(id, sessions.get(event.sender.id).username)))
