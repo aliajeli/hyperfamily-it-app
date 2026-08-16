@@ -126,7 +126,7 @@ npm run build:electron
 Expected artifact:
 
 ```text
-dist/HyperFamily-Branch-Monitor-Setup-2.0.17.exe
+dist/HyperFamily-Branch-Monitor-Setup-2.0.18.exe
 ```
 
 For a trusted organizational rollout, configure an Authenticode certificate before publishing. Unsigned installers will trigger Windows SmartScreen warnings.
@@ -146,6 +146,16 @@ Important files:
 - `.vault-key` — fallback key only when OS encryption is unavailable
 
 The app never commits runtime databases or secrets. Database keys are tied to the Windows user profile; include a controlled export/recovery process before moving data to another account or PC.
+
+### Credential recovery
+
+Forgotten the administrator login? The installer places a small standalone tool next to the application:
+
+```text
+%LOCALAPPDATA%\Programs\hyperfamily-branch-monitor\HyperFamily-Credential-Recovery.exe
+```
+
+It reads the current username and password from this machine's own encrypted database and shows them in a window — no desktop shortcut is created. It only works for the same Windows user who runs the application, and only displays passwords saved by v2.0.18 or later (change the password once in Settings → General to store the recoverable copy for older installs). A standalone copy is also attached to every GitHub release.
 
 See [SECURITY.md](SECURITY.md) for the threat model and disclosure process.
 

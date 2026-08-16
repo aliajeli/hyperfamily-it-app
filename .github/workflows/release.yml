@@ -45,6 +45,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The recovery tool is embedded in the installer via extraFiles, so it
+      # must exist before the main build starts.
+      - name: Build the credential recovery tool
+        run: |
+          npm --prefix electron/recovery install
+          npx electron-builder --config electron-builder.recovery.json --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
       - name: Build and publish GitHub release
         run: npx electron-builder --win nsis --x64 --publish always
         env:
@@ -52,6 +61,12 @@ jobs:
           # Configure CSC_LINK and CSC_KEY_PASSWORD as repository secrets before production use.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Attach the standalone recovery tool to the release
+        shell: bash
+        run: gh release upload "${GITHUB_REF_NAME}" "recovery-dist/HyperFamily-Credential-Recovery.exe" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # electron-builder creates the GitHub release as a draft by default, and a
       # draft is invisible to electron-updater. Force it public so the in-app

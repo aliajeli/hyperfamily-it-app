@@ -1,0 +1,26 @@
+{
+  "appId": "com.hyperfamily.branchmonitor.recovery",
+  "productName": "HyperFamily Credential Recovery",
+  "asar": true,
+  "directories": {
+    "app": "electron/recovery",
+    "output": "recovery-dist"
+  },
+  "files": [
+    "**/*",
+    "!**/*.map"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "verifyUpdateCodeSignature": false
+  },
+  "portable": {
+    "artifactName": "HyperFamily-Credential-Recovery.exe"
+  },
+  "publish": null
+}

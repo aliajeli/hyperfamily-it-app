@@ -60,7 +60,11 @@ class AppDatabase {
     this.db.pragma(`key="x'${databaseKey}'"`)
     // Force an early read so a moved/corrupt key fails at startup, not during a later operation.
     this.db.prepare('SELECT count(*) AS count FROM sqlite_master').get()
-    runMigrations(this.db, bcrypt.hashSync('Admin', 10))
+    // The recovery copy of the password is stored alongside the hash when the
+    // default administrator is first created, so the Credential Recovery tool
+    // can display it. Accounts upgraded from older builds keep an empty copy
+    // until the password is changed once.
+    runMigrations(this.db, bcrypt.hashSync('Admin', 10), this.vault.encrypt('Admin'))
   }
 
   isPlaintextDatabase() {
@@ -169,8 +173,12 @@ class AppDatabase {
     if (nextPassword && nextPassword.length < 4) throw new Error('New password must contain at least 4 characters')
 
     const passwordHash = nextPassword ? bcrypt.hashSync(nextPassword, 10) : user.password
+    // A changed password also refreshes the encrypted recovery copy the
+    // Credential Recovery tool reads.
+    const recovery = nextPassword ? this.vault.encrypt(nextPassword) : user.password_recovery || ''
     try {
-      this.db.prepare("UPDATE users SET username = ?, password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(nextUsername, passwordHash, user.id)
+      this.db.prepare("UPDATE users SET username = ?, password = ?, password_recovery = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+        .run(nextUsername, passwordHash, recovery, user.id)
     } catch (error) {
       if (String(error.code || '').startsWith('SQLITE_CONSTRAINT')) throw new Error('That username is already in use')
       throw error
@@ -220,6 +228,30 @@ class AppDatabase {
     this.db.prepare('DELETE FROM branches WHERE id = ?').run(Number(id))
     this.audit(actor, 'BRANCH_DELETE', String(id), branch.name)
     return { success: true }
+  }
+
+  /**
+   * Removes every branch and every device in one transaction (v2.0.18).
+   *
+   * Devices cascade from branches, but their history, ports and credential
+   * assignments are cleaned explicitly so nothing orphaned is left behind.
+   */
+  deleteAllBranchesAndDevices(actor = 'Admin') {
+    const run = this.db.transaction(() => {
+      const deviceCount = this.db.prepare('SELECT count(*) AS count FROM devices').get().count
+      const branchCount = this.db.prepare('SELECT count(*) AS count FROM branches').get().count
+      this.db.prepare('DELETE FROM switch_ports').run()
+      this.db.prepare('DELETE FROM device_credential_assignments').run()
+      this.db.prepare('DELETE FROM device_credentials').run()
+      this.db.prepare('DELETE FROM ping_history').run()
+      this.db.prepare('DELETE FROM uptime_logs').run()
+      this.db.prepare('DELETE FROM devices').run()
+      this.db.prepare('DELETE FROM branches').run()
+      return { deviceCount, branchCount }
+    })
+    const counts = run()
+    this.audit(actor, 'DIRECTORY_CLEAR', 'all', `${counts.branchCount} branches and ${counts.deviceCount} devices permanently removed`)
+    return { success: true, ...counts }
   }
 
   listSwitchPorts(deviceId = null) {

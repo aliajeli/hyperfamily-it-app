@@ -3,24 +3,43 @@
 @tailwind utilities;
 
 /* -----------------------------------------------------------------------------
-   Theme crossfade (v2.0.17).
+   Theme transition (v2.0.18).
 
-   When a theme is picked, lib/themes.js applies the new palette immediately
-   and puts this class on <html>: every element — and the page background
-   itself — then fades its colours into the new theme in one quick, coordinated
-   fade. Colour properties only; transform and opacity are left alone so
-   framer-motion is never affected.
+   lib/themes.js swaps themes through document.startViewTransition(), so the
+   browser snapshots the whole window twice and crossfades the old palette into
+   the new one. One second for both directions of the blend: every element —
+   background, cards, text, borders — starts and finishes together, with
+   nothing changing before or after the rest.
    -------------------------------------------------------------------------- */
-html.theme-crossfade,
-html.theme-crossfade body,
-html.theme-crossfade * {
-  transition:
-    background-color .3s cubic-bezier(.4, 0, .2, 1),
-    color .3s cubic-bezier(.4, 0, .2, 1),
-    border-color .3s cubic-bezier(.4, 0, .2, 1),
-    fill .3s ease,
-    stroke .3s ease,
-    box-shadow .3s ease !important;
+::view-transition-group(root) {
+  animation-duration: 1s;
+  animation-timing-function: cubic-bezier(.4, 0, .2, 1);
+}
+
+::view-transition-old(root) {
+  animation-name: theme-old-fade;
+}
+
+::view-transition-new(root) {
+  animation-name: theme-new-fade;
+}
+
+@keyframes theme-old-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes theme-new-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
 }
 
 /* The settings tab panels glide in rather than snapping. */

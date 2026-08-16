@@ -25,6 +25,13 @@ jobs:
       - run: npm run test:vpn
       - run: npm run test:template
       - run: npm run build
+      - name: Build the credential recovery tool
+        if: github.event_name == 'push'
+        run: |
+          npm --prefix electron/recovery install
+          npx electron-builder --config electron-builder.recovery.json --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: Package unsigned test installer
         if: github.event_name == 'push'
         run: npx electron-builder --win nsis --x64 --publish never

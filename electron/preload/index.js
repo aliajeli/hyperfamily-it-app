@@ -16,7 +16,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     updateCredentials: (payload) => invoke('auth:update-credentials', payload),
     changePassword: (payload) => invoke('auth:change-password', payload)
   },
-  branches: { list: () => invoke('branches:list'), save: (payload) => invoke('branches:save', payload), remove: (id) => invoke('branches:remove', id) },
+  branches: { list: () => invoke('branches:list'), save: (payload) => invoke('branches:save', payload), remove: (id) => invoke('branches:remove', id), removeAll: () => invoke('branches:remove-all') },
   devices: { list: () => invoke('devices:list'), save: (payload) => invoke('devices:save', payload), remove: (id) => invoke('devices:remove', id) },
   monitor: { snapshot: () => invoke('monitor:snapshot'), subscribe: (callback) => subscribe('monitor:update', callback) },
   settings: { get: () => invoke('settings:get'), save: (patch) => invoke('settings:save', patch) },

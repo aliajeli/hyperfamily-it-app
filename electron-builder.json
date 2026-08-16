@@ -13,10 +13,17 @@
   },
   "files": [
     "electron/**/*",
+    "!electron/recovery/**",
     "out/**/*",
     "public/**/*",
     "package.json",
     "node_modules/**/*"
+  ],
+  "extraFiles": [
+    {
+      "from": "recovery-dist/HyperFamily-Credential-Recovery.exe",
+      "to": "HyperFamily-Credential-Recovery.exe"
+    }
   ],
   "win": {
     "target": [

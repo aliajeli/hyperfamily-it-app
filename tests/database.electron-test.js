@@ -549,3 +549,47 @@ test('notes carry a pin, a colour, and a priority, and come back in that order',
     cleanup()
   }
 })
+
+test('stores a recoverable copy of the administrator password', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperfamily-recovery-test-'))
+  const vault = new TestVault(directory)
+  const database = new AppDatabase(directory, vault)
+  try {
+    // The default account is seeded with its initial password.
+    let row = database.db.prepare('SELECT password_recovery FROM users WHERE id = 1').get()
+    assert.equal(vault.decrypt(row.password_recovery), 'Admin')
+
+    // Changing the password refreshes the copy.
+    database.updateCredentials(1, { currentPassword: 'Admin', newUsername: 'Admin', newPassword: 'NewPass9' })
+    row = database.db.prepare('SELECT password_recovery FROM users WHERE id = 1').get()
+    assert.equal(vault.decrypt(row.password_recovery), 'NewPass9')
+
+    // Keeping the password keeps the existing copy.
+    database.updateCredentials(1, { currentPassword: 'NewPass9', newUsername: 'Boss' })
+    row = database.db.prepare('SELECT password_recovery FROM users WHERE id = 1').get()
+    assert.equal(vault.decrypt(row.password_recovery), 'NewPass9')
+  } finally { database.close(); fs.rmSync(directory, { recursive: true, force: true }) }
+})
+
+test('deleteAllBranchesAndDevices wipes the whole directory', () => {
+  const { database, cleanup } = fixture()
+  try {
+    const branchA = database.saveBranch({ name: 'Branch A', code: 'WIPE-A', warehouse_code: 'WH-WIPE-A' })
+    const branchB = database.saveBranch({ name: 'Branch B', code: 'WIPE-B', warehouse_code: 'WH-WIPE-B' })
+    database.saveDevice({ branch_id: branchA.id, device_type: 'Router', name: 'Gateway A', ip: '10.1.0.1', is_dashboard_visible: true })
+    database.saveDevice({ branch_id: branchB.id, device_type: 'Client', name: 'Till B', ip: '10.2.0.9' })
+
+    const result = database.deleteAllBranchesAndDevices('Admin')
+    assert.equal(result.success, true)
+    assert.equal(result.branchCount, 2)
+    assert.equal(result.deviceCount, 2)
+    assert.equal(database.listBranches().length, 0)
+    assert.equal(database.listDevices().length, 0)
+    assert.equal(database.listAudit(10).some((entry) => entry.action === 'DIRECTORY_CLEAR'), true)
+
+    // Wiping an already empty directory is harmless.
+    const again = database.deleteAllBranchesAndDevices('Admin')
+    assert.equal(again.branchCount, 0)
+    assert.equal(again.deviceCount, 0)
+  } finally { cleanup() }
+})

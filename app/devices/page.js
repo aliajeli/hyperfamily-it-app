@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Building2, FileDown, FileUp, Plus, RefreshCw, Route, Server, Warehouse } from 'lucide-react'
+import { Building2, FileDown, FileUp, Plus, RefreshCw, Route, Server, Trash2, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchForm from '@/components/devices/BranchForm'
@@ -118,6 +118,29 @@ function DevicesPageInner() {
     } catch (error) { toast.error(error.message) }
   }
 
+  /**
+   * Removes EVERY branch and device. The confirmation is deliberately blunt —
+   * this wipes the whole directory and cannot be undone.
+   */
+  const removeAll = async () => {
+    if (!branches.length && !devices.length) {
+      toast.info('There is nothing to delete')
+      return
+    }
+    const ok = await confirm({
+      title: 'Delete ALL branches and devices?',
+      description: `This permanently removes all ${branches.length} branch${branches.length === 1 ? '' : 'es'} and ${devices.length} device${devices.length === 1 ? '' : 's'}, together with their history, switch ports and credential assignments. This cannot be undone.`,
+      confirmLabel: 'Delete everything'
+    })
+    if (!ok) return
+    try {
+      const result = await getApi().branches.removeAll()
+      toast.success(`Directory cleared — ${result?.branchCount ?? branches.length} branches and ${result?.deviceCount ?? devices.length} devices removed`)
+      setSelectedBranchId(null)
+      await load(null)
+    } catch (error) { toast.error(error.message) }
+  }
+
   const changeDashboardVisibility = async (device, isDashboardVisible) => {
     if (dashboardSavingId) return
     setDashboardSavingId(device.id)
@@ -212,6 +235,16 @@ function DevicesPageInner() {
               <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />Import
             </Button>
             <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}><Plus size={14} />Add branch</Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={removeAll}
+              disabled={loading || (!branches.length && !devices.length)}
+              title="Permanently delete every branch and device"
+              aria-label="Delete all branches and devices"
+            >
+              <Trash2 size={14} />Delete all
+            </Button>
           </div>
         </div>
 
