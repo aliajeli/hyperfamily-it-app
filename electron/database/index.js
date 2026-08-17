@@ -47,9 +47,12 @@ class AppDatabase {
       .filter(Boolean))].slice(0, 20)
   }
 
-  constructor(userDataPath, vault) {
+  constructor(userDataPath, vault, recoveryFilePath = null) {
     this.vault = vault
     this.userDataPath = userDataPath
+    // Canonical location for the recovery file: independent of how Electron
+    // names the userData folder, so the recovery tool always finds it.
+    this.recoveryFilePath = recoveryFilePath
     this.filePath = path.join(userDataPath, 'hyperfamily-monitor.db')
     const legacyPlaintext = this.isPlaintextDatabase()
     const databaseKey = vault.getDatabaseKey()
@@ -71,23 +74,36 @@ class AppDatabase {
   }
 
   /**
-   * Writes the administrator credentials into `credentials.dat` next to the
-   * database (v2.0.19).
+   * Writes the administrator credentials into `credentials.dat` (v2.0.20).
    *
    * The bundled Credential Recovery tool is deliberately dumb: it reads only
    * this one DPAPI/AES-encrypted file, so it needs no database access, no
    * SQLCipher and no native modules. This method keeps the file fresh — it
-   * runs at every startup and after every password change. Installs older
-   * than v2.0.18 carry an empty stored copy, so the file then holds the
-   * username with an empty password and the tool asks the user to change the
-   * password once.
+   * runs at every startup and after every password change.
+   *
+   * The file is written to TWO locations so it can never be missed: next to
+   * the database in Electron's userData folder, and at a canonical path
+   * (APPDATA/HyperFamily Branch Monitor) that does not depend on how the
+   * packaged app resolves its own name. Installs older than v2.0.18 carry an
+   * empty stored copy, so the file then holds the username with an empty
+   * password and the tool asks the user to change the password once.
    */
   syncRecoveryFile() {
     try {
       const admin = this.db.prepare('SELECT username, password_recovery FROM users ORDER BY id LIMIT 1').get()
       const password = admin?.password_recovery ? this.vault.decrypt(admin.password_recovery) : ''
       const payload = JSON.stringify({ v: 1, username: admin?.username || '', password })
-      fs.writeFileSync(path.join(this.userDataPath, 'credentials.dat'), this.vault.encrypt(payload), { mode: 0o600 })
+      const encrypted = this.vault.encrypt(payload)
+      const targets = new Set([
+        path.join(this.userDataPath, 'credentials.dat'),
+        this.recoveryFilePath
+      ].filter(Boolean))
+      for (const target of targets) {
+        try {
+          fs.mkdirSync(path.dirname(target), { recursive: true })
+          fs.writeFileSync(target, encrypted, { mode: 0o600 })
+        } catch { /* keep the other copy usable */ }
+      }
     } catch { /* best-effort mirror; the tool explains itself if the file is stale */ }
   }
 

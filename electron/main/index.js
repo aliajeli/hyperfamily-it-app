@@ -95,7 +95,11 @@ else {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [csp] } }))
 
     const vault = new SecureVault(app.getPath('userData'))
-    database = new AppDatabase(app.getPath('userData'), vault)
+    // The recovery tool looks in a canonical folder that does not depend on
+    // how the packaged app resolves its own userData name, so the file is
+    // mirrored there as well (v2.0.20).
+    const recoveryFile = path.join(app.getPath('appData'), 'HyperFamily Branch Monitor', 'credentials.dat')
+    database = new AppDatabase(app.getPath('userData'), vault, recoveryFile)
     const remoteService = new RemoteService(database)
     vpnService = new VPNService(database, app.getPath('userData'), sendEvent)
     // Keeps the header indicator honest: the real tunnel state is re-checked
