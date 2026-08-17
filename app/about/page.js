@@ -58,7 +58,7 @@ function formatDuration(seconds) {
 }
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.18', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: '2.0.19', platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)

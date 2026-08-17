@@ -49,6 +49,7 @@ class AppDatabase {
 
   constructor(userDataPath, vault) {
     this.vault = vault
+    this.userDataPath = userDataPath
     this.filePath = path.join(userDataPath, 'hyperfamily-monitor.db')
     const legacyPlaintext = this.isPlaintextDatabase()
     const databaseKey = vault.getDatabaseKey()
@@ -65,6 +66,29 @@ class AppDatabase {
     // can display it. Accounts upgraded from older builds keep an empty copy
     // until the password is changed once.
     runMigrations(this.db, bcrypt.hashSync('Admin', 10), this.vault.encrypt('Admin'))
+    // Mirror the credentials into the small file the recovery tool reads.
+    this.syncRecoveryFile()
+  }
+
+  /**
+   * Writes the administrator credentials into `credentials.dat` next to the
+   * database (v2.0.19).
+   *
+   * The bundled Credential Recovery tool is deliberately dumb: it reads only
+   * this one DPAPI/AES-encrypted file, so it needs no database access, no
+   * SQLCipher and no native modules. This method keeps the file fresh — it
+   * runs at every startup and after every password change. Installs older
+   * than v2.0.18 carry an empty stored copy, so the file then holds the
+   * username with an empty password and the tool asks the user to change the
+   * password once.
+   */
+  syncRecoveryFile() {
+    try {
+      const admin = this.db.prepare('SELECT username, password_recovery FROM users ORDER BY id LIMIT 1').get()
+      const password = admin?.password_recovery ? this.vault.decrypt(admin.password_recovery) : ''
+      const payload = JSON.stringify({ v: 1, username: admin?.username || '', password })
+      fs.writeFileSync(path.join(this.userDataPath, 'credentials.dat'), this.vault.encrypt(payload), { mode: 0o600 })
+    } catch { /* best-effort mirror; the tool explains itself if the file is stale */ }
   }
 
   isPlaintextDatabase() {
@@ -188,6 +212,7 @@ class AppDatabase {
     if (nextUsername !== user.username) changed.push(`username from ${user.username} to ${nextUsername}`)
     if (nextPassword) changed.push('password')
     this.audit(nextUsername, 'ACCOUNT_UPDATE', nextUsername, `Administrator ${changed.length ? changed.join(' and ') : 'credentials verified'}`)
+    this.syncRecoveryFile()
     return { id: user.id, username: nextUsername }
   }
 

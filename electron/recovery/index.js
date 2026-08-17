@@ -1,20 +1,21 @@
 /**
- * HyperFamily Credential Recovery
- * --------------------------------
- * A tiny standalone window that reads the administrator username and password
- * from the machine's own HyperFamily database and displays them, so a
- * forgotten login can be recovered without reinstalling anything.
+ * HyperFamily Credential Recovery (v2.0.19)
+ * -----------------------------------------
+ * A tiny window that shows the administrator username and password saved on
+ * this computer, so a forgotten login can be recovered.
  *
- * The package name deliberately matches the main application, so
- * app.getPath('userData') resolves to the same folder and the same encrypted
- * database. Decryption reuses the exact same scheme as the app:
+ * The tool is deliberately dumb and light: it reads ONE small encrypted file
+ * (`credentials.dat`) that the main application refreshes at every start and
+ * after every password change. No database, no SQLCipher, no native modules —
+ * just Node's built-in fs/path/crypto plus Electron's DPAPI-backed
+ * safeStorage, exactly like the main application uses.
  *
- *   .database-key  -> DPAPI (safeStorage) blob, or AES-256-GCM with .vault-key
- *   database       -> SQLCipher with that key
- *   password_recovery column -> same DPAPI/AES scheme
+ * The file lives in the main application's data folder:
  *
- * The password is only recoverable when it was saved by v2.0.18 or later;
- * older databases show a "change the password once" hint instead.
+ *   %APPDATA%\HyperFamily Branch Monitor\credentials.dat
+ *
+ * DPAPI ties the encryption to the Windows user, so the tool can only ever
+ * read credentials on the same account that runs the application.
  */
 'use strict'
 
@@ -22,28 +23,26 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { app, BrowserWindow, Menu, safeStorage } = require('electron')
-const Database = require('better-sqlite3-multiple-ciphers')
 
-const DB_FILE = 'hyperfamily-monitor.db'
-const KEY_FILE = '.database-key'
+const APP_DATA_FOLDER = 'HyperFamily Branch Monitor'
+const CREDENTIALS_FILE = 'credentials.dat'
 const FALLBACK_KEY_FILE = '.vault-key'
 
-function fallbackKey(userDataPath) {
-  const keyPath = path.join(userDataPath, FALLBACK_KEY_FILE)
+function fallbackKey(dir) {
   try {
-    const key = fs.readFileSync(keyPath)
+    const key = fs.readFileSync(path.join(dir, FALLBACK_KEY_FILE))
     return key.length === 32 ? key : null
   } catch { return null }
 }
 
-function decryptValue(payload, userDataPath) {
+function decryptValue(payload, dir) {
   if (!payload) return ''
   const text = String(payload)
   if (text.startsWith('dpapi:')) {
     return safeStorage.decryptString(Buffer.from(text.slice(6), 'base64'))
   }
   if (text.startsWith('aes:')) {
-    const key = fallbackKey(userDataPath)
+    const key = fallbackKey(dir)
     if (!key) throw new Error('the local encryption key is missing')
     const [, iv, tag, encrypted] = text.split(':')
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'))
@@ -53,46 +52,22 @@ function decryptValue(payload, userDataPath) {
   return text
 }
 
-function readCredentials(userDataPath) {
-  const keyPath = path.join(userDataPath, KEY_FILE)
-  if (!fs.existsSync(keyPath)) {
-    return { error: 'No HyperFamily database key was found on this machine. Run the application at least once, then try again.' }
+function readCredentials() {
+  const dir = path.join(app.getPath('appData'), APP_DATA_FOLDER)
+  const file = path.join(dir, CREDENTIALS_FILE)
+  if (!fs.existsSync(file)) {
+    return { error: 'No saved credentials were found on this computer. Open the HyperFamily application once (it refreshes this file at every start), then run this tool again.' }
   }
-
-  let databaseKey
   try {
-    databaseKey = decryptValue(fs.readFileSync(keyPath, 'utf8'), userDataPath)
-  } catch (error) {
-    return { error: `The database key could not be decrypted (${error.message}). This tool only works for the same Windows user who runs the application.` }
-  }
-
-  const dbPath = path.join(userDataPath, DB_FILE)
-  if (!fs.existsSync(dbPath)) {
-    return { error: 'The HyperFamily database was not found on this machine. Run the application at least once, then try again.' }
-  }
-
-  let db
-  try {
-    db = new Database(dbPath)
-    db.pragma("cipher='sqlcipher'")
-    db.pragma(`key="x'${databaseKey}'"`)
-    db.prepare('SELECT count(*) AS count FROM sqlite_master').get()
-  } catch (error) {
-    return { error: `The database could not be opened (${error.message}).` }
-  }
-
-  try {
-    const rows = db.prepare('SELECT username, password_recovery FROM users ORDER BY id').all()
-    return {
-      users: rows.map((row) => ({
-        username: row.username,
-        password: row.password_recovery ? decryptValue(row.password_recovery, userDataPath) : null
-      }))
+    const data = JSON.parse(decryptValue(fs.readFileSync(file, 'utf8'), dir) || '{}')
+    const username = String(data.username || '').trim()
+    const password = typeof data.password === 'string' ? data.password : ''
+    if (!username) {
+      return { error: 'The saved credentials are empty. Change the administrator password once inside the application, then run this tool again.' }
     }
+    return { username, password: password || null }
   } catch (error) {
-    return { error: `The credentials could not be read (${error.message}).` }
-  } finally {
-    try { db.close() } catch { /* already closed */ }
+    return { error: `The saved credentials could not be decrypted (${error.message}). This tool only works for the same Windows user who runs the application.` }
   }
 }
 
@@ -102,21 +77,18 @@ function escapeHtml(value) {
 }
 
 function buildPage(result) {
-  const rows = (result.users || [])
-    .map((user) => `
-      <div class="card">
-        <div class="field"><span class="k">Username</span><span class="v" id="u">${escapeHtml(user.username)}</span>
-          <button onclick="copyTo('${escapeHtml(user.username)}', this)">Copy</button></div>
-        <div class="field"><span class="k">Password</span>
-          <span class="v${user.password ? '' : ' hint'}">${user.password ? escapeHtml(user.password) : 'not recorded on this database'}</span>
-          ${user.password ? `<button onclick="copyTo('${escapeHtml(user.password)}', this)">Copy</button>` : ''}</div>
-        ${!user.password ? '<p class="hint">Saved before recovery existed — change the password once inside the application to store a recoverable copy.</p>' : ''}
-      </div>`)
-    .join('')
+  const row = (label, value, hint) => `
+    <div class="row">
+      <div class="cell">
+        <div class="k">${label}</div>
+        <div class="v${hint ? ' hint' : ''}">${hint ? hint : escapeHtml(value)}</div>
+      </div>
+      ${hint ? '' : `<button onclick="copyTo('${escapeHtml(value).replace(/'/g, "\\'")}', this)">Copy</button>`}
+    </div>`
 
   const body = result.error
-    ? `<div class="error"><div class="eicon">!</div><p>${escapeHtml(result.error)}</p></div>`
-    : rows || '<p class="hint">No administrator accounts were found.</p>'
+    ? `<div class="error">${escapeHtml(result.error)}</div>`
+    : (row('Username', result.username) + row('Password', result.password || '', result.password ? null : 'not recorded — change the password once inside the application'))
 
   return `<!doctype html>
 <html lang="en">
@@ -124,61 +96,39 @@ function buildPage(result) {
 <meta charset="utf-8">
 <title>HyperFamily Credential Recovery</title>
 <style>
-  :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background: linear-gradient(160deg, #2e3440 0%, #232833 100%);
-    color: #eceff4; min-height: 100vh; padding: 22px 18px;
-    display: flex; flex-direction: column;
-  }
-  header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-  .logo { width: 38px; height: 38px; border-radius: 10px;
-    background: linear-gradient(145deg, #f8544a, #a8101a);
-    display: grid; place-items: center; font-weight: 900; font-size: 18px; color: #fff;
-    box-shadow: 0 4px 14px rgba(212,33,31,.4); }
-  h1 { font-size: 15px; font-weight: 800; letter-spacing: .2px; }
-  p.sub { font-size: 10.5px; color: #9aa4b8; margin-top: 2px; }
-  .card { background: rgba(236,239,244,.06); border: 1px solid rgba(236,239,244,.14);
-    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
-  .field { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
-  .field + .field { border-top: 1px solid rgba(236,239,244,.08); }
-  .k { width: 78px; font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .12em; color: #9aa4b8; }
-  .v { flex: 1; font-family: Consolas, monospace; font-size: 13px; word-break: break-all; }
-  .v.hint { color: #9aa4b8; font-family: inherit; font-size: 11px; }
-  button { background: #88c0d0; border: 0; color: #232833; font-weight: 800;
-    font-size: 10.5px; padding: 5px 12px; border-radius: 8px; cursor: pointer; }
-  button:hover { filter: brightness(1.1); }
-  button.copied { background: #a3be8c; }
-  .hint { font-size: 10px; color: #9aa4b8; line-height: 1.5; margin-top: 4px; }
-  .error { background: rgba(191,97,106,.12); border: 1px solid rgba(191,97,106,.4);
-    border-radius: 12px; padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
-  .eicon { width: 26px; height: 26px; border-radius: 50%; background: #bf616a; color: #fff;
-    display: grid; place-items: center; font-weight: 900; flex-shrink: 0; }
-  .error p { font-size: 11.5px; line-height: 1.55; color: #efc9cc; }
-  footer { margin-top: auto; font-size: 9.5px; color: #7c8698; text-align: center;
-    padding-top: 12px; line-height: 1.5; }
-  b { color: #eceff4; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #eef1f6; color: #222a35;
+    padding: 20px 18px; min-height: 100vh; }
+  h1 { font-size: 15px; }
+  p.sub { font-size: 11px; color: #66707f; margin: 3px 0 14px; }
+  .row { background: #ffffff; border: 1px solid #dbe1ea; border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px; }
+  .k { font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .1em; color: #77828f; }
+  .v { font-family: Consolas, monospace; font-size: 14px; word-break: break-all; margin-top: 2px; }
+  .v.hint { color: #98a1af; font-family: inherit; font-size: 11px; }
+  button { background: #3b6fd4; border: 0; color: #fff; font-weight: 700; font-size: 11px;
+    padding: 6px 14px; border-radius: 7px; cursor: pointer; flex-shrink: 0; }
+  button:hover { filter: brightness(1.08); }
+  button.copied { background: #2e9e5b; }
+  .error { background: #fdecec; border: 1px solid #f0c2c2; border-radius: 10px;
+    padding: 14px; font-size: 12px; line-height: 1.6; color: #8c2f2f; }
+  footer { margin-top: auto; font-size: 10px; color: #8a94a3; text-align: center; padding-top: 10px; }
 </style>
 </head>
 <body>
-  <header>
-    <div class="logo">HF</div>
-    <div>
-      <h1>HyperFamily Credential Recovery</h1>
-      <p class="sub">Administrator login stored on this computer</p>
-    </div>
-  </header>
+  <h1>HyperFamily Credential Recovery</h1>
+  <p class="sub">The administrator login saved on this computer</p>
   ${body}
-  <footer>Decrypted for the signed-in Windows user only.<br>Do not share these credentials — anyone with them can open the application.</footer>
+  <footer>Works only for the Windows user who runs the application.</footer>
   <script>
     function copyTo(text, button) {
-      navigator.clipboard.writeText(text).then(() => {
-        const old = button.textContent
+      navigator.clipboard.writeText(text).then(function () {
+        var old = button.textContent
         button.textContent = 'Copied'
         button.classList.add('copied')
-        setTimeout(() => { button.textContent = old; button.classList.remove('copied') }, 1400)
+        setTimeout(function () { button.textContent = old; button.classList.remove('copied') }, 1400)
       })
     }
   </script>
@@ -189,19 +139,19 @@ function buildPage(result) {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   const window = new BrowserWindow({
-    width: 520,
-    height: 430,
+    width: 440,
+    height: 300,
     resizable: false,
     maximizable: false,
     fullscreenable: false,
     title: 'HyperFamily Credential Recovery',
-    backgroundColor: '#232833',
+    backgroundColor: '#eef1f6',
     show: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false }
   })
   window.once('ready-to-show', () => window.show())
   window.on('closed', () => app.quit())
-  window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPage(readCredentials(app.getPath('userData'))))}`)
+  window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPage(readCredentials()))}`)
 })
 
 app.on('window-all-closed', () => app.quit())
