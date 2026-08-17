@@ -1,5 +1,5 @@
 /**
- * HyperFamily Credential Recovery (v2.0.19)
+ * HyperFamily Credential Recovery (v2.0.20)
  * -----------------------------------------
  * A tiny window that shows the administrator username and password saved on
  * this computer, so a forgotten login can be recovered.
@@ -10,9 +10,10 @@
  * just Node's built-in fs/path/crypto plus Electron's DPAPI-backed
  * safeStorage, exactly like the main application uses.
  *
- * The file lives in the main application's data folder:
- *
- *   %APPDATA%\HyperFamily Branch Monitor\credentials.dat
+ * The main application writes the file both into its own userData folder and
+ * into the canonical `HyperFamily Branch Monitor` folder, and the tool scans
+ * every plausible location — Roaming and Local, product-name and lowercased
+ * package-name variants — so the two can never fall out of step again.
  *
  * DPAPI ties the encryption to the Windows user, so the tool can only ever
  * read credentials on the same account that runs the application.
@@ -24,25 +25,48 @@ const path = require('node:path')
 const crypto = require('node:crypto')
 const { app, BrowserWindow, Menu, safeStorage } = require('electron')
 
-const APP_DATA_FOLDER = 'HyperFamily Branch Monitor'
 const CREDENTIALS_FILE = 'credentials.dat'
 const FALLBACK_KEY_FILE = '.vault-key'
 
-function fallbackKey(dir) {
+/** Every folder the main application may have stored the file in. */
+function candidateFolders(app) {
+  const folders = [
+    'HyperFamily Branch Monitor', // canonical (v2.0.20)
+    'hyperfamily-branch-monitor', // package-name variant
+    'hyperfamily'                 // legacy variant
+  ]
+  const roots = []
+  try { roots.push(app.getPath('appData')) } catch { /* best-effort */ }
   try {
-    const key = fs.readFileSync(path.join(dir, FALLBACK_KEY_FILE))
-    return key.length === 32 ? key : null
-  } catch { return null }
+    const local = app.getPath('localAppData')
+    if (local !== roots[0]) roots.push(local)
+  } catch { /* best-effort */ }
+  const out = []
+  for (const root of roots) {
+    if (!root) continue
+    for (const folder of folders) out.push(path.join(root, folder))
+  }
+  return [...new Set(out)]
 }
 
-function decryptValue(payload, dir) {
+function fallbackKey(dirs) {
+  for (const dir of dirs) {
+    try {
+      const key = fs.readFileSync(path.join(dir, FALLBACK_KEY_FILE))
+      if (key.length === 32) return key
+    } catch { /* try the next folder */ }
+  }
+  return null
+}
+
+function decryptValue(payload, dirs) {
   if (!payload) return ''
   const text = String(payload)
   if (text.startsWith('dpapi:')) {
     return safeStorage.decryptString(Buffer.from(text.slice(6), 'base64'))
   }
   if (text.startsWith('aes:')) {
-    const key = fallbackKey(dir)
+    const key = fallbackKey(dirs)
     if (!key) throw new Error('the local encryption key is missing')
     const [, iv, tag, encrypted] = text.split(':')
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'))
@@ -52,23 +76,29 @@ function decryptValue(payload, dir) {
   return text
 }
 
-function readCredentials() {
-  const dir = path.join(app.getPath('appData'), APP_DATA_FOLDER)
-  const file = path.join(dir, CREDENTIALS_FILE)
-  if (!fs.existsSync(file)) {
-    return { error: 'No saved credentials were found on this computer. Open the HyperFamily application once (it refreshes this file at every start), then run this tool again.' }
-  }
-  try {
-    const data = JSON.parse(decryptValue(fs.readFileSync(file, 'utf8'), dir) || '{}')
-    const username = String(data.username || '').trim()
-    const password = typeof data.password === 'string' ? data.password : ''
-    if (!username) {
-      return { error: 'The saved credentials are empty. Change the administrator password once inside the application, then run this tool again.' }
+function readCredentials(app) {
+  const dirs = candidateFolders(app)
+  const files = dirs.map((dir) => path.join(dir, CREDENTIALS_FILE))
+  let lastError = null
+  for (const file of files) {
+    if (!fs.existsSync(file)) continue
+    try {
+      const data = JSON.parse(decryptValue(fs.readFileSync(file, 'utf8'), dirs) || '{}')
+      const username = String(data.username || '').trim()
+      const password = typeof data.password === 'string' ? data.password : ''
+      if (!username) {
+        return { error: 'The saved credentials are empty. Change the administrator password once inside the application, then run this tool again.' }
+      }
+      return { username, password: password || null }
+    } catch (error) {
+      lastError = error
+      // A copy may be unreadable while another location is fine; keep going.
     }
-    return { username, password: password || null }
-  } catch (error) {
-    return { error: `The saved credentials could not be decrypted (${error.message}). This tool only works for the same Windows user who runs the application.` }
   }
+  if (lastError) {
+    return { error: `The saved credentials could not be decrypted (${lastError.message}). This tool only works for the same Windows user who runs the application.` }
+  }
+  return { error: 'No saved credentials were found on this computer. Open the HyperFamily application once (it refreshes this file at every start), then run this tool again.' }
 }
 
 function escapeHtml(value) {
@@ -98,7 +128,7 @@ function buildPage(result) {
 <style>
   * { box-sizing: border-box; margin: 0; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: #eef1f6; color: #222a35;
-    padding: 20px 18px; min-height: 100vh; }
+    padding: 20px 18px; min-height: 100vh; display: flex; flex-direction: column; }
   h1 { font-size: 15px; }
   p.sub { font-size: 11px; color: #66707f; margin: 3px 0 14px; }
   .row { background: #ffffff; border: 1px solid #dbe1ea; border-radius: 10px;
@@ -151,7 +181,7 @@ app.whenReady().then(() => {
   })
   window.once('ready-to-show', () => window.show())
   window.on('closed', () => app.quit())
-  window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPage(readCredentials()))}`)
+  window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPage(readCredentials(app)))}`)
 })
 
 app.on('window-all-closed', () => app.quit())
