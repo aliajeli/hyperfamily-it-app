@@ -593,3 +593,28 @@ test('deleteAllBranchesAndDevices wipes the whole directory', () => {
     assert.equal(again.deviceCount, 0)
   } finally { cleanup() }
 })
+
+test('mirrors the administrator credentials into the recovery file', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperfamily-recoveryfile-test-'))
+  const vault = new TestVault(directory)
+  const database = new AppDatabase(directory, vault)
+  try {
+    const file = path.join(directory, 'credentials.dat')
+    assert.equal(fs.existsSync(file), true, 'the mirror file must be written at startup')
+
+    let data = JSON.parse(vault.decrypt(fs.readFileSync(file, 'utf8')))
+    assert.equal(data.username, 'Admin')
+    assert.equal(data.password, 'Admin')
+
+    // Changing the password refreshes the file.
+    database.updateCredentials(1, { currentPassword: 'Admin', newUsername: 'Admin', newPassword: 'Recover9' })
+    data = JSON.parse(vault.decrypt(fs.readFileSync(file, 'utf8')))
+    assert.equal(data.password, 'Recover9')
+
+    // Changing only the username keeps the password copy.
+    database.updateCredentials(1, { currentPassword: 'Recover9', newUsername: 'BranchBoss' })
+    data = JSON.parse(vault.decrypt(fs.readFileSync(file, 'utf8')))
+    assert.equal(data.username, 'BranchBoss')
+    assert.equal(data.password, 'Recover9')
+  } finally { database.close(); fs.rmSync(directory, { recursive: true, force: true }) }
+})

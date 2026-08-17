@@ -1,12 +1,9 @@
 {
-  "name": "hyperfamily-branch-monitor",
+  "name": "hyperfamily-credential-recovery",
   "productName": "HyperFamily Credential Recovery",
-  "version": "2.0.18",
+  "version": "2.0.19",
   "private": true,
-  "description": "Displays the current HyperFamily Branch Monitor administrator credentials stored on this machine.",
+  "description": "Displays the HyperFamily Branch Monitor administrator credentials saved on this machine.",
   "author": "Ali Ajeli Lahiji",
-  "main": "index.js",
-  "dependencies": {
-    "better-sqlite3-multiple-ciphers": "^13.0.3"
-  }
+  "main": "index.js"
 }

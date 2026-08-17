@@ -126,7 +126,7 @@ npm run build:electron
 Expected artifact:
 
 ```text
-dist/HyperFamily-Branch-Monitor-Setup-2.0.18.exe
+dist/HyperFamily-Branch-Monitor-Setup-2.0.19.exe
 ```
 
 For a trusted organizational rollout, configure an Authenticode certificate before publishing. Unsigned installers will trigger Windows SmartScreen warnings.
@@ -155,7 +155,7 @@ Forgotten the administrator login? The installer places a small standalone tool 
 %LOCALAPPDATA%\Programs\hyperfamily-branch-monitor\HyperFamily-Credential-Recovery.exe
 ```
 
-It reads the current username and password from this machine's own encrypted database and shows them in a window — no desktop shortcut is created. It only works for the same Windows user who runs the application, and only displays passwords saved by v2.0.18 or later (change the password once in Settings → General to store the recoverable copy for older installs). A standalone copy is also attached to every GitHub release.
+The application mirrors the administrator username and password into a tiny DPAPI-encrypted file (`credentials.dat`, inside `%APPDATA%\HyperFamily Branch Monitor\`) at every start and after every password change. The tool only reads that one file — no database access, no native modules — and shows the credentials in a plain window with Copy buttons. No desktop shortcut is created. It only works for the same Windows user who runs the application; installs upgraded from before v2.0.18 see a "change the password once" hint until the password is saved once. A standalone copy is also attached to every GitHub release.
 
 See [SECURITY.md](SECURITY.md) for the threat model and disclosure process.
 
