@@ -229,6 +229,10 @@ function runMigrations(db, adminHash, adminRecovery = '') {
   // v2.0.18: a DPAPI-encrypted copy of the administrator password, so the
   // bundled Credential Recovery tool can display the current credentials.
   if (!hasColumn(db, 'users', 'password_recovery')) db.exec("ALTER TABLE users ADD COLUMN password_recovery TEXT NOT NULL DEFAULT ''")
+  // v2.0.21: the recovery PIN (scrypt hash) that gates credential recovery.
+  // Lockout state lives in credentials.dat so the app and the standalone tool
+  // share one counter.
+  if (!hasColumn(db, 'users', 'recovery_pin_hash')) db.exec("ALTER TABLE users ADD COLUMN recovery_pin_hash TEXT NOT NULL DEFAULT ''")
   db.exec('DROP INDEX IF EXISTS idx_notes_updated')
   db.exec('CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, priority DESC, updated_at DESC)')
   db.exec(`

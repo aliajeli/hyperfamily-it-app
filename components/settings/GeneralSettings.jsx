@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Activity, ShieldCheck, UserRoundCog } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Activity, KeyRound, ShieldCheck, UserRoundCog } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label } from '@/components/ui'
 import { getApi } from '@/lib/api'
@@ -15,8 +15,15 @@ export default function GeneralSettings({ settings, onSaved }) {
     newUsername: user?.username || '',
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    recoveryPin: '',
+    confirmRecoveryPin: ''
   })
+  const [pinSet, setPinSet] = useState(false)
+
+  useEffect(() => {
+    getApi().auth.recoverStatus?.().then((status) => setPinSet(Boolean(status?.pinSet))).catch(() => {})
+  }, [])
   const [ping, setPing] = useState({
     ping_interval: settings.ping_interval || 3,
     ping_history_count: settings.ping_history_count || 30
@@ -35,6 +42,10 @@ export default function GeneralSettings({ settings, onSaved }) {
     if (account.newPassword && account.newPassword.length < 4) return toast.error('New password must contain at least 4 characters')
     if (account.newPassword !== account.confirmPassword) return toast.error('New passwords do not match')
 
+    const wantsPin = Boolean(account.recoveryPin || account.confirmRecoveryPin)
+    if (wantsPin && account.recoveryPin !== account.confirmRecoveryPin) return toast.error('The recovery PINs do not match')
+    if (wantsPin && !/^\d{4,8}$/.test(account.recoveryPin)) return toast.error('The recovery PIN must contain 4 to 8 digits')
+
     setBusy('account')
     try {
       const updatedUser = await getApi().auth.updateCredentials({
@@ -42,9 +53,13 @@ export default function GeneralSettings({ settings, onSaved }) {
         newUsername: username,
         newPassword: account.newPassword
       })
+      if (wantsPin) {
+        await getApi().auth.setRecoveryPin(account.recoveryPin)
+        setPinSet(true)
+      }
       updateUser(updatedUser)
-      setAccount({ newUsername: updatedUser.username, currentPassword: '', newPassword: '', confirmPassword: '' })
-      toast.success('Administrator account updated')
+      setAccount({ newUsername: updatedUser.username, currentPassword: '', newPassword: '', confirmPassword: '', recoveryPin: '', confirmRecoveryPin: '' })
+      toast.success(wantsPin ? 'Administrator account and recovery PIN updated' : 'Administrator account updated')
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -106,6 +121,32 @@ export default function GeneralSettings({ settings, onSaved }) {
                 <Input type="password" autoComplete="new-password" value={account.confirmPassword} onChange={(event) => setAccount({ ...account, confirmPassword: event.target.value })} />
               </label>
             </div>
+
+            {/* Recovery PIN (v2.0.21): gates the login-screen recovery and the
+                standalone tool. Leave both fields blank to keep the current PIN. */}
+            <div className="rounded-xl border bg-[rgb(var(--canvas)/.55)] p-2.5">
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <KeyRound size={13} className="text-[rgb(var(--primary))]" />
+                <b className="text-[10.5px]">Credential recovery PIN</b>
+                <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase ${pinSet ? 'bg-nord-14/20 text-[#66834e]' : 'bg-nord-13/20 text-[#8b6e1c]'}`}>
+                  {pinSet ? 'PIN set' : 'Not set'}
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="min-w-0">
+                  <Label>Recovery PIN (4–8 digits)</Label>
+                  <Input inputMode="numeric" autoComplete="off" maxLength={8} placeholder={pinSet ? 'Leave blank to keep' : 'e.g. 4821'} value={account.recoveryPin} onChange={(event) => setAccount({ ...account, recoveryPin: event.target.value.replace(/\D/g, '') })} />
+                </label>
+                <label className="min-w-0">
+                  <Label>Confirm recovery PIN</Label>
+                  <Input inputMode="numeric" autoComplete="off" maxLength={8} value={account.confirmRecoveryPin} onChange={(event) => setAccount({ ...account, confirmRecoveryPin: event.target.value.replace(/\D/g, '') })} />
+                </label>
+              </div>
+              <p className="mt-1.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">
+                {pinSet ? 'A PIN is already set — fill both fields to replace it. It gates the Recover credentials option on the login screen; 5 wrong attempts lock recovery for 5 minutes.' : 'Setting a PIN enables the Recover credentials option on the login screen. Keep it somewhere safe.'}
+              </p>
+            </div>
+
             <p className="text-[9.5px] leading-snug text-[rgb(var(--muted))]">The username is required at the next login. Leave the password blank to keep the current one; a longer passphrase is recommended.</p>
             <Button disabled={busy === 'account'}>{busy === 'account' ? 'Updating account…' : 'Update account'}</Button>
           </form>

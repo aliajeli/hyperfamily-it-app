@@ -126,7 +126,7 @@ npm run build:electron
 Expected artifact:
 
 ```text
-dist/HyperFamily-Branch-Monitor-Setup-2.0.20.exe
+dist/HyperFamily-Branch-Monitor-Setup-2.0.21.exe
 ```
 
 For a trusted organizational rollout, configure an Authenticode certificate before publishing. Unsigned installers will trigger Windows SmartScreen warnings.
@@ -149,13 +149,18 @@ The app never commits runtime databases or secrets. Database keys are tied to th
 
 ### Credential recovery
 
-Forgotten the administrator login? The installer places a small standalone tool next to the application:
+Forgotten the administrator login? Two paths, both gated by a recovery PIN:
+
+1. The login screen has a **Recover credentials** link in the corner — enter the PIN to see the stored username and password.
+2. The installer also places a small standalone tool next to the application:
 
 ```text
 %LOCALAPPDATA%\Programs\hyperfamily-branch-monitor\HyperFamily-Credential-Recovery.exe
 ```
 
-The application mirrors the administrator username and password into a tiny DPAPI-encrypted file (`credentials.dat`, inside `%APPDATA%\HyperFamily Branch Monitor\`) at every start and after every password change. The tool only reads that one file — no database access, no native modules — and shows the credentials in a plain window with Copy buttons. No desktop shortcut is created. It only works for the same Windows user who runs the application; installs upgraded from before v2.0.18 see a "change the password once" hint until the password is saved once. A standalone copy is also attached to every GitHub release.
+The application mirrors the administrator username and password into a tiny DPAPI-encrypted file (`credentials.dat`, inside `%APPDATA%\HyperFamily Branch Monitor\`) at every start and after every password change. The tool only reads that one file — no database access, no native modules. No desktop shortcut is created; it only works for the same Windows user who runs the application.
+
+**Protection:** set a 4–8 digit recovery PIN in Settings → General. Only the PIN (never stored in plain text — scrypt-hashed) unlocks the credentials, and 5 wrong attempts lock recovery for 5 minutes across both the in-app dialog and the standalone tool. Without a PIN the credentials are never revealed; installs upgraded from before v2.0.18 see a "change the password once" hint until the password is saved once. A standalone copy of the tool is also attached to every GitHub release.
 
 See [SECURITY.md](SECURITY.md) for the threat model and disclosure process.
 
