@@ -43,7 +43,7 @@
     "clsx": "^2.1.1",
     "electron-updater": "^6.6.2",
     "exceljs": "^4.4.0",
-    "framer-motion": "^11.18.2",
+    "framer-motion": "^13.0.0",
     "lucide-react": "^0.468.0",
     "next": "^15.5.23",
     "react": "19.0.0",
