@@ -29,7 +29,9 @@ const FINAL_CREDIT = `Developed By ${DEVELOPER_NAME}`
 const wait = (duration) => new Promise((resolve) => setTimeout(resolve, duration))
 
 function DeveloperCredit({ onComplete, reduceMotion }) {
-  const [text, setText] = useState(reduceMotion ? FINAL_CREDIT : '')
+  // Always start empty so the server-rendered HTML and the first client
+  // render match; reduced-motion short-circuits inside the effect instead.
+  const [text, setText] = useState('')
 
   useEffect(() => {
     let active = true
@@ -43,6 +45,7 @@ function DeveloperCredit({ onComplete, reduceMotion }) {
 
     const playSequence = async () => {
       if (reduceMotion) {
+        setText(FINAL_CREDIT)
         onComplete()
         return
       }
@@ -361,13 +364,26 @@ export default function LoginPage() {
   const router = useRouter()
   const reduceMotion = useReducedMotion()
   const { user, hydrated, login } = useAuthStore()
+  // Defaults only apply on a brand-new machine; the "remember me" copy
+  // (v2.0.22) replaces them as soon as it is read back.
   const [form, setForm] = useState({ username: 'Admin', password: 'Admin', remember: true })
   const [showPassword, setShowPassword] = useState(false)
-  const [introComplete, setIntroComplete] = useState(Boolean(reduceMotion))
+  // Starts false on the server AND the client so hydration always matches;
+  // reduced-motion short-circuits the intro right after mount.
+  const [introComplete, setIntroComplete] = useState(false)
   const [authPhase, setAuthPhase] = useState('idle')
   const [recoverOpen, setRecoverOpen] = useState(false)
 
   useEffect(() => { if (hydrated && user) router.replace('/dashboard') }, [hydrated, user, router])
+  useEffect(() => { if (reduceMotion) setIntroComplete(true) }, [reduceMotion])
+
+  // Prefill the last successfully signed-in credentials when they were saved.
+  useEffect(() => {
+    getApi().auth.rememberedCredentials?.().then((saved) => {
+      if (!saved?.username) return
+      setForm({ username: saved.username, password: saved.password, remember: true })
+    }).catch(() => { /* prefill is best-effort */ })
+  }, [])
 
   const finishIntro = useCallback(() => setIntroComplete(true), [])
 
@@ -394,6 +410,12 @@ export default function LoginPage() {
       setAuthPhase('idle')
       return
     }
+
+    // Only a successful sign-in is remembered, and only while the checkbox
+    // is ticked; unchecking it clears any previously saved credentials.
+    getApi().auth.rememberCredentials?.(
+      form.remember ? { username: form.username.trim(), password: form.password } : {}
+    ).catch(() => { /* remember-me is best-effort */ })
 
     setAuthPhase('success')
     await wait(reduceMotion ? 180 : 850)

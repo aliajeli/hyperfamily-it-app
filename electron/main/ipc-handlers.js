@@ -32,6 +32,11 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('auth:recover', open((_event, payload) => database.verifyRecoveryPin(payload?.pin)))
   ipcMain.handle('auth:set-recovery-pin', secure((event, payload) => database.setRecoveryPin(sessions.get(event.sender.id).id, payload?.pin)))
 
+  // Remember-me is also pre-login: the login page saves the credentials only
+  // AFTER a successful sign-in and reads them back to prefill the form.
+  ipcMain.handle('auth:remember-credentials', open((_event, payload) => database.saveRememberedCredentials(payload)))
+  ipcMain.handle('auth:remembered-credentials', open(() => database.getRememberedCredentials()))
+
   ipcMain.handle('auth:login', open((event, payload) => {
     const user = database.authenticate(payload?.username, payload?.password)
     if (!user) throw new Error('Invalid username or password')

@@ -671,3 +671,34 @@ test('recovery PIN gates reveal with a shared 5-attempt lockout', () => {
     assert.throws(() => database.setRecoveryPin(1, 'abcd'), /4 to 8 digits/)
   } finally { database.close(); fs.rmSync(directory, { recursive: true, force: true }) }
 })
+
+test('remembers the last successful credentials and clears them on demand', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperfamily-remember-test-'))
+  const vault = new TestVault(directory)
+  const database = new AppDatabase(directory, vault)
+  try {
+    // Nothing stored yet.
+    assert.deepEqual(database.getRememberedCredentials(), { username: '', password: '' })
+
+    // Saving stores an ENCRYPTED copy (never plain text).
+    assert.equal(database.saveRememberedCredentials({ username: 'Admin', password: 'Admin' }).saved, true)
+    assert.deepEqual(database.getRememberedCredentials(), { username: 'Admin', password: 'Admin' })
+    const raw = fs.readFileSync(path.join(directory, 'remembered-credentials.dat'), 'utf8')
+    assert.equal(raw.startsWith('test:'), true, 'the remembered copy must be encrypted at rest')
+
+    // An empty payload clears the copy (unchecking the option).
+    database.saveRememberedCredentials({ username: '', password: '' })
+    assert.deepEqual(database.getRememberedCredentials(), { username: '', password: '' })
+    assert.equal(fs.existsSync(path.join(directory, 'remembered-credentials.dat')), false)
+
+    // Changing the account password refreshes the remembered copy so the
+    // login prefill never goes stale.
+    database.saveRememberedCredentials({ username: 'Admin', password: 'Admin' })
+    database.updateCredentials(1, { currentPassword: 'Admin', newUsername: 'Admin', newPassword: 'NewPass9' })
+    assert.deepEqual(database.getRememberedCredentials(), { username: 'Admin', password: 'NewPass9' })
+
+    // A username-only change keeps the stored password.
+    database.updateCredentials(1, { currentPassword: 'NewPass9', newUsername: 'BranchBoss' })
+    assert.deepEqual(database.getRememberedCredentials(), { username: 'BranchBoss', password: 'NewPass9' })
+  } finally { database.close(); fs.rmSync(directory, { recursive: true, force: true }) }
+})

@@ -17,7 +17,9 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     changePassword: (payload) => invoke('auth:change-password', payload),
     recoverStatus: () => invoke('auth:recover-status'),
     recover: (pin) => invoke('auth:recover', { pin }),
-    setRecoveryPin: (pin) => invoke('auth:set-recovery-pin', { pin })
+    setRecoveryPin: (pin) => invoke('auth:set-recovery-pin', { pin }),
+    rememberCredentials: (payload) => invoke('auth:remember-credentials', payload),
+    rememberedCredentials: () => invoke('auth:remembered-credentials')
   },
   branches: { list: () => invoke('branches:list'), save: (payload) => invoke('branches:save', payload), remove: (id) => invoke('branches:remove', id), removeAll: () => invoke('branches:remove-all') },
   devices: { list: () => invoke('devices:list'), save: (payload) => invoke('devices:save', payload), remove: (id) => invoke('devices:remove', id) },

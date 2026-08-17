@@ -135,6 +135,44 @@ class AppDatabase {
   }
 
   /**
+   * "Remember this account on this device" (v2.0.22).
+   *
+   * The login screen stores the last successfully entered credentials in a
+   * DPAPI/AES-encrypted file next to the database, so the next visit can
+   * prefill them. Nothing is ever written in plain text, and unchecking the
+   * option clears the file.
+   */
+  rememberedCredentialsPath() {
+    return path.join(this.userDataPath, 'remembered-credentials.dat')
+  }
+
+  saveRememberedCredentials(payload) {
+    const username = String(payload?.username || '').trim()
+    const password = String(payload?.password || '')
+    if (!username || !password) {
+      this.clearRememberedCredentials()
+      return { saved: false }
+    }
+    try {
+      fs.writeFileSync(this.rememberedCredentialsPath(), this.vault.encrypt(JSON.stringify({ username, password })), { mode: 0o600 })
+      return { saved: true }
+    } catch { return { saved: false } }
+  }
+
+  clearRememberedCredentials() {
+    try { fs.unlinkSync(this.rememberedCredentialsPath()) } catch { /* nothing stored */ }
+    return { saved: false }
+  }
+
+  getRememberedCredentials() {
+    try {
+      const raw = fs.readFileSync(this.rememberedCredentialsPath(), 'utf8')
+      const data = JSON.parse(this.vault.decrypt(raw) || '{}')
+      return { username: String(data.username || ''), password: String(data.password || '') }
+    } catch { return { username: '', password: '' } }
+  }
+
+  /**
    * Recovery PIN (v2.0.21).
    *
    * PINs are hashed with scrypt (Node built-in) so the plain value is never
@@ -341,6 +379,14 @@ class AppDatabase {
     if (nextPassword) changed.push('password')
     this.audit(nextUsername, 'ACCOUNT_UPDATE', nextUsername, `Administrator ${changed.length ? changed.join(' and ') : 'credentials verified'}`)
     this.syncRecoveryFile()
+    // The login screen's remembered credentials must not go stale when the
+    // account changes: refresh the encrypted copy when a password arrives.
+    try {
+      const remembered = this.getRememberedCredentials()
+      if (remembered.username) {
+        this.saveRememberedCredentials({ username: nextUsername, password: nextPassword || remembered.password })
+      }
+    } catch { /* remember-me is best-effort */ }
     return { id: user.id, username: nextUsername }
   }
 
