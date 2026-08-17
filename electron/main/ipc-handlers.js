@@ -26,6 +26,12 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
     try { return await handler(event, ...args) } catch (error) { throw friendlyError(error) }
   }
 
+  // Credential recovery is available BEFORE sign-in, so these use `open`
+  // (trusted sender) rather than `secure` (authenticated session).
+  ipcMain.handle('auth:recover-status', open(() => database.recoveryStatus()))
+  ipcMain.handle('auth:recover', open((_event, payload) => database.verifyRecoveryPin(payload?.pin)))
+  ipcMain.handle('auth:set-recovery-pin', secure((event, payload) => database.setRecoveryPin(sessions.get(event.sender.id).id, payload?.pin)))
+
   ipcMain.handle('auth:login', open((event, payload) => {
     const user = database.authenticate(payload?.username, payload?.password)
     if (!user) throw new Error('Invalid username or password')

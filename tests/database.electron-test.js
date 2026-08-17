@@ -624,3 +624,50 @@ test('mirrors the administrator credentials into the recovery file', () => {
     assert.equal(data.password, 'Recover9')
   } finally { database.close(); fs.rmSync(directory, { recursive: true, force: true }); fs.rmSync(canonical, { recursive: true, force: true }) }
 })
+
+test('recovery PIN gates reveal with a shared 5-attempt lockout', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hyperfamily-pin-test-'))
+  const vault = new TestVault(directory)
+  const database = new AppDatabase(directory, vault)
+  try {
+    assert.equal(database.recoveryStatus().pinSet, false)
+
+    // Setting the PIN mirrors its hash into credentials.dat.
+    database.setRecoveryPin(1, '4821')
+    assert.equal(database.recoveryStatus().pinSet, true)
+    let file = JSON.parse(vault.decrypt(fs.readFileSync(path.join(directory, 'credentials.dat'), 'utf8')))
+    assert.equal(Boolean(file.pinHash), true)
+
+    // Wrong PINs count down; a correct one resets and reveals.
+    let outcome = database.verifyRecoveryPin('0000')
+    assert.equal(outcome.ok, false)
+    assert.equal(outcome.remainingAttempts, 4)
+    outcome = database.verifyRecoveryPin('4821')
+    assert.equal(outcome.ok, true)
+    assert.equal(outcome.username, 'Admin')
+    assert.equal(outcome.password, 'Admin')
+
+    // Five wrong attempts lock recovery for five minutes.
+    for (let i = 0; i < 5; i += 1) outcome = database.verifyRecoveryPin('0000')
+    assert.equal(outcome.locked, true)
+    assert.ok(outcome.retryAfterMs > 0)
+    // Even the right PIN stays locked out.
+    outcome = database.verifyRecoveryPin('4821')
+    assert.equal(outcome.locked, true)
+
+    // Unlocking (counter reset) lets the right PIN through again.
+    database.writeRecoveryFile({ v: 2, username: 'Admin', password: 'Admin', pinHash: file.pinHash, attempts: 0, lockedUntil: 0 })
+    outcome = database.verifyRecoveryPin('4821')
+    assert.equal(outcome.ok, true)
+
+    // A sync preserves the attempt counters.
+    database.verifyRecoveryPin('0000')
+    database.setRecoveryPin(1, '9191')
+    file = JSON.parse(vault.decrypt(fs.readFileSync(path.join(directory, 'credentials.dat'), 'utf8')))
+    assert.equal(file.attempts, 1)
+
+    // Bad PIN formats are rejected outright.
+    assert.throws(() => database.setRecoveryPin(1, '12'), /4 to 8 digits/)
+    assert.throws(() => database.setRecoveryPin(1, 'abcd'), /4 to 8 digits/)
+  } finally { database.close(); fs.rmSync(directory, { recursive: true, force: true }) }
+})

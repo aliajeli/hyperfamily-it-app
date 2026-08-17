@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const crypto = require('crypto')
 const Database = require('better-sqlite3-multiple-ciphers')
 const bcrypt = require('bcryptjs')
 const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
@@ -29,8 +30,7 @@ function normalizeSwitchPorts(ports) {
 
 class AppDatabase {
   /** Parses the JSON tag array stored on a note; anything invalid yields []. */
-  static parseTags(raw) {
-    try {
+  static parseTags(raw) {    try {
       const value = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw
       return AppDatabase.sanitiseTags(value)
     } catch { return [] }
@@ -74,12 +74,17 @@ class AppDatabase {
   }
 
   /**
-   * Writes the administrator credentials into `credentials.dat` (v2.0.20).
+   * Writes the administrator credentials into `credentials.dat` (v2.0.21).
    *
    * The bundled Credential Recovery tool is deliberately dumb: it reads only
    * this one DPAPI/AES-encrypted file, so it needs no database access, no
    * SQLCipher and no native modules. This method keeps the file fresh — it
-   * runs at every startup and after every password change.
+   * runs at every startup, after every password change and whenever the
+   * recovery PIN changes.
+   *
+   * The payload also carries the recovery PIN hash and the shared brute-force
+   * lockout state, so the application and the standalone tool enforce the
+   * same gate. Existing attempts/lockout counters survive a sync.
    *
    * The file is written to TWO locations so it can never be missed: next to
    * the database in Electron's userData folder, and at a canonical path
@@ -90,21 +95,128 @@ class AppDatabase {
    */
   syncRecoveryFile() {
     try {
-      const admin = this.db.prepare('SELECT username, password_recovery FROM users ORDER BY id LIMIT 1').get()
+      const admin = this.db.prepare('SELECT username, password_recovery, recovery_pin_hash FROM users ORDER BY id LIMIT 1').get()
       const password = admin?.password_recovery ? this.vault.decrypt(admin.password_recovery) : ''
-      const payload = JSON.stringify({ v: 1, username: admin?.username || '', password })
-      const encrypted = this.vault.encrypt(payload)
-      const targets = new Set([
-        path.join(this.userDataPath, 'credentials.dat'),
-        this.recoveryFilePath
-      ].filter(Boolean))
-      for (const target of targets) {
-        try {
-          fs.mkdirSync(path.dirname(target), { recursive: true })
-          fs.writeFileSync(target, encrypted, { mode: 0o600 })
-        } catch { /* keep the other copy usable */ }
-      }
+      const previous = this.readRecoveryFile() || {}
+      const payload = JSON.stringify({
+        v: 2,
+        username: admin?.username || '',
+        password,
+        pinHash: admin?.recovery_pin_hash || '',
+        attempts: Number(previous.attempts) || 0,
+        lockedUntil: Number(previous.lockedUntil) || 0
+      })
+      this.writeRecoveryFile(payload)
     } catch { /* best-effort mirror; the tool explains itself if the file is stale */ }
+  }
+
+  /** Decrypts the current recovery file, or null when absent/unreadable. */
+  readRecoveryFile() {
+    const candidates = [path.join(this.userDataPath, 'credentials.dat'), this.recoveryFilePath].filter(Boolean)
+    for (const file of candidates) {
+      try {
+        const raw = fs.readFileSync(file, 'utf8')
+        return JSON.parse(this.vault.decrypt(raw) || '{}')
+      } catch { /* try the next location */ }
+    }
+    return null
+  }
+
+  /** Encrypts and writes the recovery payload to every known location. */
+  writeRecoveryFile(payload) {
+    const encrypted = this.vault.encrypt(typeof payload === 'string' ? payload : JSON.stringify(payload))
+    const targets = new Set([path.join(this.userDataPath, 'credentials.dat'), this.recoveryFilePath].filter(Boolean))
+    for (const target of targets) {
+      try {
+        fs.mkdirSync(path.dirname(target), { recursive: true })
+        fs.writeFileSync(target, encrypted, { mode: 0o600 })
+      } catch { /* keep the other copy usable */ }
+    }
+  }
+
+  /**
+   * Recovery PIN (v2.0.21).
+   *
+   * PINs are hashed with scrypt (Node built-in) so the plain value is never
+   * stored. Five wrong attempts lock recovery for five minutes; the counters
+   * live in credentials.dat so the in-app dialog and the standalone tool
+   * share one gate.
+   */
+  static hashPin(pin) {
+    const salt = crypto.randomBytes(16).toString('hex')
+    const hash = crypto.scryptSync(String(pin), salt, 32).toString('hex')
+    return `scrypt:${salt}:${hash}`
+  }
+
+  static verifyPinHash(pin, stored) {
+    if (!stored || typeof stored !== 'string') return false
+    const [scheme, salt, hash] = stored.split(':')
+    if (scheme !== 'scrypt' || !salt || !hash) return false
+    const attempt = crypto.scryptSync(String(pin), salt, 32).toString('hex')
+    const expected = Buffer.from(hash, 'hex')
+    const actual = Buffer.from(attempt, 'hex')
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual)
+  }
+
+  recoveryStatus() {
+    const admin = this.db.prepare('SELECT recovery_pin_hash FROM users ORDER BY id LIMIT 1').get()
+    return { pinSet: Boolean(admin?.recovery_pin_hash) }
+  }
+
+  setRecoveryPin(userId, pin) {
+    const value = String(pin || '')
+    if (!/^\d{4,8}$/.test(value)) throw new Error('The recovery PIN must contain 4 to 8 digits')
+    this.db.prepare('UPDATE users SET recovery_pin_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(AppDatabase.hashPin(value), Number(userId))
+    this.audit(this.db.prepare('SELECT username FROM users WHERE id = ?').get(Number(userId))?.username || 'Admin', 'RECOVERY_PIN', 'set', 'Credential recovery PIN updated')
+    this.syncRecoveryFile()
+    return { success: true }
+  }
+
+  /**
+   * Verifies a recovery PIN attempt and — only when it matches — returns the
+   * stored username and password. Lockout is enforced from credentials.dat.
+   */
+  verifyRecoveryPin(pin) {
+    const admin = this.db.prepare('SELECT username, password_recovery, recovery_pin_hash FROM users ORDER BY id LIMIT 1').get()
+    if (!admin?.recovery_pin_hash) throw new Error('No recovery PIN has been set. Sign in and set one in Settings → General.')
+
+    const data = this.readRecoveryFile() || { attempts: 0, lockedUntil: 0 }
+    const now = Date.now()
+    const lockedUntil = Number(data.lockedUntil) || 0
+    if (lockedUntil > now) {
+      return { ok: false, locked: true, retryAfterMs: lockedUntil - now, remainingAttempts: 0 }
+    }
+
+    const MAX_ATTEMPTS = 5
+    const LOCK_MS = 5 * 60 * 1000
+    if (!AppDatabase.verifyPinHash(pin, admin.recovery_pin_hash)) {
+      const attempts = (Number(data.attempts) || 0) + 1
+      const lock = attempts >= MAX_ATTEMPTS
+      this.writeRecoveryFile({
+        v: 2,
+        username: data.username ?? admin.username,
+        password: data.password ?? '',
+        pinHash: admin.recovery_pin_hash,
+        attempts: lock ? 0 : attempts,
+        lockedUntil: lock ? now + LOCK_MS : 0
+      })
+      this.audit(admin.username, 'RECOVERY_PIN', 'attempt', `Wrong recovery PIN (${attempts})`)
+      return { ok: false, locked: lock, retryAfterMs: lock ? LOCK_MS : 0, remainingAttempts: lock ? 0 : MAX_ATTEMPTS - attempts }
+    }
+
+    // Correct: reset the counters and reveal the credentials.
+    const password = admin.password_recovery ? this.vault.decrypt(admin.password_recovery) : ''
+    this.writeRecoveryFile({
+      v: 2,
+      username: admin.username,
+      password,
+      pinHash: admin.recovery_pin_hash,
+      attempts: 0,
+      lockedUntil: 0
+    })
+    this.audit(admin.username, 'RECOVERY_PIN', 'verify', 'Credentials revealed through recovery')
+    return { ok: true, username: admin.username, password: password || null }
   }
 
   isPlaintextDatabase() {
