@@ -86,7 +86,17 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     install: () => invoke('update:install'),
     subscribe: (callback) => subscribe('update:event', callback)
   },
+  software: {
+    listInstalled: (forceRefresh) => invoke('software:list-installed', forceRefresh),
+    checkVersion: (payload) => invoke('software:check-version', payload),
+    copyFiles: (payload) => invoke('software:copy-files', payload),
+    onCopyProgress: (callback) => subscribe('software:copy-progress', callback)
+  },
   audit: { list: (limit) => invoke('audit:list', limit) },
-  dialog: { selectFile: (options) => invoke('dialog:select-file', options) },
+  dialog: {
+    selectFile: (options) => invoke('dialog:select-file', options),
+    selectFiles: (options) => invoke('dialog:select-files', options),
+    selectDirectory: (options) => invoke('dialog:select-directory', options)
+  },
   app: { info: () => invoke('app:info'), openExternal: (url) => invoke('app:open-external', url), pathExists: (path) => invoke('app:path-exists', path) }
 })

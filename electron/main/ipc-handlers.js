@@ -10,7 +10,7 @@ function friendlyError(error) {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow }) {
+function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, softwareService, getWindow }) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
@@ -150,6 +150,29 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('dialog:select-file', secure(async (_event, options = {}) => {
     const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select file', properties: ['openFile'], filters: Array.isArray(options.filters) ? options.filters : [] })
     return result.canceled ? null : result.filePaths[0]
+  }))
+  // Multi-file and folder variants underpin the version checker's copy tool.
+  ipcMain.handle('dialog:select-files', secure(async (_event, options = {}) => {
+    const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select files', properties: ['openFile', 'multiSelections'], filters: Array.isArray(options.filters) ? options.filters : [] })
+    return result.canceled ? [] : result.filePaths
+  }))
+  ipcMain.handle('dialog:select-directory', secure(async (_event, options = {}) => {
+    const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select folder', properties: ['openDirectory', 'createDirectory'] })
+    return result.canceled ? null : result.filePaths[0]
+  }))
+
+  // Installed-program version checks and verified file copies (Version check page).
+  ipcMain.handle('software:list-installed', secure((_event, forceRefresh) => softwareService.listInstalled(Boolean(forceRefresh))))
+  ipcMain.handle('software:check-version', secure((_event, payload) => softwareService.checkVersion(payload || {})))
+  ipcMain.handle('software:copy-files', secure(async (event, payload) => {
+    const summary = await softwareService.copyFiles(payload || {})
+    database.audit(
+      sessions.get(event.sender.id).username,
+      'FILE_COPY',
+      `${summary.copied}/${summary.results.length} file(s)`,
+      `Destination: ${String(payload?.destination || '—')} (${summary.totalBytes} bytes in ${summary.durationMs} ms)${summary.failed ? ` — ${summary.failed} failed` : ''}`
+    )
+    return summary
   }))
   ipcMain.handle('app:info', secure(() => ({ version: app.getVersion(), platform: `${process.platform} ${process.arch}`, dataPath: app.getPath('userData'), databasePath: database.filePath })))
   ipcMain.handle('app:open-external', secure(async (_event, value) => {

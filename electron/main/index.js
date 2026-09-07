@@ -16,6 +16,7 @@ const { RemoteService } = require('../services/remote.service')
 const { VPNService } = require('../services/vpn.service')
 const { TerminalService } = require('../services/terminal.service')
 const { UpdateService } = require('../services/update.service')
+const { SoftwareService } = require('../services/software.service')
 const { registerIpcHandlers } = require('./ipc-handlers')
 const { registerDeviceWebviewHandlers } = require('./webview-window')
 
@@ -69,6 +70,26 @@ function createWindow() {
   })
   Menu.setApplicationMenu(null)
   mainWindow.once('ready-to-show', () => mainWindow.show())
+
+  // Uniform viewport scaling: the renderer is designed around a 1366×768
+  // layout viewport. Zooming the page so the real window maps onto that
+  // viewport makes the interface look exactly the same on every monitor —
+  // higher resolutions render the identical layout, simply larger, and
+  // smaller ones simply smaller. (getContentSize is DPI-aware, so Windows
+  // display scaling is compensated automatically.) The browser preview
+  // mirrors this with a CSS zoom in AppProviders.
+  const applyViewportScale = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    const [width, height] = mainWindow.getContentSize()
+    const scale = Math.min(width / 1366, height / 768)
+    const zoom = Math.min(2.5, Math.max(0.6, Math.round(scale * 100) / 100))
+    if (Math.abs(mainWindow.webContents.getZoomFactor() - zoom) > 0.015) mainWindow.webContents.setZoomFactor(zoom)
+  }
+  mainWindow.on('resize', applyViewportScale)
+  mainWindow.on('maximize', applyViewportScale)
+  mainWindow.on('unmaximize', applyViewportScale)
+  mainWindow.webContents.on('did-finish-load', applyViewportScale)
+  applyViewportScale()
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     try { const parsed = new URL(url); if (['https:', 'mailto:'].includes(parsed.protocol)) shell.openExternal(url) } catch {}
     return { action: 'deny' }
@@ -107,7 +128,8 @@ else {
     vpnService.startHealthMonitor()
     const updateService = new UpdateService(sendEvent)
     terminalService = new TerminalService(database, sendEvent)
-    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow: () => mainWindow })
+    const softwareService = new SoftwareService(sendEvent)
+    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, softwareService, getWindow: () => mainWindow })
     registerDeviceWebviewHandlers(ipcMain)
     createWindow()
     pingMonitor = new PingMonitor(database, sendEvent)
