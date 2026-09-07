@@ -15,6 +15,8 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 - **VPN controls** — FortiClient full VPN and reviewed OpenVPN split-tunnel profiles.
 - **Eight Nord themes** — four light and four dark palettes built entirely from Nord colors.
 - **Responsive operations UI** — coordinated desktop density for 1366×768 workstations plus adaptive navigation and layouts at smaller and larger resolutions.
+- **Uniform viewport scaling** — the interface is laid out as a 1366×768 design viewport and zoomed to the actual window, so every workstation renders the identical layout at any resolution (Electron `setZoomFactor`, CSS-zoom mirror in the browser preview).
+- **Software version checks & verified file copies** — look up the installed version of any program on the system by name or executable, and copy files with live progress and SHA-256 verification.
 - **Signed update path** — GitHub release discovery and `electron-updater` integration.
 - **JavaScript only** — no TypeScript source files.
 
@@ -26,6 +28,7 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 | `/dashboard` | Live branch health, Router charts, alert notifications, expandable equipment, and three-dot remote actions |
 | `/devices` | Compact branch-first workflow, type-specific forms, managed Switch ports, and complete Excel import |
 | `/inventory` | Search, filter, Warehouse Code, Template download, atomic import, and Excel export |
+| `/version-check` | Installed-program version checks by name or executable, and file copies with live progress + SHA-256 verification |
 | `/settings` | General, Dashboard display, credentials, device tools, VPN, and theme settings |
 | `/about` | Build information, updates, stack, and support links |
 
