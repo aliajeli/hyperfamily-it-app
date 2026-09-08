@@ -32,10 +32,23 @@ function VersionPill({ version }) {
     )
   }
   if (state === 'ok') {
+    // Where the number came from matters: only the Control Panel entry is
+    // authoritative, the other two routes can lag behind an update.
+    const provenance = {
+      'control-panel': 'Read from Programs and Features',
+      'registry-backup': 'Read from the registry backup — Remote Registry was stopped, so this may be slightly out of date',
+      file: 'Read from the executable — this is the file version, not the Control Panel entry'
+    }[version.source] || 'Installed version'
+    const hint = [
+      provenance,
+      version.pingTime != null ? `Responded in ${version.pingTime} ms` : null,
+      version.icmp === false ? 'Ping is filtered on this host; reached over SMB' : null
+    ].filter(Boolean).join('\n')
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-nord-14/20 px-2.5 py-1 font-mono text-[11px] font-bold text-[#5c7a46]" title={version.pingTime != null ? `Ping: ${version.pingTime} ms` : undefined}>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-nord-14/20 px-2.5 py-1 font-mono text-[11px] font-bold text-[#5c7a46]" title={hint}>
         <span className="h-1.5 w-1.5 rounded-full bg-nord-14" />
         v{version.version}
+        {version.stale && <span className="font-sans text-[9px] font-bold text-[#8b6e1c]" title={provenance}>~</span>}
       </span>
     )
   }
@@ -47,7 +60,7 @@ function VersionPill({ version }) {
   }
   const look = looks[state] || looks.error
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold', look.className)} title={version?.error || undefined}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold', look.className)} title={version?.error || version?.detail || undefined}>
       <span className={cn('h-1.5 w-1.5 rounded-full', look.dot)} />
       {look.label}
     </span>

@@ -76,12 +76,15 @@ async function listRemotePrograms(host, options = {}) {
   const reachable = runs.some((run) => run.ok)
   if (!reachable) {
     const detail = runs.map((run) => (run.stderr || run.stdout || '').replace(/\s+/g, ' ').trim()).find(Boolean) || ''
-    if (runs.some((run) => run.timedOut)) throw new Error(`${clean || 'This machine'} did not answer the registry query in time`)
-    if (/access is denied/i.test(detail)) throw new Error(`Access denied reading the registry on ${clean} — configure Settings → Target access`)
-    if (/unable to find|network path|RPC server/i.test(detail)) {
-      throw new Error(`Cannot read the registry on ${clean} — the Remote Registry service must be running there`)
+    // `code` lets the caller decide whether another strategy is worth trying:
+    // a stopped service is recoverable, denied credentials are not.
+    const fail = (message, code) => { const error = new Error(message); error.code = code; throw error }
+    if (runs.some((run) => run.timedOut)) fail(`${clean || 'This machine'} did not answer the registry query in time`, 'REGISTRY_TIMEOUT')
+    if (/access is denied/i.test(detail)) fail(`Access denied reading the registry on ${clean} — check Settings → Target access`, 'REGISTRY_DENIED')
+    if (/unable to find|network path|RPC server|cannot find the file/i.test(detail)) {
+      fail(`The Remote Registry service is not answering on ${clean}`, 'REGISTRY_UNAVAILABLE')
     }
-    throw new Error(`Registry query failed on ${clean || 'this machine'}${detail ? ` — ${detail}` : ''}`)
+    fail(`Registry query failed on ${clean || 'this machine'}${detail ? ` — ${detail}` : ''}`, 'REGISTRY_FAILED')
   }
   const seen = new Set()
   const programs = []
@@ -112,4 +115,79 @@ function pickProgram(programs, needle) {
   return matches.sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name))[0]
 }
 
-module.exports = { listRemotePrograms, parseRegQuery, pickProgram, UNINSTALL_KEYS }
+/**
+ * Fallback for when Remote Registry is stopped: copy the machine's SOFTWARE
+ * hive off \\host\C$ and read it locally with `reg load`.
+ *
+ * The live hive is locked by the running system, so the volume shadow copy is
+ * not available to us — but Windows keeps a periodic backup in
+ * C:\Windows\System32\config\RegBack (and older builds leave one in
+ * \repair). Those are readable over the admin share. The version they report
+ * can be slightly stale, which is why this is only ever the second choice and
+ * the result is flagged as such.
+ */
+async function readHiveOverShare(host, options = {}) {
+  const exec = options.exec || runReg
+  const copyFile = options.copyFile
+  const tempDir = options.tempDir || require('os').tmpdir()
+  const path = require('path')
+  const fsp = require('fs/promises')
+  const clean = String(host || '').trim().replace(/^\\+/, '')
+  const candidates = [
+    `\\\\${clean}\\C$\\Windows\\System32\\config\\RegBack\\SOFTWARE`,
+    `\\\\${clean}\\C$\\Windows\\repair\\SOFTWARE`
+  ]
+  // A mount point unique per host, so parallel checks never collide.
+  const mountName = `HFOFFLINE_${clean.replace(/[^a-zA-Z0-9]/g, '_')}_${process.pid}`
+  const localCopy = path.join(tempDir, `${mountName}.hive`)
+
+  let copied = false
+  for (const candidate of candidates) {
+    try {
+      const stats = await fsp.stat(candidate)
+      // A 0-byte RegBack file means the backup task never ran on that machine.
+      if (!stats.size) continue
+      await (copyFile ? copyFile(candidate, localCopy) : fsp.copyFile(candidate, localCopy))
+      copied = true
+      break
+    } catch {
+      // Try the next location.
+    }
+  }
+  if (!copied) {
+    const error = new Error(`No readable registry backup found on ${clean}`)
+    error.code = 'HIVE_UNAVAILABLE'
+    throw error
+  }
+
+  try {
+    const load = await exec(['load', `HKLM\\${mountName}`, localCopy], options.timeoutMs || 25000)
+    if (!load.ok) {
+      const error = new Error(`Could not open the registry backup copied from ${clean}`)
+      error.code = 'HIVE_LOAD_FAILED'
+      throw error
+    }
+    try {
+      const runs = await Promise.all(UNINSTALL_KEYS.map((key) =>
+        exec(['query', `HKLM\\${mountName}\\${key}`, '/s'], options.timeoutMs || 25000)
+      ))
+      const seen = new Set()
+      const programs = []
+      for (const run of runs) {
+        for (const program of parseRegQuery(run.stdout)) {
+          const dedupe = `${program.name.toLowerCase()}|${program.version}`
+          if (seen.has(dedupe)) continue
+          seen.add(dedupe)
+          programs.push(program)
+        }
+      }
+      return programs.sort((a, b) => a.name.localeCompare(b.name))
+    } finally {
+      await exec(['unload', `HKLM\\${mountName}`], 15000)
+    }
+  } finally {
+    await fsp.unlink(localCopy).catch(() => {})
+  }
+}
+
+module.exports = { listRemotePrograms, readHiveOverShare, parseRegQuery, pickProgram, UNINSTALL_KEYS }
