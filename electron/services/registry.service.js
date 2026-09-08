@@ -129,6 +129,7 @@ function pickProgram(programs, needle) {
 async function readHiveOverShare(host, options = {}) {
   const exec = options.exec || runReg
   const copyFile = options.copyFile
+  const stat = options.stat || require('fs/promises').stat
   const tempDir = options.tempDir || require('os').tmpdir()
   const path = require('path')
   const fsp = require('fs/promises')
@@ -138,13 +139,13 @@ async function readHiveOverShare(host, options = {}) {
     `\\\\${clean}\\C$\\Windows\\repair\\SOFTWARE`
   ]
   // A mount point unique per host, so parallel checks never collide.
-  const mountName = `HFOFFLINE_${clean.replace(/[^a-zA-Z0-9]/g, '_')}_${process.pid}`
+  const mountName = `HFOFFLINE_${clean.replace(/[^a-zA-Z0-9]/g, '_')}_${require('crypto').randomUUID().replace(/-/g, '')}`
   const localCopy = path.join(tempDir, `${mountName}.hive`)
 
   let copied = false
   for (const candidate of candidates) {
     try {
-      const stats = await fsp.stat(candidate)
+      const stats = await stat(candidate)
       // A 0-byte RegBack file means the backup task never ran on that machine.
       if (!stats.size) continue
       await (copyFile ? copyFile(candidate, localCopy) : fsp.copyFile(candidate, localCopy))
@@ -169,11 +170,13 @@ async function readHiveOverShare(host, options = {}) {
     }
     try {
       const runs = await Promise.all(UNINSTALL_KEYS.map((key) =>
-        exec(['query', `HKLM\\${mountName}\\${key}`, '/s'], options.timeoutMs || 25000)
+        exec(['query', `HKLM\\${mountName}\\${key.replace(/^SOFTWARE\\/i, '')}`, '/s'], options.timeoutMs || 25000)
       ))
+      if (!runs.some((run) => run.ok)) throw new Error(`Could not query the registry backup from ${clean}`)
       const seen = new Set()
       const programs = []
       for (const run of runs) {
+        if (!run.ok) continue
         for (const program of parseRegQuery(run.stdout)) {
           const dedupe = `${program.name.toLowerCase()}|${program.version}`
           if (seen.has(dedupe)) continue

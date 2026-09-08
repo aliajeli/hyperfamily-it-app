@@ -36,6 +36,7 @@ function VersionPill({ version }) {
     // authoritative, the other two routes can lag behind an update.
     const provenance = {
       'control-panel': 'Read from Programs and Features',
+      wmi: 'Read from the live uninstall registry via WMI (Programs and Features version)',
       'registry-backup': 'Read from the registry backup — Remote Registry was stopped, so this may be slightly out of date',
       file: 'Read from the executable — this is the file version, not the Control Panel entry'
     }[version.source] || 'Installed version'

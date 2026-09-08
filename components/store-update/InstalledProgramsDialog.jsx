@@ -25,7 +25,7 @@ export default function InstalledProgramsDialog({ open, onOpenChange, checkout, 
     setQuery('')
     getApi().storeUpdate.installed({ checkout })
       .then((data) => { if (alive) setState({ loading: false, data, error: null }) })
-      .catch((error) => { if (alive) setState({ loading: false, data: null, error: error.message }) })
+      .catch((error) => { if (alive) setState({ loading: false, data: null, error: error.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '') }) })
     return () => { alive = false }
   }, [open, checkout])
 
@@ -52,6 +52,9 @@ export default function InstalledProgramsDialog({ open, onOpenChange, checkout, 
 
         {state.data && (
           <>
+            <p className="text-[11px] text-[rgb(var(--muted))]">
+              {state.data.source === 'wmi' ? 'Source: live registry via WMI (Programs and Features).' : state.data.source === 'registry-backup' ? 'Source: registry backup — versions may be outdated.' : 'Source: live registry (Programs and Features).'}
+            </p>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-0 flex-1">
                 <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))]" />
