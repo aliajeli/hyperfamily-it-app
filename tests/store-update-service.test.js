@@ -55,6 +55,8 @@ const offlinePing = async () => ({ status: 'offline', ping_time: null, smb: fals
 function makeService(overrides = {}) {
   return new StoreUpdateService(overrides.send || null, {
     platform: 'linux',
+    listWmiPrograms: async () => { throw new Error('WMI unavailable in fixture') },
+    readHive: async () => { throw new Error('No registry backup in fixture') },
     reach: onlinePing,
     // Stands the local tmp tree in for the UNC share, so Windows separators
     // must be normalised — a Windows path is just a name pattern here.
@@ -206,17 +208,21 @@ test('falls back to the executable version when neither registry route works', a
   assert.equal(result.source, 'file')
 })
 
-test('bad credentials are reported at once, without pointless fallbacks', async () => {
-  let hiveTried = false
-  const denied = Object.assign(new Error('Access denied reading the registry on CO-01 — check Settings → Target access'), { code: 'REGISTRY_DENIED' })
+test('Remote Registry access denied still tries WMI with target credentials', async () => {
+  const credentials = { domain: 'okcs', username: 'administrator', password: 'test-only' }
   const service = makeService({
-    listPrograms: async () => { throw denied },
-    readHive: async () => { hiveTried = true; return [] }
+    getCredentials: () => credentials,
+    listPrograms: async () => { throw Object.assign(new Error('Access denied'), { code: 'REGISTRY_DENIED' }) },
+    listWmiPrograms: async (_host, options) => {
+      assert.deepEqual(options.credentials, credentials)
+      return [{ name: 'Store Commerce', version: '9.52' }]
+    },
+    readHive: async () => { assert.fail('Live WMI data should skip the backup') }
   })
   const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'error')
-  assert.match(result.error, /Target access/)
-  assert.equal(hiveTried, false, 'the same credentials would fail again')
+  assert.equal(result.state, 'ok')
+  assert.equal(result.source, 'wmi')
+  assert.equal(result.stale, false)
 })
 
 test('every strategy failing yields one error listing what was tried', async () => {
@@ -349,6 +355,8 @@ function deployFixture() {
   const serviceOptions = {
     root,
     platform: 'linux',
+    listWmiPrograms: async () => { throw new Error('WMI unavailable in fixture') },
+    readHive: async () => { throw new Error('No registry backup in fixture') },
     reach: onlinePing,
     pathMapper: (host, localPath) => path.join(destBase, host, localPath.replace(/^[a-zA-Z]:[\\/]/, '').replace(/\\/g, '/'))
   }
@@ -461,4 +469,69 @@ test('deploy is guarded off Windows unless tests inject a path mapper', async ()
     () => service.deployOne({ id: 1, name: 'CO', hostname: 'CO-09' }, { source: 'x', destinationPath: 'C:\\y' }),
     /only available on Windows/
   )
+})
+
+/* beta.5: RemoteRegistry stopped, RegBack missing (reported st10007r02). */
+for (const method of ['checkOne', 'listInstalledOn']) {
+  test(`${method}: WMI reads the current Control Panel version without RemoteRegistry or RegBack`, async () => {
+    const calls = []
+    const credentials = { domain: 'okcs', username: 'admin', password: 'fixture' }
+    const service = makeService({
+      getCredentials: () => credentials,
+      listPrograms: async () => { calls.push('registry'); throw new Error('Remote Registry service is not answering') },
+      listWmiPrograms: async (host, options) => {
+        calls.push('wmi')
+        assert.equal(host, '172.18.168.33')
+        assert.deepEqual(options.credentials, credentials)
+        return [{ name: 'Store Commerce', version: '9.52.24020.3' }]
+      },
+      readHive: async () => { calls.push('backup'); throw new Error('No readable registry backup') }
+    })
+    const result = await service[method]({ hostname: 'st10007r02', ip: '172.18.168.33' })
+    assert.equal(result.source, 'wmi')
+    assert.equal(result.stale, false)
+    assert.equal(method === 'checkOne' ? result.version : result.match.version, '9.52.24020.3')
+    assert.deepEqual(calls, ['registry', 'wmi'])
+  })
+}
+
+test('listInstalledOn explains recovery steps when every registry transport fails', async () => {
+  const service = makeService({ listPrograms: async () => { throw new Error('service stopped') } })
+  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), (error) => {
+    assert.match(error.message, /Remote Registry:/)
+    assert.match(error.message, /WMI \(DCOM\):/)
+    assert.match(error.message, /Registry backup:/)
+    assert.match(error.message, /Target access/)
+    assert.match(error.message, /SMB access alone is not enough/)
+    return true
+  })
+})
+
+test('listInstalledOn uses a labelled backup if both live transports fail', async () => {
+  const service = makeService({
+    listPrograms: async () => { throw new Error('service stopped') },
+    readHive: programs([{ name: 'Store Commerce', version: 'old' }])
+  })
+  const result = await service.listInstalledOn({ hostname: 'CO-01' })
+  assert.equal(result.source, 'registry-backup')
+  assert.equal(result.stale, true)
+})
+
+test('an empty live WMI inventory is not replaced with stale backup data', async () => {
+  const service = makeService({
+    listPrograms: async () => { throw new Error('service stopped') },
+    listWmiPrograms: programs([]),
+    readHive: async () => { assert.fail('Do not use stale data after a successful live read') }
+  })
+  assert.equal((await service.checkOne({ hostname: 'CO-01' })).state, 'not-found')
+  assert.equal((await service.listInstalledOn({ hostname: 'CO-01' })).total, 0)
+})
+
+test('listInstalledOn is bounded even if the WMI runner never settles', async () => {
+  const service = makeService({
+    checkTimeoutMs: 30,
+    listPrograms: async () => { throw new Error('service stopped') },
+    listWmiPrograms: () => new Promise(() => {})
+  })
+  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), /in time/)
 })

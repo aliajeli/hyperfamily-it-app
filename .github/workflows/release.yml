@@ -38,7 +38,11 @@ jobs:
             echo "removing pre-existing release $id for ${GITHUB_REF_NAME}"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}"
           done
-          gh release create "${GITHUB_REF_NAME}" \
+          release_flags=()
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            release_flags+=(--prerelease --latest=false)
+          fi
+          gh release create "${GITHUB_REF_NAME}" "${release_flags[@]}" \
             --title "${GITHUB_REF_NAME#v}" \
             --notes "HyperFamily Branch Monitor ${GITHUB_REF_NAME#v}" \
             --target "${GITHUB_SHA}"
@@ -73,7 +77,12 @@ jobs:
       # updater can see this version and download the installer.
       - name: Publish the release so the in-app updater can see it
         shell: bash
-        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            gh release edit "${GITHUB_REF_NAME}" --draft=false --prerelease --latest=false
+          else
+            gh release edit "${GITHUB_REF_NAME}" --draft=false --prerelease=false --latest
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -93,6 +102,10 @@ jobs:
           assets=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
           echo "$assets"
           echo "$assets" | grep -q '\.exe$'   || { echo "::error::no .exe asset on the release"; exit 1; }
-          echo "$assets" | grep -q '^latest\.yml$' || { echo "::error::latest.yml missing, the updater cannot detect this release"; exit 1; }
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "$assets" | grep -Eq '^(beta|alpha|latest)\.yml$' || { echo "::error::update metadata missing"; exit 1; }
+          else
+            echo "$assets" | grep -q '^latest\.yml$' || { echo "::error::latest.yml missing, the updater cannot detect this release"; exit 1; }
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

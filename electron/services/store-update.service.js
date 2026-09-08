@@ -2,6 +2,7 @@ const path = require('path')
 const { checkReachable } = require('./reachability.service')
 const { defaultRunPs, psLiteral, sha256File, streamCopy } = require('./software.service')
 const { listRemotePrograms, readHiveOverShare, pickProgram } = require('./registry.service')
+const { listProgramsViaWmi } = require('./wmi-registry.service')
 const { SmbSessionManager } = require('./smb.service')
 const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync, withTimeout } = require('./async-fs')
 
@@ -25,8 +26,8 @@ const STORE_COMMERCE_EXE_CANDIDATES = [
 
 /** Deadlines so one unreachable checkout can never stall the queue. */
 const REACH_TIMEOUT_MS = 3000
-const REGISTRY_TIMEOUT_MS = 25000
-const CHECK_TIMEOUT_MS = 45000
+const REGISTRY_TIMEOUT_MS = 12000
+const CHECK_TIMEOUT_MS = 90000
 const COPY_TIMEOUT_MS = 15 * 60 * 1000
 
 /* --------------------------------------------------------------------------
@@ -108,6 +109,8 @@ class StoreUpdateService {
     this.copyImpl = options.copier || streamCopy
     this.listPrograms = options.listPrograms || listRemotePrograms
     this.readHive = options.readHive || readHiveOverShare
+    this.listWmiPrograms = options.listWmiPrograms || listProgramsViaWmi
+    this.wmiTimeoutMs = options.wmiTimeoutMs || 30000
     this.reachTimeoutMs = options.reachTimeoutMs || REACH_TIMEOUT_MS
     this.smb = options.smb || new SmbSessionManager({ platform: this.platform })
     // Credentials for the target domain, supplied per call by the IPC layer.
@@ -195,20 +198,32 @@ class StoreUpdateService {
     return null
   }
 
-  /**
-   * Store Commerce version on ONE checkout, read the way an operator would —
-   * from Programs and Features.
-   *
-   * Three strategies are tried in order of fidelity, because a checkout can be
-   * perfectly healthy while any single one of them is unavailable:
-   *   1. Remote Registry over RPC — exactly what Control Panel shows.
-   *   2. The registry backup hive copied off C$ — same values, possibly stale,
-   *      used when the Remote Registry service is stopped (its Windows default).
-   *   3. The executable's own version resource — always reachable over C$, but
-   *      it is the file version, so it is flagged as such.
-   *
-   * Only a genuinely unusable host (SMB shut) short-circuits all of this.
-   */
+  /** Shared live-registry → WMI/DCOM → backup chain for both UI entry points. */
+  async #readInstalledPrograms(address, attempts) {
+    const routes = [
+      ['control-panel', 'Remote Registry', () => this.listPrograms(address, { timeoutMs: this.registryTimeoutMs })],
+      ['wmi', 'WMI (DCOM)', () => this.listWmiPrograms(address, { timeoutMs: this.wmiTimeoutMs, credentials: this.getCredentials() })],
+      ['registry-backup', 'Registry backup', () => this.readHive(address, { timeoutMs: this.registryTimeoutMs })]
+    ]
+    for (const [source, label, read] of routes) {
+      try {
+        const programs = await read()
+        if (!Array.isArray(programs)) throw new Error('Invalid installed-programs response')
+        return { programs, source, stale: source === 'registry-backup' }
+      } catch (error) {
+        attempts.push(`${label}: ${error.message}`)
+        // Remote Registry ACLs and WMI namespace ACLs are different. An RPC
+        // denial must not prevent trying WMI with explicit target credentials.
+      }
+    }
+    return null
+  }
+
+  #registryHelp() {
+    return 'Check Settings → Target access and target administrator permissions. Allow WMI/DCOM from the management workstation, or have IT enable Remote Registry with scoped firewall rules. SMB access alone is not enough; Windows may have no RegBack backup.'
+  }
+
+  /** Read the Control Panel DisplayVersion, falling back to a labelled file version. */
   async checkOne(checkout) {
     const host = this.#hostOf(checkout)
     if (!host) return { state: 'no-host', detail: 'No hostname or IP on record' }
@@ -230,27 +245,8 @@ class StoreUpdateService {
     try {
       this.#requireRealPaths('Reading a version from a remote machine')
       return await withTimeout(this.#withSession(address, async () => {
-        // --- 1. Remote Registry -----------------------------------------
-        let programs = null
-        try {
-          programs = await this.listPrograms(address, { timeoutMs: this.registryTimeoutMs })
-        } catch (error) {
-          attempts.push(`Remote Registry: ${error.message}`)
-          // Denied credentials will fail identically for every other route,
-          // so there is nothing to gain by continuing.
-          if (error.code === 'REGISTRY_DENIED') throw error
-        }
-
-        // --- 2. Offline hive off the admin share -------------------------
-        let stale = false
-        if (!programs) {
-          try {
-            programs = await this.readHive(address, { timeoutMs: this.registryTimeoutMs })
-            stale = true
-          } catch (error) {
-            attempts.push(`Registry backup: ${error.message}`)
-          }
-        }
+        const inventory = await this.#readInstalledPrograms(address, attempts)
+        const { programs, source, stale } = inventory || {}
 
         if (programs) {
           const program = pickProgram(programs, this.programName)
@@ -262,7 +258,7 @@ class StoreUpdateService {
               product: program.name,
               publisher: program.publisher,
               installLocation: program.installLocation,
-              source: stale ? 'registry-backup' : 'control-panel',
+              source,
               stale,
               durationMs: Date.now() - startedAt
             }
@@ -271,7 +267,9 @@ class StoreUpdateService {
           return {
             ...base,
             state: 'not-found',
-            detail: `“${this.programName}” is not listed in Programs and Features on ${this.#labelOf(checkout)}`,
+            detail: `“${this.programName}” is not listed in ${stale ? 'the registry backup (which may be outdated)' : 'Programs and Features'} on ${this.#labelOf(checkout)}`,
+            source,
+            stale,
             installedCount: programs.length,
             durationMs: Date.now() - startedAt
           }
@@ -293,7 +291,7 @@ class StoreUpdateService {
           }
         }
 
-        const error = new Error(`Could not read the installed version from ${this.#labelOf(checkout)}. ${attempts.join('; ')}`)
+        const error = new Error(`Could not read the installed version from ${this.#labelOf(checkout)}. ${attempts.join('; ')}. ${this.#registryHelp()}`)
         error.attempts = attempts
         throw error
       }), this.checkTimeoutMs, `${this.#labelOf(checkout)} did not return its installed programs in time`)
@@ -323,28 +321,15 @@ class StoreUpdateService {
 
     const attempts = []
     return withTimeout(this.#withSession(address, async () => {
-      let programs = null
-      let source = 'control-panel'
-      try {
-        programs = await this.listPrograms(address, { timeoutMs: this.registryTimeoutMs })
-      } catch (error) {
-        attempts.push(`Remote Registry: ${error.message}`)
-        if (error.code === 'REGISTRY_DENIED') throw error
-      }
-      if (!programs) {
-        try {
-          programs = await this.readHive(address, { timeoutMs: this.registryTimeoutMs })
-          source = 'registry-backup'
-        } catch (error) {
-          attempts.push(`Registry backup: ${error.message}`)
-        }
-      }
-      if (!programs) throw new Error(`Could not read the installed programs from ${this.#labelOf(checkout)}. ${attempts.join('; ')}`)
+      const inventory = await this.#readInstalledPrograms(address, attempts)
+      if (!inventory) throw new Error(`Could not read the installed programs from ${this.#labelOf(checkout)}. ${attempts.join('; ')}. ${this.#registryHelp()}`)
+      const { programs, source, stale } = inventory
       const match = pickProgram(programs, this.programName)
       return {
         host: address,
         label: this.#labelOf(checkout),
         source,
+        stale,
         programs,
         total: programs.length,
         configuredName: this.programName,

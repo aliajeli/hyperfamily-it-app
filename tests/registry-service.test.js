@@ -149,3 +149,39 @@ test('withHost releases the session even when the task throws', async () => {
   await new Promise((resolve) => setImmediate(resolve))
   assert.ok(calls.filter((line) => line.includes('/delete')).length >= 2)
 })
+
+/* The SOFTWARE hive is mounted at its root, not beneath another SOFTWARE. */
+test('backup hive queries the correct paths and unloads/cleans up on failure', async () => {
+  const { readHiveOverShare } = require('../electron/services/registry.service')
+  const fs = require('fs')
+  const os = require('os')
+  const path = require('path')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-backup-test-'))
+  const mounts = []
+  try {
+    for (const failQuery of [false, true]) {
+      const calls = []
+      const operation = readHiveOverShare('CO-01', {
+        tempDir: dir,
+        stat: async () => ({ size: 100 }),
+        copyFile: async (_source, target) => fs.writeFileSync(target, 'fixture'),
+        exec: async (args) => {
+          calls.push(args)
+          return { ok: !(failQuery && args[0] === 'query'), stdout: SAMPLE }
+        }
+      })
+      if (failQuery) await assert.rejects(operation, /Could not query/)
+      else assert.equal((await operation).length, 2)
+      const queries = calls.filter((args) => args[0] === 'query').map((args) => args[1])
+      assert.ok(queries.some((key) => /\\Microsoft\\Windows\\CurrentVersion\\Uninstall$/.test(key)))
+      assert.ok(queries.some((key) => /\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall$/.test(key)))
+      assert.ok(queries.every((key) => !key.includes('\\SOFTWARE\\')))
+      assert.equal(calls.at(-1)[0], 'unload')
+      mounts.push(calls[0][1])
+      assert.deepEqual(fs.readdirSync(dir), [])
+    }
+    assert.notEqual(mounts[0], mounts[1], 'overlapping reads of the same host need distinct mounts')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
