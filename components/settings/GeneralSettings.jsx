@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity, KeyRound, ShieldCheck, UserRoundCog } from 'lucide-react'
+import { Activity, KeyRound, ShieldCheck, Store, UserRoundCog } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label } from '@/components/ui'
 import { getApi } from '@/lib/api'
@@ -27,6 +27,10 @@ export default function GeneralSettings({ settings, onSaved }) {
   const [ping, setPing] = useState({
     ping_interval: settings.ping_interval || 3,
     ping_history_count: settings.ping_history_count || 30
+  })
+  const [store, setStore] = useState({
+    store_commerce_path: settings.store_commerce_path || 'C:\\Store Commerce\\StoreCommerce.exe',
+    store_update_path: settings.store_update_path || 'C:\\Store Commerce\\Updates'
   })
   const [busy, setBusy] = useState('')
 
@@ -79,6 +83,30 @@ export default function GeneralSettings({ settings, onSaved }) {
       setPing(normalized)
       finishSettingsSave(next)
       toast.success('Ping settings saved')
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const looksLikeDrivePath = (value) => /^[a-zA-Z]:[\\/].+/.test(String(value || '').trim())
+
+  const saveStore = async (event) => {
+    event.preventDefault()
+    const normalized = {
+      store_commerce_path: store.store_commerce_path.trim(),
+      store_update_path: store.store_update_path.trim().replace(/[\\/]+$/, '')
+    }
+    if (!looksLikeDrivePath(normalized.store_commerce_path)) return toast.error('The Store Commerce path must look like C:\\Store Commerce\\StoreCommerce.exe')
+    if (!/\.[a-z0-9]+$/i.test(normalized.store_commerce_path)) return toast.error('The Store Commerce path must include the executable file (e.g. StoreCommerce.exe)')
+    if (!looksLikeDrivePath(normalized.store_update_path)) return toast.error('The deploy destination must look like C:\\Store Commerce\\Updates')
+    setBusy('store')
+    try {
+      const next = await getApi().settings.save(normalized)
+      setStore(normalized)
+      finishSettingsSave(next)
+      toast.success('Store update paths saved')
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -182,6 +210,35 @@ export default function GeneralSettings({ settings, onSaved }) {
               </label>
             </div>
             <Button disabled={busy === 'ping'}>{busy === 'ping' ? 'Saving…' : 'Save monitoring settings'}</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="xl:col-span-2">
+        <CardHeader className="p-3 pb-1.5">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-lg bg-nord-14/15 p-2 text-nord-14"><Store size={16} /></div>
+            <div>
+              <CardTitle className="text-sm">Update Store App — checkout paths</CardTitle>
+              <CardDescription className="mt-0.5 text-[11px] leading-snug">Where Store Commerce lives on the checkout machines, and where pushed update files are deployed. These local paths are reached over the admin share on each checkout.</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-3 pt-1.5">
+          <form onSubmit={saveStore} className="space-y-2.5">
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <label className="min-w-0">
+                <Label>Store Commerce executable (for the version check)</Label>
+                <Input className="font-mono text-[12px]" dir="ltr" value={store.store_commerce_path} onChange={(event) => setStore({ ...store, store_commerce_path: event.target.value })} placeholder="C:\Store Commerce\StoreCommerce.exe" />
+                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Read as \\checkout\C$\… when its version is checked.</p>
+              </label>
+              <label className="min-w-0">
+                <Label>Deploy destination folder</Label>
+                <Input className="font-mono text-[12px]" dir="ltr" value={store.store_update_path} onChange={(event) => setStore({ ...store, store_update_path: event.target.value })} placeholder="C:\Store Commerce\Updates" />
+                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Pushed files land here; the previous file is kept as 14050617-name.</p>
+              </label>
+            </div>
+            <Button disabled={busy === 'store'}>{busy === 'store' ? 'Saving…' : 'Save store update paths'}</Button>
           </form>
         </CardContent>
       </Card>

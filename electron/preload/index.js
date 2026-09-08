@@ -86,11 +86,15 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     install: () => invoke('update:install'),
     subscribe: (callback) => subscribe('update:event', callback)
   },
-  software: {
-    listInstalled: (forceRefresh) => invoke('software:list-installed', forceRefresh),
-    checkVersion: (payload) => invoke('software:check-version', payload),
-    copyFiles: (payload) => invoke('software:copy-files', payload),
-    onCopyProgress: (callback) => subscribe('software:copy-progress', callback)
+  storeUpdate: {
+    version: (payload) => invoke('store-update:version', payload),
+    versions: (payload) => invoke('store-update:versions', payload),
+    deploy: (payload) => invoke('store-update:deploy', payload),
+    deployAll: (payload) => invoke('store-update:deploy-all', payload),
+    onVersion: (callback) => subscribe('store-update:version', callback),
+    onStep: (callback) => subscribe('store-update:step', callback),
+    onProgress: (callback) => subscribe('store-update:progress', callback),
+    onFinished: (callback) => subscribe('store-update:finished', callback)
   },
   audit: { list: (limit) => invoke('audit:list', limit) },
   dialog: {
