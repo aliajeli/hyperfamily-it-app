@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CloudUpload, MonitorSmartphone, RefreshCw } from 'lucide-react'
+import { CloudUpload, MonitorSmartphone, PackageSearch, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** Three bouncing dots — the wait indicator inside the “Checking…” pill. */
@@ -72,7 +72,7 @@ function VersionPill({ version }) {
  * its address, a recheck action and a deploy action. `deployBusy` disables
  * both actions while that checkout is being updated.
  */
-export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, deployBusy = false, anyDeployRunning = false }) {
+export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, onInspect, deployBusy = false, anyDeployRunning = false }) {
   return (
     <motion.div
       layout
@@ -87,8 +87,21 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, d
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-bold text-[rgb(var(--text))]" title={checkout.name}>{checkout.name}</div>
-          <div className="truncate font-mono text-[10.5px] text-[rgb(var(--muted))]" title={checkout.hostname || checkout.ip}>{checkout.hostname || checkout.ip || 'no address'}</div>
+          {/* The IP is what the app connects to, so it is what we display. */}
+          <div className="truncate font-mono text-[10.5px] text-[rgb(var(--muted))]" title={[checkout.hostname, checkout.ip].filter(Boolean).join(' · ')}>{checkout.ip || checkout.hostname || 'no address'}</div>
         </div>
+        {onInspect && (
+          <button
+            type="button"
+            onClick={() => onInspect(checkout)}
+            disabled={deployBusy}
+            aria-label="List installed programs"
+            title="Show everything installed on this checkout — use it to find the exact product name"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.55)] hover:text-[rgb(var(--text))] disabled:opacity-40"
+          >
+            <PackageSearch size={13} />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onRecheck(checkout)}

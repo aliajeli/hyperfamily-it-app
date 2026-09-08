@@ -237,6 +237,105 @@ test('a readable registry without the product is "not found", not an error', asy
   assert.equal(result.state, 'not-found')
 })
 
+/* ------------------------------------------ multi-branch host resolution */
+
+test('the IP is preferred over the hostname when connecting', async () => {
+  const seen = []
+  const service = makeService({
+    reach: async (host, options) => { seen.push({ host, candidates: options.candidates }); return { status: 'online', host: '10.19.1.3', ping_time: 4, smb: true, icmp: false } },
+    listPrograms: async (host) => { seen.push({ listedOn: host }); return [{ name: 'Store Commerce', version: '9.52' }] }
+  })
+  const result = await service.checkOne({ id: 1, name: 'Checkout 3', hostname: 'st10019r03', ip: '10.19.1.3' })
+  assert.equal(result.state, 'ok')
+  // The registry must be read from the address that actually answered.
+  assert.ok(seen.some((entry) => entry.listedOn === '10.19.1.3'))
+  assert.deepEqual(seen[0].candidates, ['10.19.1.3', 'st10019r03'])
+})
+
+test('a checkout with only a hostname still works', async () => {
+  const service = makeService({
+    reach: async () => ({ status: 'online', host: 'CO-01', ping_time: 3, smb: true }),
+    listPrograms: programs([{ name: 'Store Commerce', version: '9.52' }])
+  })
+  const result = await service.checkOne({ id: 1, name: 'CO 1', hostname: 'CO-01' })
+  assert.equal(result.state, 'ok')
+})
+
+test('REGRESSION: another branch reachable only by IP deploys successfully', async () => {
+  const { source, destBase, serviceOptions } = deployFixture()
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    // The name is unresolvable; the IP answers.
+    reach: async () => ({ status: 'online', host: '10.19.1.3', ping_time: 6, smb: true, icmp: false })
+  })
+  const result = await service.deployOne(
+    { id: 9, name: 'Checkout 3', hostname: 'st10019r03', ip: '10.19.1.3' },
+    { source, destinationPath: 'C:\\Store Commerce', runId: 'r', stamp: '14050617' }
+  )
+  assert.equal(result.ok, true)
+  // The file must land under the IP-based UNC path, not the dead hostname.
+  assert.equal(fs.readFileSync(path.join(destBase, '10.19.1.3', 'Store Commerce', 'StoreCommerce-Update.exe'), 'utf8'), 'new installer payload')
+})
+
+/* -------------------------------------- configurable Control Panel name */
+
+test('the product name comes from settings and finds the Microsoft-prefixed entry', async () => {
+  const service = makeService({
+    getProgramName: () => 'Microsoft Store Commerce',
+    listPrograms: programs([
+      { name: 'Microsoft Store Commerce', version: '9.52.24020.3' },
+      { name: 'Store Commerce Hardware Station', version: '9.52.0.0' }
+    ])
+  })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'ok')
+  assert.equal(result.product, 'Microsoft Store Commerce')
+  assert.equal(result.version, '9.52.24020.3')
+})
+
+test('the default name matches both spellings as a substring', async () => {
+  const service = makeService({ listPrograms: programs([{ name: 'Microsoft Store Commerce', version: '9.52.24020.3' }]) })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'ok', '"Store Commerce" must find "Microsoft Store Commerce"')
+  assert.equal(result.version, '9.52.24020.3')
+})
+
+test('an empty configured name falls back to the built-in default', async () => {
+  const service = makeService({ getProgramName: () => '   ', listPrograms: programs([{ name: 'Store Commerce', version: '1.0' }]) })
+  assert.equal((await service.checkOne({ hostname: 'CO-01' })).state, 'ok')
+})
+
+/* ------------------------------------------- installed-programs diagnostic */
+
+test('listInstalledOn returns the whole list plus what the configured name matched', async () => {
+  const service = makeService({
+    listPrograms: programs([
+      { name: 'Google Chrome', version: '141' },
+      { name: 'Microsoft Store Commerce', version: '9.52.24020.3' }
+    ])
+  })
+  const result = await service.listInstalledOn({ id: 1, name: 'CO 1', hostname: 'CO-01', ip: '10.1.1.1' })
+  assert.equal(result.total, 2)
+  assert.equal(result.source, 'control-panel')
+  assert.equal(result.match.name, 'Microsoft Store Commerce')
+  assert.equal(result.configuredName, 'Store Commerce')
+})
+
+test('listInstalledOn reports no match when the name is wrong, without failing', async () => {
+  const service = makeService({
+    getProgramName: () => 'Nonexistent Product',
+    listPrograms: programs([{ name: 'Microsoft Store Commerce', version: '9.52' }])
+  })
+  const result = await service.listInstalledOn({ hostname: 'CO-01' })
+  assert.equal(result.match, null)
+  assert.equal(result.total, 1, 'the operator still sees the real list to pick from')
+})
+
+test('listInstalledOn refuses an unreachable checkout with the reachability reason', async () => {
+  const service = makeService({ reach: async () => ({ status: 'offline', detail: 'name could not be resolved by DNS' }) })
+  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), /DNS/)
+})
+
 /* --------------------------------------------------------- deploy pipeline */
 
 function deployFixture() {

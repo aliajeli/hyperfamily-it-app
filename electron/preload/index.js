@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     deploy: (payload) => invoke('store-update:deploy', payload),
     deployAll: (payload) => invoke('store-update:deploy-all', payload),
     testAccess: (payload) => invoke('store-update:test-access', payload),
+    installed: (payload) => invoke('store-update:installed', payload),
     onVersion: (callback) => subscribe('store-update:version', callback),
     onStep: (callback) => subscribe('store-update:step', callback),
     onProgress: (callback) => subscribe('store-update:progress', callback),

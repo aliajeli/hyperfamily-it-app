@@ -165,6 +165,13 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   // Update Store App: Store Commerce version sweeps and file deployments.
   // `secure` is required because these run on machines reachable over SMB.
   ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {})))
+  // Diagnostic: the full Programs and Features list of one checkout, so the
+  // operator can see how the product is really named there.
+  ipcMain.handle('store-update:installed', secure(async (event, payload) => {
+    const result = await storeUpdateService.listInstalledOn(payload?.checkout || {})
+    database.audit(sessions.get(event.sender.id).username, 'STORE_LIST_INSTALLED', result.label, `${result.total} program(s) read from ${result.source}`)
+    return result
+  }))
   ipcMain.handle('store-update:versions', secure(async (event, payload) => {
     const results = await storeUpdateService.checkMany(Array.isArray(payload?.checkouts) ? payload.checkouts : [])
     database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${STORE_COMMERCE_PROGRAM} (read from Programs and Features)`)
