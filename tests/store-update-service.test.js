@@ -48,13 +48,14 @@ test('pickBackupName adds the stamp and never overwrites an older backup', async
 
 /* ------------------------------------------------------- version checks */
 
-const onlinePing = async () => ({ status: 'online', ping_time: 5 })
-const offlinePing = async () => ({ status: 'offline', ping_time: null })
+// Reachability is now an SMB probe, not ICMP.
+const onlinePing = async () => ({ status: 'online', ping_time: 5, smb: true, icmp: true })
+const offlinePing = async () => ({ status: 'offline', ping_time: null, smb: false, icmp: false, detail: 'not reachable over SMB' })
 
 function makeService(overrides = {}) {
   return new StoreUpdateService(overrides.send || null, {
     platform: 'linux',
-    ping: onlinePing,
+    reach: onlinePing,
     // Stands the local tmp tree in for the UNC share, so Windows separators
     // must be normalised — a Windows path is just a name pattern here.
     pathMapper: (host, localPath) => path.join(overrides.root || fs.mkdtempSync(path.join(os.tmpdir(), 'store-update-')), localPath.replace(/^[a-zA-Z]:[\\/]/, '').replace(/\\/g, '/')),
@@ -84,7 +85,7 @@ test('checkOne reads the version from Programs and Features, not from the execut
 test('checkOne: missing host, offline host and a product that is not installed', async () => {
   const service = makeService({ listPrograms: programs([{ name: 'Google Chrome', version: '141.0' }]) })
   assert.equal((await service.checkOne({})).state, 'no-host')
-  const offline = makeService({ ping: offlinePing, listPrograms: programs([]) })
+  const offline = makeService({ reach: offlinePing, listPrograms: programs([]) })
   assert.equal((await offline.checkOne({ ip: '10.0.0.9' })).state, 'offline')
   const missing = await service.checkOne({ hostname: 'CO-01' })
   assert.equal(missing.state, 'not-found')
@@ -131,7 +132,7 @@ test('checkMany sweeps every checkout and streams one event each', async () => {
   const events = []
   const service = makeService({
     send: (channel, payload) => events.push({ channel, ...payload }),
-    ping: async (host) => (host === 'offline-host' ? { status: 'offline', ping_time: null } : { status: 'online', ping_time: 3 }),
+    reach: async (host) => (host === 'offline-host' ? { status: 'offline', ping_time: null, smb: false } : { status: 'online', ping_time: 3, smb: true }),
     listPrograms: programs([{ name: 'Store Commerce', version: '1.0.0' }])
   })
   const checkouts = [
@@ -143,6 +144,97 @@ test('checkMany sweeps every checkout and streams one event each', async () => {
   assert.equal(results.length, 3)
   assert.equal(events.filter((e) => e.channel === 'store-update:version').length, 3)
   assert.ok(events.some((e) => e.checkoutId === 2 && e.state === 'offline'))
+})
+
+/* ------------------------------ the reported bug: ICMP-blocked but healthy */
+
+test('REGRESSION: a checkout that blocks ping but serves SMB is usable', async () => {
+  // st10007r02 in the bug report: firewall drops echo requests, port 445 open.
+  const firewalled = async () => ({ status: 'online', ping_time: null, smb: true, icmp: false, detail: 'SMB (port 445) answered in 4 ms; ICMP is filtered' })
+  const service = makeService({ reach: firewalled, listPrograms: programs([{ name: 'Store Commerce', version: '9.52.24020.3' }]) })
+  const result = await service.checkOne({ hostname: 'st10007r02' })
+  assert.equal(result.state, 'ok', 'a filtered ping must never mark the checkout offline')
+  assert.equal(result.version, '9.52.24020.3')
+  assert.equal(result.icmp, false)
+})
+
+test('REGRESSION: deployment proceeds to a checkout that blocks ping', async () => {
+  const { source, destBase, serviceOptions } = deployFixture()
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    reach: async () => ({ status: 'online', ping_time: null, smb: true, icmp: false, detail: 'SMB (port 445) answered in 4 ms; ICMP is filtered' })
+  })
+  const result = await service.deployOne({ id: 2, name: 'Checkout 2', hostname: 'st10007r02' }, { source, destinationPath: 'C:\\Store Commerce', runId: 'r', stamp: '14050617' })
+  assert.equal(result.ok, true)
+  assert.equal(fs.readFileSync(path.join(destBase, 'st10007r02', 'Store Commerce', 'StoreCommerce-Update.exe'), 'utf8'), 'new installer payload')
+})
+
+test('a genuinely dead checkout still fails fast, with a reason', async () => {
+  const service = makeService({
+    reach: async () => ({ status: 'offline', ping_time: null, smb: false, icmp: false, detail: 'st10007r02 did not answer on port 445 (ECONNREFUSED) and did not answer a ping — it looks powered off' })
+  })
+  const result = await service.checkOne({ hostname: 'st10007r02' })
+  assert.equal(result.state, 'offline')
+  assert.match(result.detail, /powered off/)
+})
+
+/* ------------------------------------------- version lookup fallback chain */
+
+test('falls back to the registry backup hive when Remote Registry is stopped', async () => {
+  const stopped = Object.assign(new Error('The Remote Registry service is not answering on CO-01'), { code: 'REGISTRY_UNAVAILABLE' })
+  const service = makeService({
+    listPrograms: async () => { throw stopped },
+    readHive: programs([{ name: 'Store Commerce', version: '9.51.20000.1' }])
+  })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'ok')
+  assert.equal(result.version, '9.51.20000.1')
+  assert.equal(result.source, 'registry-backup')
+  assert.equal(result.stale, true, 'a backup hive can lag, so the UI must be able to say so')
+})
+
+test('falls back to the executable version when neither registry route works', async () => {
+  const service = makeService({
+    listPrograms: async () => { throw Object.assign(new Error('stopped'), { code: 'REGISTRY_UNAVAILABLE' }) },
+    readHive: async () => { throw Object.assign(new Error('no backup'), { code: 'HIVE_UNAVAILABLE' }) },
+    exists: async () => true,
+    runPs: async () => JSON.stringify({ ProductVersion: '9.52.24020.3', ProductName: 'Store Commerce' })
+  })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'ok')
+  assert.equal(result.version, '9.52.24020.3')
+  assert.equal(result.source, 'file')
+})
+
+test('bad credentials are reported at once, without pointless fallbacks', async () => {
+  let hiveTried = false
+  const denied = Object.assign(new Error('Access denied reading the registry on CO-01 — check Settings → Target access'), { code: 'REGISTRY_DENIED' })
+  const service = makeService({
+    listPrograms: async () => { throw denied },
+    readHive: async () => { hiveTried = true; return [] }
+  })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'error')
+  assert.match(result.error, /Target access/)
+  assert.equal(hiveTried, false, 'the same credentials would fail again')
+})
+
+test('every strategy failing yields one error listing what was tried', async () => {
+  const service = makeService({
+    listPrograms: async () => { throw Object.assign(new Error('service stopped'), { code: 'REGISTRY_UNAVAILABLE' }) },
+    readHive: async () => { throw Object.assign(new Error('no backup hive'), { code: 'HIVE_UNAVAILABLE' }) },
+    exists: async () => false
+  })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'error')
+  assert.match(result.error, /service stopped/)
+  assert.match(result.error, /no backup hive/)
+})
+
+test('a readable registry without the product is "not found", not an error', async () => {
+  const service = makeService({ listPrograms: programs([{ name: 'Google Chrome', version: '141' }]) })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'not-found')
 })
 
 /* --------------------------------------------------------- deploy pipeline */
@@ -158,7 +250,7 @@ function deployFixture() {
   const serviceOptions = {
     root,
     platform: 'linux',
-    ping: onlinePing,
+    reach: onlinePing,
     pathMapper: (host, localPath) => path.join(destBase, host, localPath.replace(/^[a-zA-Z]:[\\/]/, '').replace(/\\/g, '/'))
   }
   return { root, source, destBase, serviceOptions }
@@ -227,7 +319,7 @@ test('deployOne: persistent mismatch fails after 3 attempts and removes the copy
 
 test('deployOne: offline checkout stops at the connectivity step untouched', async () => {
   const { source, destBase, serviceOptions } = deployFixture()
-  const service = new StoreUpdateService(null, { ...serviceOptions, ping: offlinePing })
+  const service = new StoreUpdateService(null, { ...serviceOptions, reach: offlinePing })
   const result = await service.deployOne({ id: 11, name: 'CO', hostname: 'CO-05' }, { source, destinationPath: 'C:\\Store Commerce', runId: 't5', stamp: '14050617' })
   assert.equal(result.ok, false)
   assert.match(result.error, /unreachable/)
@@ -249,7 +341,7 @@ test('deployAll runs strictly in order and returns the per-machine summary', asy
   const order = []
   const service = new StoreUpdateService(
     (channel, payload) => { if (channel === 'store-update:step' && payload.step === 'source') order.push(payload.checkoutId) },
-    { ...serviceOptions, ping: async (host) => (host === 'CO-down' ? { status: 'offline', ping_time: null } : { status: 'online', ping_time: 2 }) }
+    { ...serviceOptions, reach: async (host) => (host === 'CO-down' ? { status: 'offline', ping_time: null, smb: false } : { status: 'online', ping_time: 2, smb: true }) }
   )
   const checkouts = [
     { id: 21, name: 'A', hostname: 'CO-A' },
@@ -265,7 +357,7 @@ test('deployAll runs strictly in order and returns the per-machine summary', asy
 })
 
 test('deploy is guarded off Windows unless tests inject a path mapper', async () => {
-  const service = new StoreUpdateService(null, { platform: 'linux', ping: onlinePing })
+  const service = new StoreUpdateService(null, { platform: 'linux', reach: onlinePing })
   await assert.rejects(
     () => service.deployOne({ id: 1, name: 'CO', hostname: 'CO-09' }, { source: 'x', destinationPath: 'C:\\y' }),
     /only available on Windows/

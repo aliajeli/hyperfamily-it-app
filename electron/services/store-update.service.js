@@ -1,7 +1,7 @@
 const path = require('path')
-const { pingHost } = require('./ping.service')
-const { sha256File, streamCopy } = require('./software.service')
-const { listRemotePrograms, pickProgram } = require('./registry.service')
+const { checkReachable } = require('./reachability.service')
+const { defaultRunPs, psLiteral, sha256File, streamCopy } = require('./software.service')
+const { listRemotePrograms, readHiveOverShare, pickProgram } = require('./registry.service')
 const { SmbSessionManager } = require('./smb.service')
 const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync, withTimeout } = require('./async-fs')
 
@@ -12,8 +12,19 @@ const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync
  */
 const STORE_COMMERCE_PROGRAM = 'Store Commerce'
 
+/**
+ * Where Store Commerce installs by default. Used only by the last-resort
+ * lookup, when neither registry route is available.
+ */
+const STORE_COMMERCE_EXE_CANDIDATES = [
+  'C:\\Program Files (x86)\\Microsoft Dynamics 365\\70\\Retail Modern POS\\ClientBroker\\StoreCommerce.exe',
+  'C:\\Program Files (x86)\\Microsoft Dynamics 365\\70\\Retail Modern POS\\StoreCommerce.exe',
+  'C:\\Program Files\\Microsoft Dynamics 365\\70\\Retail Modern POS\\StoreCommerce.exe',
+  'C:\\Store Commerce\\StoreCommerce.exe'
+]
+
 /** Deadlines so one unreachable checkout can never stall the queue. */
-const PING_TIMEOUT_MS = 1500
+const REACH_TIMEOUT_MS = 3000
 const REGISTRY_TIMEOUT_MS = 25000
 const CHECK_TIMEOUT_MS = 45000
 const COPY_TIMEOUT_MS = 15 * 60 * 1000
@@ -85,7 +96,10 @@ class StoreUpdateService {
   constructor(sendEvent, options = {}) {
     this.sendEvent = typeof sendEvent === 'function' ? sendEvent : () => {}
     this.platform = options.platform || process.platform
-    this.ping = options.ping || pingHost
+    // Reachability is a TCP probe of the SMB port, not ICMP: a firewalled but
+    // perfectly healthy checkout answers no ping.
+    this.reach = options.reach || checkReachable
+    this.runPs = options.runPs || defaultRunPs
     this.mapPath = options.pathMapper || uncPath
     // Async by design: the synchronous versions of these calls block Electron's
     // main thread on an unreachable UNC path and freeze the whole window.
@@ -93,6 +107,8 @@ class StoreUpdateService {
     this.probe = options.probe || probeAsync
     this.copyImpl = options.copier || streamCopy
     this.listPrograms = options.listPrograms || listRemotePrograms
+    this.readHive = options.readHive || readHiveOverShare
+    this.reachTimeoutMs = options.reachTimeoutMs || REACH_TIMEOUT_MS
     this.smb = options.smb || new SmbSessionManager({ platform: this.platform })
     // Credentials for the target domain, supplied per call by the IPC layer.
     this.getCredentials = typeof options.getCredentials === 'function' ? options.getCredentials : () => null
@@ -125,50 +141,128 @@ class StoreUpdateService {
   }
 
   /**
-   * Store Commerce version on ONE checkout, read the way an operator would:
-   * ping → open a session as the target-domain admin → read the Control Panel
-   * (uninstall registry) entry for the product.
+   * Reads the Store Commerce version from the executable itself. Last resort:
+   * this is the FILE version, which can differ from the Control Panel figure,
+   * so the result is labelled `file` and the UI shows that provenance.
+   */
+  async #versionFromExecutable(host) {
+    for (const candidate of STORE_COMMERCE_EXE_CANDIDATES) {
+      let target
+      try {
+        target = this.mapPath(host, candidate)
+      } catch {
+        continue
+      }
+      if (!(await this.exists(target, 8000))) continue
+      const script = `(Get-Item -LiteralPath ${psLiteral(target)}).VersionInfo | Select-Object FileVersion, ProductVersion, ProductName | ConvertTo-Json -Compress`
+      try {
+        const info = JSON.parse(String(await this.runPs(script, 20000)).trim() || '{}')
+        const version = String(info.ProductVersion || info.FileVersion || '').trim()
+        if (!version) continue
+        return { version, product: String(info.ProductName || '').trim() || this.programName, path: candidate }
+      } catch {
+        // Try the next candidate path.
+      }
+    }
+    return null
+  }
+
+  /**
+   * Store Commerce version on ONE checkout, read the way an operator would —
+   * from Programs and Features.
    *
-   * The whole call is wrapped in a hard deadline, so a checkout that accepts
-   * the TCP connection but never answers can delay this card and nothing else.
+   * Three strategies are tried in order of fidelity, because a checkout can be
+   * perfectly healthy while any single one of them is unavailable:
+   *   1. Remote Registry over RPC — exactly what Control Panel shows.
+   *   2. The registry backup hive copied off C$ — same values, possibly stale,
+   *      used when the Remote Registry service is stopped (its Windows default).
+   *   3. The executable's own version resource — always reachable over C$, but
+   *      it is the file version, so it is flagged as such.
+   *
+   * Only a genuinely unusable host (SMB shut) short-circuits all of this.
    */
   async checkOne(checkout) {
     const host = this.#hostOf(checkout)
     if (!host) return { state: 'no-host', detail: 'No hostname or IP on record' }
     const startedAt = Date.now()
-    const ping = await this.ping(host, PING_TIMEOUT_MS).catch(() => ({ status: 'offline' }))
-    if (ping.status === 'offline') return { state: 'offline', host, checkedAt: new Date().toISOString() }
+    const reach = await this.reach(host, { timeoutMs: this.reachTimeoutMs }).catch(() => ({ status: 'offline', detail: 'Reachability probe failed' }))
+    if (reach.status === 'offline') {
+      return { state: 'offline', host, detail: reach.detail, icmp: reach.icmp, smb: false, checkedAt: new Date().toISOString() }
+    }
+
+    const base = { host, pingTime: reach.ping_time, icmp: reach.icmp, smb: true, checkedAt: new Date().toISOString() }
+    const attempts = []
     try {
       this.#requireRealPaths('Reading a version from a remote machine')
-      const programs = await withTimeout(
-        this.#withSession(host, () => this.listPrograms(host, { timeoutMs: this.registryTimeoutMs })),
-        this.checkTimeoutMs,
-        `${host} did not return its installed programs in time`
-      )
-      const program = pickProgram(programs, this.programName)
-      if (!program) {
-        return {
-          state: 'not-found',
-          host,
-          pingTime: ping.ping_time,
-          detail: `“${this.programName}” is not listed in Programs and Features on ${host}`,
-          checkedAt: new Date().toISOString()
+      return await withTimeout(this.#withSession(host, async () => {
+        // --- 1. Remote Registry -----------------------------------------
+        let programs = null
+        try {
+          programs = await this.listPrograms(host, { timeoutMs: this.registryTimeoutMs })
+        } catch (error) {
+          attempts.push(`Remote Registry: ${error.message}`)
+          // Denied credentials will fail identically for every other route,
+          // so there is nothing to gain by continuing.
+          if (error.code === 'REGISTRY_DENIED') throw error
         }
-      }
-      return {
-        state: 'ok',
-        host,
-        pingTime: ping.ping_time,
-        version: program.version || 'unknown',
-        product: program.name,
-        publisher: program.publisher,
-        installLocation: program.installLocation,
-        source: 'control-panel',
-        durationMs: Date.now() - startedAt,
-        checkedAt: new Date().toISOString()
-      }
+
+        // --- 2. Offline hive off the admin share -------------------------
+        let stale = false
+        if (!programs) {
+          try {
+            programs = await this.readHive(host, { timeoutMs: this.registryTimeoutMs })
+            stale = true
+          } catch (error) {
+            attempts.push(`Registry backup: ${error.message}`)
+          }
+        }
+
+        if (programs) {
+          const program = pickProgram(programs, this.programName)
+          if (program) {
+            return {
+              ...base,
+              state: 'ok',
+              version: program.version || 'unknown',
+              product: program.name,
+              publisher: program.publisher,
+              installLocation: program.installLocation,
+              source: stale ? 'registry-backup' : 'control-panel',
+              stale,
+              durationMs: Date.now() - startedAt
+            }
+          }
+          // The registry was readable and the product genuinely is not in it.
+          return {
+            ...base,
+            state: 'not-found',
+            detail: `“${this.programName}” is not listed in Programs and Features on ${host}`,
+            durationMs: Date.now() - startedAt
+          }
+        }
+
+        // --- 3. The executable's version resource ------------------------
+        const fromFile = await this.#versionFromExecutable(host)
+        if (fromFile) {
+          return {
+            ...base,
+            state: 'ok',
+            version: fromFile.version,
+            product: fromFile.product,
+            installLocation: fromFile.path,
+            source: 'file',
+            stale: true,
+            detail: 'Read from the executable — Remote Registry was unavailable, so this is the file version rather than the Control Panel entry',
+            durationMs: Date.now() - startedAt
+          }
+        }
+
+        const error = new Error(`Could not read the installed version from ${host}. ${attempts.join('; ')}`)
+        error.attempts = attempts
+        throw error
+      }), this.checkTimeoutMs, `${host} did not return its installed programs in time`)
     } catch (error) {
-      return { state: 'error', host, pingTime: ping.ping_time, error: error.message, checkedAt: new Date().toISOString() }
+      return { ...base, state: 'error', error: error.message, attempts, durationMs: Date.now() - startedAt }
     }
   }
 
@@ -236,13 +330,16 @@ class StoreUpdateService {
     }
 
     // 1 --- connectivity -------------------------------------------------
-    record('connectivity', 'running', `Pinging ${host}…`)
-    const ping = await this.ping(host, PING_TIMEOUT_MS).catch(() => ({ status: 'offline' }))
-    if (ping.status === 'offline') {
-      record('connectivity', 'failed', `${host} did not answer the ping`)
+    // Checked against SMB (port 445), the port the copy actually uses. ICMP is
+    // blocked by default on a firewalled domain workstation, and gating on it
+    // made healthy checkouts look unreachable.
+    record('connectivity', 'running', `Checking file sharing on ${host}…`)
+    const reach = await this.reach(host, { timeoutMs: this.reachTimeoutMs }).catch((error) => ({ status: 'offline', detail: error.message }))
+    if (reach.status === 'offline') {
+      record('connectivity', 'failed', reach.detail || `${host} is not reachable over SMB`)
       return finish(false, { error: 'Checkout unreachable' })
     }
-    record('connectivity', 'done', `${host} answered in ${ping.ping_time ?? 1} ms`)
+    record('connectivity', 'done', reach.detail || `${host} answered in ${reach.ping_time ?? 1} ms`)
 
     // Everything below touches \\host\C$, which needs an authenticated
     // session when the checkout sits in another domain. One session covers the
