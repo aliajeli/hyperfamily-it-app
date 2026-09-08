@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs')
 const { runMigrations, DEVICE_COLUMNS } = require('./migrations')
 
 const BRANCH_COLUMNS = ['name', 'code', 'warehouse_code', 'link1', 'ip_link1', 'link2', 'ip_link2', 'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell']
-const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass'])
+const SENSITIVE_SETTINGS = new Set(['teamviewer_password', 'vpn_pass', 'target_admin_password'])
 const MAX_SWITCH_PORTS = 48
 // Colour names a note may carry. Stored as a name rather than a hex value so
 // each theme can render its own shade of it.

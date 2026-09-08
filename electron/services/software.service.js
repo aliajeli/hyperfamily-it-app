@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 const { execFile } = require('child_process')
+const { existsAsync, statAsync, mkdirAsync, withTimeout } = require('./async-fs')
 
 /**
  * Reads the uninstall registry hives (machine 64-bit, machine 32-bit and the
@@ -98,15 +99,25 @@ function sha256File(file) {
 function streamCopy(source, target, total, onProgress) {
   return new Promise((resolve, reject) => {
     let written = 0
+    let settled = false
     const read = fs.createReadStream(source)
     const write = fs.createWriteStream(target, { flags: 'w' })
+    // Either stream can fail after the other already has; settling twice would
+    // resolve a copy that actually broke.
+    const fail = (error) => {
+      if (settled) return
+      settled = true
+      read.destroy()
+      write.destroy()
+      reject(error)
+    }
     read.on('data', (chunk) => {
       written += chunk.length
       onProgress?.(written, total)
     })
-    read.on('error', (error) => { write.destroy(); reject(error) })
-    write.on('error', reject)
-    write.on('finish', resolve)
+    read.on('error', fail)
+    write.on('error', fail)
+    write.on('finish', () => { if (!settled) { settled = true; resolve() } })
     read.pipe(write)
   })
 }
@@ -126,6 +137,7 @@ class SoftwareService {
     this.runPs = options.runPs || defaultRunPs
     this.cache = null
     this.cacheAt = 0
+    this.copyTimeoutMs = options.copyTimeoutMs || 15 * 60 * 1000
   }
 
   /** All programs registered with Windows Install/Uninstall, cached for 60 s. */
@@ -159,8 +171,8 @@ class SoftwareService {
   async getFileVersion(filePath) {
     this.#requireWindows('Reading a file version')
     if (!path.isAbsolute(filePath)) throw new Error('The file path must be absolute')
-    if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`)
-    const stats = fs.statSync(filePath)
+    if (!(await existsAsync(filePath))) throw new Error(`File not found: ${filePath}`)
+    const stats = await statAsync(filePath)
     const script = [
       `$p = ${psLiteral(filePath)}`,
       '$i = Get-Item -LiteralPath $p',
@@ -207,8 +219,13 @@ class SoftwareService {
     if (sources.length > 200) throw new Error('A single copy run is limited to 200 files')
     if (!destination) throw new Error('Choose a destination folder')
     if (!path.isAbsolute(destination)) throw new Error('The destination must be an absolute path')
-    if (fs.existsSync(destination) && !fs.statSync(destination).isDirectory()) throw new Error('The destination exists and is not a folder')
-    fs.mkdirSync(destination, { recursive: true })
+    // Async throughout: a destination on an unreachable share used to park the
+    // main thread here for the SMB timeout and freeze the window.
+    if (await existsAsync(destination)) {
+      const destStats = await statAsync(destination)
+      if (!destStats.isDirectory()) throw new Error('The destination exists and is not a folder')
+    }
+    await mkdirAsync(destination)
 
     const startedAt = Date.now()
     const results = []
@@ -227,18 +244,22 @@ class SoftwareService {
       }
       try {
         if (!path.isAbsolute(source)) throw new Error('The source must be an absolute path')
-        if (!fs.existsSync(source)) throw new Error('Source file not found')
-        const stats = fs.statSync(source)
+        if (!(await existsAsync(source))) throw new Error('Source file not found')
+        const stats = await statAsync(source)
         if (!stats.isFile()) throw new Error('The source is not a file')
         if (path.resolve(source) === path.resolve(target)) throw new Error('Source and destination are identical')
-        if (fs.existsSync(target) && !overwrite) {
+        if ((await existsAsync(target)) && !overwrite) {
           results.push({ source, target, bytes: 0, state: 'skipped', error: 'Already exists at the destination' })
           emit('skipped', { percent: 100, written: stats.size, total: stats.size })
           continue
         }
         emit('started', { percent: 0, written: 0, total: stats.size })
-        await streamCopy(source, target, stats.size, (written, total) =>
-          emit('progress', { percent: total > 0 ? Math.floor((written / total) * 100) : 100, written, total })
+        await withTimeout(
+          streamCopy(source, target, stats.size, (written, total) =>
+            emit('progress', { percent: total > 0 ? Math.floor((written / total) * 100) : 100, written, total })
+          ),
+          this.copyTimeoutMs,
+          'The copy stalled and was aborted'
         )
         let verified = null
         let sha256Source = null

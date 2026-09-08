@@ -81,14 +81,14 @@ export default function StoreUpdatePage() {
   }, [])
 
   /* -------------------------------------------------------- version scan */
-  const runSweep = useCallback((checkouts, programPath) => {
+  const runSweep = useCallback((checkouts) => {
     if (!checkouts.length) return
     setVersions((previous) => {
       const next = { ...previous }
       for (const checkout of checkouts) next[checkout.id] = { state: 'checking' }
       return next
     })
-    getApi().storeUpdate.versions({ checkouts, programPath })
+    getApi().storeUpdate.versions({ checkouts })
       .then(() => toast.success(`Version sweep finished for ${checkouts.length} checkout(s)`))
       .catch((error) => toast.error(error.message))
   }, [])
@@ -98,14 +98,14 @@ export default function StoreUpdatePage() {
   useEffect(() => {
     if (sweepStarted.current || !settings || allCheckouts.length === 0) return
     sweepStarted.current = true
-    runSweep(allCheckouts, settings.store_commerce_path)
+    runSweep(allCheckouts)
   }, [settings, allCheckouts, runSweep])
 
   const recheck = useCallback(async (checkout) => {
     if (!settings) return
     setVersions((previous) => ({ ...previous, [checkout.id]: { state: 'checking' } }))
     try {
-      const result = await getApi().storeUpdate.version({ checkout, programPath: settings.store_commerce_path })
+      const result = await getApi().storeUpdate.version({ checkout })
       setVersions((previous) => ({ ...previous, [checkout.id]: result }))
       if (result.state === 'ok') toast.success(`${checkout.name}: Store Commerce v${result.version}`)
       else if (result.state === 'offline') toast.error(`${checkout.name} is offline`)
@@ -237,7 +237,7 @@ export default function StoreUpdatePage() {
                 <FileUp size={14} />
                 {file ? 'Change file…' : 'Select file…'}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => runSweep(allCheckouts, settings?.store_commerce_path)} disabled={deploying || !allCheckouts.length || Object.values(versions).some((v) => v.state === 'checking')}>
+              <Button variant="ghost" size="sm" onClick={() => runSweep(allCheckouts)} disabled={deploying || !allCheckouts.length || Object.values(versions).some((v) => v.state === 'checking')}>
                 <RefreshCw size={14} />
                 Recheck all
               </Button>
@@ -253,7 +253,8 @@ export default function StoreUpdatePage() {
         {settings && (
           <p className="rounded-xl border border-[rgb(var(--border)/.55)] bg-[rgb(var(--surface)/.45)] px-3 py-2 text-[11px] leading-relaxed text-[rgb(var(--muted))]">
             <Settings2 size={12} className="mr-1 inline-block" />
-            Store Commerce is checked at <b className="font-mono">{settings.store_commerce_path}</b> and files land in <b className="font-mono">{settings.store_update_path}</b> (changeable in Settings → General).
+            The Store Commerce version is read from Programs and Features on each checkout, and files land in <b className="font-mono">{settings.store_update_path}</b> (changeable in Settings → General).
+            Checkouts in another domain are reached with the account from Settings → Target access.
             Per checkout: connection check → dated backup of the existing file (<b className="font-mono">14050617-name</b>) → copy → SHA-256 proof, with delete-and-retry on mismatch.
           </p>
         )}

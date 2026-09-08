@@ -2,6 +2,7 @@ const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
 const { createImportTemplate, exportInventory, importDirectory } = require('../services/excel.service')
 const { openDeviceWebview, broadcastPalette } = require('./webview-window')
+const { STORE_COMMERCE_PROGRAM } = require('../services/store-update.service')
 
 function friendlyError(error) {
   if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE') && String(error.message).includes('devices.branch_id')) return new Error('Only one Router can be defined for each branch')
@@ -163,13 +164,26 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
 
   // Update Store App: Store Commerce version sweeps and file deployments.
   // `secure` is required because these run on machines reachable over SMB.
-  ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {}, String(payload?.programPath || ''))))
+  ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {})))
   ipcMain.handle('store-update:versions', secure(async (event, payload) => {
-    const settings = database.getSettings()
-    const programPath = String(payload?.programPath || settings.store_commerce_path || '')
-    const results = await storeUpdateService.checkMany(Array.isArray(payload?.checkouts) ? payload.checkouts : [], programPath)
-    database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${programPath}`)
+    const results = await storeUpdateService.checkMany(Array.isArray(payload?.checkouts) ? payload.checkouts : [])
+    database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${STORE_COMMERCE_PROGRAM} (read from Programs and Features)`)
     return results
+  }))
+  // Settings → Target access: proves the stored domain account can open the
+  // admin share of one checkout before an operator relies on it in a sweep.
+  ipcMain.handle('store-update:test-access', secure(async (event, payload) => {
+    const settings = database.getSettings()
+    const host = String(payload?.host || '').trim()
+    if (!host) throw new Error('Enter the hostname or IP of a checkout to test against')
+    const credentials = {
+      domain: String(payload?.domain ?? settings.target_domain ?? '').trim(),
+      username: String(payload?.username ?? settings.target_admin_user ?? '').trim(),
+      password: payload?.password ? String(payload.password) : String(settings.target_admin_password || '')
+    }
+    const result = await storeUpdateService.smb.test(host, credentials)
+    database.audit(sessions.get(event.sender.id).username, 'TARGET_ACCESS_TEST', host, `Signed in as ${result.user} in ${result.durationMs} ms`)
+    return result
   }))
   ipcMain.handle('store-update:deploy', secure(async (event, payload) => {
     const result = await storeUpdateService.deployOne(payload?.checkout || {}, {

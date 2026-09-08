@@ -17,6 +17,8 @@ const { VPNService } = require('../services/vpn.service')
 const { TerminalService } = require('../services/terminal.service')
 const { UpdateService } = require('../services/update.service')
 const { StoreUpdateService } = require('../services/store-update.service')
+const { SmbSessionManager } = require('../services/smb.service')
+let storeUpdateServiceRef = null
 const { registerIpcHandlers } = require('./ipc-handlers')
 const { registerDeviceWebviewHandlers } = require('./webview-window')
 
@@ -128,7 +130,14 @@ else {
     vpnService.startHealthMonitor()
     const updateService = new UpdateService(sendEvent)
     terminalService = new TerminalService(database, sendEvent)
-    const storeUpdateService = new StoreUpdateService(sendEvent)
+    // Credentials are read fresh on every call so a change in Settings takes
+    // effect immediately, without restarting the app.
+    const storeUpdateService = new StoreUpdateService(sendEvent, {
+      getCredentials: () => {
+        try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
+      }
+    })
+    storeUpdateServiceRef = storeUpdateService
     registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, getWindow: () => mainWindow })
     registerDeviceWebviewHandlers(ipcMain)
     createWindow()
@@ -140,4 +149,4 @@ else {
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('before-quit', () => { pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })
+app.on('before-quit', () => { pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); storeUpdateServiceRef?.smb?.releaseAll?.().catch(() => {}); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })
