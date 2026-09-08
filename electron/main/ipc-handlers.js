@@ -10,7 +10,7 @@ function friendlyError(error) {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, softwareService, getWindow }) {
+function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, getWindow }) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
@@ -161,16 +161,41 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
     return result.canceled ? null : result.filePaths[0]
   }))
 
-  // Installed-program version checks and verified file copies (Version check page).
-  ipcMain.handle('software:list-installed', secure((_event, forceRefresh) => softwareService.listInstalled(Boolean(forceRefresh))))
-  ipcMain.handle('software:check-version', secure((_event, payload) => softwareService.checkVersion(payload || {})))
-  ipcMain.handle('software:copy-files', secure(async (event, payload) => {
-    const summary = await softwareService.copyFiles(payload || {})
+  // Update Store App: Store Commerce version sweeps and file deployments.
+  // `secure` is required because these run on machines reachable over SMB.
+  ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {}, String(payload?.programPath || ''))))
+  ipcMain.handle('store-update:versions', secure(async (event, payload) => {
+    const settings = database.getSettings()
+    const programPath = String(payload?.programPath || settings.store_commerce_path || '')
+    const results = await storeUpdateService.checkMany(Array.isArray(payload?.checkouts) ? payload.checkouts : [], programPath)
+    database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${programPath}`)
+    return results
+  }))
+  ipcMain.handle('store-update:deploy', secure(async (event, payload) => {
+    const result = await storeUpdateService.deployOne(payload?.checkout || {}, {
+      source: String(payload?.source || ''),
+      destinationPath: String(payload?.destinationPath || ''),
+      runId: payload?.runId || `single-${Date.now()}`,
+      stamp: payload?.stamp
+    })
     database.audit(
       sessions.get(event.sender.id).username,
-      'FILE_COPY',
-      `${summary.copied}/${summary.results.length} file(s)`,
-      `Destination: ${String(payload?.destination || '—')} (${summary.totalBytes} bytes in ${summary.durationMs} ms)${summary.failed ? ` — ${summary.failed} failed` : ''}`
+      'STORE_DEPLOY_ONE',
+      `${payload?.checkout?.name || payload?.checkout?.hostname || 'checkout'} — ${result.ok ? 'OK' : 'FAILED'}`,
+      `${result.error || `Deployed ${result.bytes ?? 0} bytes in ${result.durationMs} ms`}${result.backup ? `; backup: ${result.backup}` : ''}`
+    )
+    return result
+  }))
+  ipcMain.handle('store-update:deploy-all', secure(async (event, payload) => {
+    const summary = await storeUpdateService.deployAll(Array.isArray(payload?.checkouts) ? payload.checkouts : [], {
+      source: String(payload?.source || ''),
+      destinationPath: String(payload?.destinationPath || '')
+    })
+    database.audit(
+      sessions.get(event.sender.id).username,
+      'STORE_DEPLOY_ALL',
+      `${summary.ok}/${summary.total} checkout(s) updated`,
+      `File: ${String(payload?.source || '').split(/[\\/]/).pop() || '—'} → ${String(payload?.destinationPath || '—')} (${summary.durationMs} ms)`
     )
     return summary
   }))

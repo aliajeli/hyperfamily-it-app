@@ -22,12 +22,12 @@ Get-ItemProperty $paths -ErrorAction SilentlyContinue |
 `.trim()
 
 /** Runs a PowerShell command and resolves with its stdout. */
-function defaultRunPs(script) {
+function defaultRunPs(script, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
     execFile(
       'powershell.exe',
       ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
-      { maxBuffer: 16 * 1024 * 1024, timeout: 60000, windowsHide: true },
+      { maxBuffer: 16 * 1024 * 1024, timeout: timeoutMs, windowsHide: true },
       (error, stdout, stderr) => {
         if (error) return reject(new Error(String(stderr || '').trim() || error.message))
         resolve(String(stdout || ''))
@@ -274,4 +274,4 @@ class SoftwareService {
   }
 }
 
-module.exports = { SoftwareService, parseInstalledJson, sha256File }
+module.exports = { SoftwareService, parseInstalledJson, sha256File, streamCopy, defaultRunPs, psLiteral }

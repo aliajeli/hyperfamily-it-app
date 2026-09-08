@@ -11,7 +11,7 @@ const PAGES = [
   { id: 'page-gateway', kind: 'page', label: 'Gateway monitor', hint: 'Dashboard', href: '/dashboard/gateway' },
   { id: 'page-devices', kind: 'page', label: 'Branches & devices', hint: 'Manage', href: '/devices' },
   { id: 'page-inventory', kind: 'page', label: 'Asset inventory', hint: 'Manage', href: '/inventory' },
-  { id: 'page-version-check', kind: 'page', label: 'Version check & file copy', hint: 'Tools', href: '/version-check' },
+  { id: 'page-store-update', kind: 'page', label: 'Update Store App', hint: 'Tools', href: '/store-update' },
   { id: 'page-settings', kind: 'page', label: 'Application settings', hint: 'Configure', href: '/settings' },
   { id: 'page-about', kind: 'page', label: 'About & updates', hint: 'Help', href: '/about' }
 ]
