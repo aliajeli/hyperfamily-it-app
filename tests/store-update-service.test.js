@@ -36,12 +36,14 @@ test('uncPath rejects unusable inputs', () => {
   assert.throws(() => uncPath('CO-01', 'C:\\'), /local drive path/)
 })
 
-test('pickBackupName adds the stamp and never overwrites an older backup', () => {
+test('pickBackupName adds the stamp and never overwrites an older backup', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-name-'))
-  const exists = (target) => fs.existsSync(target)
-  assert.equal(pickBackupName(dir, 'app.exe', '14050617', exists), '14050617-app.exe')
+  // The existence probe is async now — blocking the main thread on a UNC path
+  // is what froze the window.
+  const exists = async (target) => fs.existsSync(target)
+  assert.equal(await pickBackupName(dir, 'app.exe', '14050617', exists), '14050617-app.exe')
   fs.writeFileSync(path.join(dir, '14050617-app.exe'), 'old')
-  assert.equal(pickBackupName(dir, 'app.exe', '14050617', exists), '14050617-app-2.exe')
+  assert.equal(await pickBackupName(dir, 'app.exe', '14050617', exists), '14050617-app-2.exe')
 })
 
 /* ------------------------------------------------------- version checks */
@@ -60,50 +62,84 @@ function makeService(overrides = {}) {
   })
 }
 
-test('checkOne: no host, offline, not-found and happy path', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-update-'))
-  fs.mkdirSync(path.join(root, 'Store Commerce'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'Store Commerce', 'app.exe'), 'binary')
+const programs = (rows) => async () => rows
+
+test('checkOne reads the version from Programs and Features, not from the executable', async () => {
   const service = makeService({
-    root,
-    runPs: async () => JSON.stringify({ FileVersion: '3.4.1.0', ProductVersion: '3.4.1', ProductName: 'Store Commerce' })
+    listPrograms: programs([
+      { name: 'Store Commerce Hardware Station', version: '9.9.9' },
+      { name: 'Store Commerce', version: '9.52.24020.3', publisher: 'Microsoft' },
+      { name: 'Google Chrome', version: '141.0' }
+    ])
   })
-  assert.equal((await service.checkOne({}, 'C:\\x')).state, 'no-host')
-  const offline = makeService({ root, ping: offlinePing })
-  assert.equal((await offline.checkOne({ ip: '10.0.0.9' }, 'C:\\x')).state, 'offline')
-  assert.equal((await service.checkOne({ hostname: 'CO-01' }, 'C:\\Store Commerce\\missing.exe')).state, 'not-found')
-  const ok = await service.checkOne({ hostname: 'CO-01' }, 'C:\\Store Commerce\\app.exe')
+  const ok = await service.checkOne({ hostname: 'CO-01' })
   assert.equal(ok.state, 'ok')
-  assert.equal(ok.version, '3.4.1.0')
+  // The shortest matching name wins, so the add-on never masks the product.
+  assert.equal(ok.product, 'Store Commerce')
+  assert.equal(ok.version, '9.52.24020.3')
+  assert.equal(ok.source, 'control-panel')
   assert.equal(ok.pingTime, 5)
 })
 
-test('checkOne reports version-read failures as error state', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-update-'))
-  fs.mkdirSync(path.join(root, 'Store Commerce'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'Store Commerce', 'app.exe'), 'binary')
-  const service = makeService({ root, runPs: async () => { throw new Error('Access is denied') } })
-  const result = await service.checkOne({ hostname: 'CO-01' }, 'C:\\Store Commerce\\app.exe')
+test('checkOne: missing host, offline host and a product that is not installed', async () => {
+  const service = makeService({ listPrograms: programs([{ name: 'Google Chrome', version: '141.0' }]) })
+  assert.equal((await service.checkOne({})).state, 'no-host')
+  const offline = makeService({ ping: offlinePing, listPrograms: programs([]) })
+  assert.equal((await offline.checkOne({ ip: '10.0.0.9' })).state, 'offline')
+  const missing = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(missing.state, 'not-found')
+  assert.match(missing.detail, /Programs and Features/)
+})
+
+test('checkOne reports a registry failure as an error rather than throwing', async () => {
+  const service = makeService({ listPrograms: async () => { throw new Error('Access denied reading the registry on CO-01') } })
+  const result = await service.checkOne({ hostname: 'CO-01' })
   assert.equal(result.state, 'error')
-  assert.match(result.error, /Access is denied/)
+  assert.match(result.error, /Access denied/)
+})
+
+test('checkOne never hangs: an unresponsive machine resolves as an error', async () => {
+  // A registry read that never settles must still let the card recover —
+  // this is the freeze the async rewrite is there to prevent.
+  const service = makeService({ listPrograms: () => new Promise(() => {}), checkTimeoutMs: 300 })
+  const result = await Promise.race([
+    service.checkOne({ hostname: 'CO-01' }),
+    new Promise((resolve) => setTimeout(() => resolve('HUNG'), 3000))
+  ])
+  assert.notEqual(result, 'HUNG')
+  assert.equal(result.state, 'error')
+})
+
+test('checkOne opens an authenticated SMB session for the target domain', async () => {
+  const calls = []
+  const service = makeService({
+    platform: 'win32',
+    getCredentials: () => ({ domain: 'okcs', username: 'administrator', password: 'secret' }),
+    smb: {
+      withHost: async (host, credentials, task) => { calls.push({ host, credentials }); return task() }
+    },
+    listPrograms: programs([{ name: 'Store Commerce', version: '9.52' }])
+  })
+  const result = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(result.state, 'ok')
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].host, 'CO-01')
+  assert.equal(calls[0].credentials.domain, 'okcs')
 })
 
 test('checkMany sweeps every checkout and streams one event each', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-update-'))
-  fs.writeFileSync(path.join(root, 'app.exe'), 'x')
   const events = []
   const service = makeService({
-    root,
     send: (channel, payload) => events.push({ channel, ...payload }),
     ping: async (host) => (host === 'offline-host' ? { status: 'offline', ping_time: null } : { status: 'online', ping_time: 3 }),
-    runPs: async () => JSON.stringify({ FileVersion: '1.0.0' })
+    listPrograms: programs([{ name: 'Store Commerce', version: '1.0.0' }])
   })
   const checkouts = [
     { id: 1, name: 'CO 1', hostname: 'host-1', branch_id: 10 },
     { id: 2, name: 'CO 2', hostname: 'offline-host', branch_id: 10 },
     { id: 3, name: 'CO 3', hostname: 'host-3', branch_id: 11 }
   ]
-  const results = await service.checkMany(checkouts, 'C:\\app.exe')
+  const results = await service.checkMany(checkouts)
   assert.equal(results.length, 3)
   assert.equal(events.filter((e) => e.channel === 'store-update:version').length, 3)
   assert.ok(events.some((e) => e.checkoutId === 2 && e.state === 'offline'))
