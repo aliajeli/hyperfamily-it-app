@@ -112,7 +112,8 @@ class StoreUpdateService {
     this.smb = options.smb || new SmbSessionManager({ platform: this.platform })
     // Credentials for the target domain, supplied per call by the IPC layer.
     this.getCredentials = typeof options.getCredentials === 'function' ? options.getCredentials : () => null
-    this.programName = options.programName || STORE_COMMERCE_PROGRAM
+    this.getProgramName = typeof options.getProgramName === 'function' ? options.getProgramName : null
+    this.defaultProgramName = options.programName || STORE_COMMERCE_PROGRAM
     // Deadlines are injectable so tests can prove the no-hang guarantee
     // without waiting the full production timeout.
     this.checkTimeoutMs = options.checkTimeoutMs || CHECK_TIMEOUT_MS
@@ -121,6 +122,15 @@ class StoreUpdateService {
     // Copies and renames hit real UNC paths, which only exist on Windows; in
     // tests a custom pathMapper (plus the other injectables) substitutes them.
     this.realFs = this.platform === 'win32' || Boolean(options.pathMapper)
+  }
+
+  /**
+   * The Control Panel name to look for. Configurable because Microsoft has
+   * registered this product under more than one display name.
+   */
+  get programName() {
+    const configured = this.getProgramName?.()
+    return String(configured || '').trim() || this.defaultProgramName
   }
 
   /** Opens an authenticated SMB session to `host` for the duration of `task`. */
@@ -132,8 +142,26 @@ class StoreUpdateService {
     this.sendEvent(channel, payload)
   }
 
+  /**
+   * The address to actually connect to.
+   *
+   * The IP wins over the hostname on purpose. Checkouts in other branches sit
+   * in their own domain and are usually absent from the DNS this workstation
+   * queries, so `st10019r03` resolves to nothing (ENOTFOUND) even though the
+   * machine is up and the Dashboard — which pings by IP — shows it green.
+   * Every device record already carries the IP the Dashboard monitors, so we
+   * use exactly that and keep the name only for display.
+   */
   #hostOf(checkout) {
-    return String(checkout?.hostname || checkout?.ip || '').trim()
+    return String(checkout?.ip || checkout?.hostname || '').trim()
+  }
+
+  /** The human-facing name of a checkout, for messages and audit lines. */
+  #labelOf(checkout) {
+    const name = String(checkout?.hostname || '').trim()
+    const ip = String(checkout?.ip || '').trim()
+    if (name && ip && name !== ip) return `${name} (${ip})`
+    return name || ip || 'checkout'
   }
 
   #requireRealPaths(action) {
@@ -185,20 +213,27 @@ class StoreUpdateService {
     const host = this.#hostOf(checkout)
     if (!host) return { state: 'no-host', detail: 'No hostname or IP on record' }
     const startedAt = Date.now()
-    const reach = await this.reach(host, { timeoutMs: this.reachTimeoutMs }).catch(() => ({ status: 'offline', detail: 'Reachability probe failed' }))
+    const reach = await this.reach(host, {
+      timeoutMs: this.reachTimeoutMs,
+      // Try the IP first, then the name: whichever answers is used for the
+      // registry read too, so a DNS gap in another branch is not fatal.
+      candidates: [checkout?.ip, checkout?.hostname]
+    }).catch(() => ({ status: 'offline', detail: 'Reachability probe failed' }))
     if (reach.status === 'offline') {
       return { state: 'offline', host, detail: reach.detail, icmp: reach.icmp, smb: false, checkedAt: new Date().toISOString() }
     }
 
-    const base = { host, pingTime: reach.ping_time, icmp: reach.icmp, smb: true, checkedAt: new Date().toISOString() }
+    // Everything downstream must talk to the address that actually answered.
+    const address = reach.host || host
+    const base = { host: address, label: this.#labelOf(checkout), pingTime: reach.ping_time, icmp: reach.icmp, smb: true, checkedAt: new Date().toISOString() }
     const attempts = []
     try {
       this.#requireRealPaths('Reading a version from a remote machine')
-      return await withTimeout(this.#withSession(host, async () => {
+      return await withTimeout(this.#withSession(address, async () => {
         // --- 1. Remote Registry -----------------------------------------
         let programs = null
         try {
-          programs = await this.listPrograms(host, { timeoutMs: this.registryTimeoutMs })
+          programs = await this.listPrograms(address, { timeoutMs: this.registryTimeoutMs })
         } catch (error) {
           attempts.push(`Remote Registry: ${error.message}`)
           // Denied credentials will fail identically for every other route,
@@ -210,7 +245,7 @@ class StoreUpdateService {
         let stale = false
         if (!programs) {
           try {
-            programs = await this.readHive(host, { timeoutMs: this.registryTimeoutMs })
+            programs = await this.readHive(address, { timeoutMs: this.registryTimeoutMs })
             stale = true
           } catch (error) {
             attempts.push(`Registry backup: ${error.message}`)
@@ -236,13 +271,14 @@ class StoreUpdateService {
           return {
             ...base,
             state: 'not-found',
-            detail: `“${this.programName}” is not listed in Programs and Features on ${host}`,
+            detail: `“${this.programName}” is not listed in Programs and Features on ${this.#labelOf(checkout)}`,
+            installedCount: programs.length,
             durationMs: Date.now() - startedAt
           }
         }
 
         // --- 3. The executable's version resource ------------------------
-        const fromFile = await this.#versionFromExecutable(host)
+        const fromFile = await this.#versionFromExecutable(address)
         if (fromFile) {
           return {
             ...base,
@@ -257,13 +293,64 @@ class StoreUpdateService {
           }
         }
 
-        const error = new Error(`Could not read the installed version from ${host}. ${attempts.join('; ')}`)
+        const error = new Error(`Could not read the installed version from ${this.#labelOf(checkout)}. ${attempts.join('; ')}`)
         error.attempts = attempts
         throw error
-      }), this.checkTimeoutMs, `${host} did not return its installed programs in time`)
+      }), this.checkTimeoutMs, `${this.#labelOf(checkout)} did not return its installed programs in time`)
     } catch (error) {
       return { ...base, state: 'error', error: error.message, attempts, durationMs: Date.now() - startedAt }
     }
+  }
+
+  /**
+   * Every program in Programs and Features on ONE checkout.
+   *
+   * Powers the "Installed programs" diagnostic: when the version cannot be
+   * read, the operator opens this list, sees how the product is actually
+   * registered on that machine, and picks the right name — instead of us
+   * guessing at the spelling.
+   */
+  async listInstalledOn(checkout) {
+    const host = this.#hostOf(checkout)
+    if (!host) throw new Error('This checkout has no hostname or IP address on record')
+    const reach = await this.reach(host, {
+      timeoutMs: this.reachTimeoutMs,
+      candidates: [checkout?.ip, checkout?.hostname]
+    })
+    if (reach.status === 'offline') throw new Error(reach.detail || `${host} is not reachable`)
+    const address = reach.host || host
+    this.#requireRealPaths('Listing installed programs on a remote machine')
+
+    const attempts = []
+    return withTimeout(this.#withSession(address, async () => {
+      let programs = null
+      let source = 'control-panel'
+      try {
+        programs = await this.listPrograms(address, { timeoutMs: this.registryTimeoutMs })
+      } catch (error) {
+        attempts.push(`Remote Registry: ${error.message}`)
+        if (error.code === 'REGISTRY_DENIED') throw error
+      }
+      if (!programs) {
+        try {
+          programs = await this.readHive(address, { timeoutMs: this.registryTimeoutMs })
+          source = 'registry-backup'
+        } catch (error) {
+          attempts.push(`Registry backup: ${error.message}`)
+        }
+      }
+      if (!programs) throw new Error(`Could not read the installed programs from ${this.#labelOf(checkout)}. ${attempts.join('; ')}`)
+      const match = pickProgram(programs, this.programName)
+      return {
+        host: address,
+        label: this.#labelOf(checkout),
+        source,
+        programs,
+        total: programs.length,
+        configuredName: this.programName,
+        match: match ? { name: match.name, version: match.version } : null
+      }
+    }), this.checkTimeoutMs, `${this.#labelOf(checkout)} did not return its installed programs in time`)
   }
 
   /**
@@ -333,28 +420,34 @@ class StoreUpdateService {
     // Checked against SMB (port 445), the port the copy actually uses. ICMP is
     // blocked by default on a firewalled domain workstation, and gating on it
     // made healthy checkouts look unreachable.
-    record('connectivity', 'running', `Checking file sharing on ${host}…`)
-    const reach = await this.reach(host, { timeoutMs: this.reachTimeoutMs }).catch((error) => ({ status: 'offline', detail: error.message }))
+    record('connectivity', 'running', `Checking file sharing on ${this.#labelOf(checkout)}…`)
+    const reach = await this.reach(host, {
+      timeoutMs: this.reachTimeoutMs,
+      candidates: [checkout?.ip, checkout?.hostname]
+    }).catch((error) => ({ status: 'offline', detail: error.message }))
     if (reach.status === 'offline') {
       record('connectivity', 'failed', reach.detail || `${host} is not reachable over SMB`)
       return finish(false, { error: 'Checkout unreachable' })
     }
     record('connectivity', 'done', reach.detail || `${host} answered in ${reach.ping_time ?? 1} ms`)
+    // Reuse the exact address that answered: if the hostname was unresolvable
+    // and the IP worked, every later UNC path must use the IP too.
+    const address = reach.host || host
 
     // Everything below touches \\host\C$, which needs an authenticated
     // session when the checkout sits in another domain. One session covers the
     // whole deployment and is released automatically at the end.
     const credentials = this.getCredentials()
-    if (credentials?.username) record('signin', 'running', `Signing in to ${host} as ${credentials.domain ? `${credentials.domain}\\` : ''}${credentials.username}…`)
+    if (credentials?.username) record('signin', 'running', `Signing in to ${address} as ${credentials.domain ? `${credentials.domain}\\` : ''}${credentials.username}…`)
     try {
-      return await this.smb.withHost(host, credentials, async () => {
-        if (credentials?.username) record('signin', 'done', `Authenticated to ${host}`)
+      return await this.smb.withHost(address, credentials, async () => {
+        if (credentials?.username) record('signin', 'done', `Authenticated to ${address}`)
 
         // 2 --- resolve target --------------------------------------------
         let destDir
         let target
         try {
-          destDir = this.mapPath(host, destinationPath)
+          destDir = this.mapPath(address, destinationPath)
           target = path.join(destDir, fileName)
           // A freshly reimaged checkout should receive its first deploy
           // without manual preparation of the folder.
@@ -399,7 +492,7 @@ class StoreUpdateService {
                 }
               }),
               this.copyTimeoutMs,
-              `The copy to ${host} stalled and was aborted`
+              `The copy to ${address} stalled and was aborted`
             )
           } catch (error) {
             record('copy', 'failed', `Copy failed — ${error.message}`)
@@ -410,7 +503,7 @@ class StoreUpdateService {
           record('verify', 'running', `Comparing SHA-256 of source and destination…${suffix}`)
           let targetHash
           try {
-            targetHash = await withTimeout(sha256File(target), this.copyTimeoutMs, `Hashing the copy on ${host} stalled`)
+            targetHash = await withTimeout(sha256File(target), this.copyTimeoutMs, `Hashing the copy on ${address} stalled`)
           } catch (error) {
             record('verify', 'failed', `Could not hash the copied file — ${error.message}`)
             return finish(false, { error: 'Verification failed', backup: backupName })

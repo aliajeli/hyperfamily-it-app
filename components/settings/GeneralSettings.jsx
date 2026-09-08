@@ -29,7 +29,8 @@ export default function GeneralSettings({ settings, onSaved }) {
     ping_history_count: settings.ping_history_count || 30
   })
   const [store, setStore] = useState({
-    store_update_path: settings.store_update_path || 'C:\\Store Commerce\\Updates'
+    store_update_path: settings.store_update_path || 'C:\\Store Commerce\\Updates',
+    store_program_name: settings.store_program_name || 'Store Commerce'
   })
   // Target access: the account used to reach checkouts that sit in another,
   // untrusting domain. The password is write-only — the backend never sends it
@@ -104,15 +105,17 @@ export default function GeneralSettings({ settings, onSaved }) {
   const saveStore = async (event) => {
     event.preventDefault()
     const normalized = {
-      store_update_path: store.store_update_path.trim().replace(/[\\/]+$/, '')
+      store_update_path: store.store_update_path.trim().replace(/[\\/]+$/, ''),
+      store_program_name: store.store_program_name.trim()
     }
     if (!looksLikeDrivePath(normalized.store_update_path)) return toast.error('The deploy destination must look like C:\\Store Commerce\\Updates')
+    if (!normalized.store_program_name) return toast.error('Enter the product name as it appears in Programs and Features')
     setBusy('store')
     try {
       const next = await getApi().settings.save(normalized)
       setStore(normalized)
       finishSettingsSave(next)
-      toast.success('Deploy destination saved')
+      toast.success('Store update settings saved')
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -281,6 +284,11 @@ export default function GeneralSettings({ settings, onSaved }) {
         <CardContent className="p-3 pt-1.5">
           <form onSubmit={saveStore} className="space-y-2.5">
             <div className="grid gap-2.5 sm:grid-cols-2">
+              <label className="min-w-0">
+                <Label>Product name in Programs and Features</Label>
+                <Input className="font-mono text-[12px]" dir="ltr" value={store.store_program_name} onChange={(event) => setStore({ ...store, store_program_name: event.target.value })} placeholder="Store Commerce" />
+                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Matched as a case-insensitive substring, so “Store Commerce” also finds “Microsoft Store Commerce”. The magnifier on any checkout card lists what is really installed there.</p>
+              </label>
               <label className="min-w-0">
                 <Label>Deploy destination folder</Label>
                 <Input className="font-mono text-[12px]" dir="ltr" value={store.store_update_path} onChange={(event) => setStore({ ...store, store_update_path: event.target.value })} placeholder="C:\Store Commerce\Updates" />

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import CheckoutCard from '@/components/store-update/CheckoutCard'
 import DeployDialog from '@/components/store-update/DeployDialog'
+import InstalledProgramsDialog from '@/components/store-update/InstalledProgramsDialog'
 import { Button, Card, CardContent, EmptyState, Skeleton } from '@/components/ui'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { getApi } from '@/lib/api'
@@ -40,6 +41,8 @@ export default function StoreUpdatePage() {
   const [file, setFile] = useState(null) // { path, name }
   const [deploying, setDeploying] = useState(false)
   const [dialog, setDialog] = useState({ open: false, run: null })
+  // Diagnostic list of everything installed on one checkout.
+  const [inspect, setInspect] = useState({ open: false, checkout: null })
   // Live deploy narration: checkoutId → step list / progress
   const [steps, setSteps] = useState({})
   const [progress, setProgress] = useState({})
@@ -100,6 +103,19 @@ export default function StoreUpdatePage() {
     sweepStarted.current = true
     runSweep(allCheckouts)
   }, [settings, allCheckouts, runSweep])
+
+  /** Adopt the exact program name an operator picked from the diagnostic list. */
+  const adoptProgramName = useCallback(async (name) => {
+    try {
+      const next = await getApi().settings.save({ store_program_name: name })
+      setSettings(next)
+      setInspect({ open: false, checkout: null })
+      toast.success(`Now looking for “${name}” — rechecking every checkout`)
+      runSweep(allCheckouts)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }, [allCheckouts, runSweep])
 
   const recheck = useCallback(async (checkout) => {
     if (!settings) return
@@ -285,6 +301,7 @@ export default function StoreUpdatePage() {
                       version={versions[checkout.id] || { state: 'checking' }}
                       onRecheck={recheck}
                       onDeploy={deployOne}
+                      onInspect={(target) => setInspect({ open: true, checkout: target })}
                       anyDeployRunning={anyDeployRunning}
                     />
                   ))}
@@ -294,6 +311,13 @@ export default function StoreUpdatePage() {
           ))
         )}
       </div>
+
+      <InstalledProgramsDialog
+        open={inspect.open}
+        onOpenChange={(open) => setInspect((previous) => ({ ...previous, open }))}
+        checkout={inspect.checkout}
+        onAdopt={adoptProgramName}
+      />
 
       <DeployDialog
         open={dialog.open}

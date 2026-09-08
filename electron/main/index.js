@@ -135,6 +135,10 @@ else {
     const storeUpdateService = new StoreUpdateService(sendEvent, {
       getCredentials: () => {
         try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
+      },
+      // Read per call so changing it in Settings applies without a restart.
+      getProgramName: () => {
+        try { return database.getSettings().store_program_name || '' } catch { return '' }
       }
     })
     storeUpdateServiceRef = storeUpdateService

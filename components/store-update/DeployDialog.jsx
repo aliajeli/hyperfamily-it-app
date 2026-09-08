@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { CheckCircle2, ChevronRight, CircleDashed, CloudUpload, Loader2, XCircle } from 'lucide-react'
 import { Button, Dialog } from '@/components/ui'
-import { cn, formatBytes, formatDuration } from '@/lib/utils'
+import { cn, collapseSteps, formatBytes, formatDuration } from '@/lib/utils'
 
 const STEP_LABELS = {
   source: 'Selected file',
@@ -108,14 +108,15 @@ export default function DeployDialog({ open, onOpenChange, run, running, onClose
                     : state === 'failed' ? <XCircle size={15} className="text-nord-11" />
                     : <CircleDashed size={15} className="text-[rgb(var(--muted))]" />}
                   <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[rgb(var(--text))]">{checkout.name}</span>
-                  <span className="truncate font-mono text-[10px] text-[rgb(var(--muted))]">{checkout.hostname || checkout.ip}</span>
+                  {/* The IP is the address the deployment actually uses. */}
+                  <span className="truncate font-mono text-[10px] text-[rgb(var(--muted))]" title={[checkout.hostname, checkout.ip].filter(Boolean).join(' · ')}>{checkout.ip || checkout.hostname}</span>
                   {result && !result.ok && <span className="shrink-0 rounded-full bg-nord-11/15 px-2 py-0.5 text-[10px] font-bold text-nord-11" title={result.error}>{result.error || 'Failed'}</span>}
                   {result?.ok && <span className="shrink-0 rounded-full bg-nord-14/20 px-2 py-0.5 text-[10px] font-bold text-[#5c7a46]">{formatBytes(result.bytes)} · {formatDuration(result.durationMs)}</span>}
                 </header>
                 {steps.length > 0 && (
                   <div className="mt-2 space-y-1 border-t border-[rgb(var(--border)/.45)] pt-2">
-                    {steps.map((entry, index) => (
-                      <StepRow key={`${checkout.id}-${index}`} entry={entry} progress={run.progress[checkout.id]} />
+                    {collapseSteps(steps, Boolean(result)).map((entry) => (
+                      <StepRow key={`${checkout.id}-${entry.step}`} entry={entry} progress={run.progress[checkout.id]} />
                     ))}
                   </div>
                 )}
