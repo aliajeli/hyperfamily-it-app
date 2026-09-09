@@ -30,6 +30,8 @@ class AgentControl {
 
   async query(host) {
     normalizeHost(host)
+    const probe = await this.sc(host, ['query', SERVICE_NAME], [1060])
+    if (probe.code === 1060) return { exists: false, state: 'Missing' }
     // ServiceController uses SCM, not WMI, WinRM or Remote Registry. Its enum
     // names are invariant, unlike localized sc.exe table headings.
     const script = `
@@ -37,7 +39,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.ServiceProcess
 $service = New-Object System.ServiceProcess.ServiceController('${SERVICE_NAME}', ${psLiteral(host)})
 try {
-  @{ exists = $true; state = $service.Status.ToString(); startup = $service.StartType.ToString() } | ConvertTo-Json -Compress
+  @{ exists = $true; state = $service.Status.ToString() } | ConvertTo-Json -Compress
 } catch {
   $cause = $_.Exception
   while ($cause.InnerException) { $cause = $cause.InnerException }

@@ -189,3 +189,16 @@ test('service configuration uses fixed binary, automatic startup and least-privi
   assert.equal(command[command.indexOf('binPath=') + 1], '"C:\\Agent\\HyperFamilyStoreAgent.exe"')
   assert.ok(calls.some((row) => row.args[0] === 'failure'))
 })
+
+test('SCM error 1060 means missing without evaluating Windows PowerShell properties', async () => {
+  const control = new AgentControl({ sc: async () => ({ code: 1060 }), runPs: () => assert.fail('Missing service should not reach PowerShell') })
+  assert.deepEqual(await control.query('CO-01'), { exists: false, state: 'Missing' })
+})
+
+test('Windows PowerShell query does not assume .NET Core ServiceController.StartType', async () => {
+  const control = new AgentControl({
+    sc: async () => ({ code: 0 }),
+    runPs: async (script) => { assert.doesNotMatch(script, /\.StartType/); return '{"exists":true,"state":"Running"}' }
+  })
+  assert.equal((await control.query('CO-01')).state, 'Running')
+})
