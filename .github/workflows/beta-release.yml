@@ -1,0 +1,127 @@
+name: Beta Release
+
+# Every push to Beta builds the Windows installer and publishes it as a
+# GitHub *pre-release* tagged with the version in package.json.
+# Pre-releases are invisible to the in-app updater (it filters them out), so
+# stable users are never offered a beta build.
+on:
+  push:
+    branches: [Beta]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta-release
+  cancel-in-progress: false
+
+jobs:
+  beta:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12
+          cache: npm
+
+      - name: Read the version from package.json
+        id: meta
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          case "$version" in
+            *beta*|*alpha*|*rc*) ;;
+            *) echo "::error::package.json version '$version' is not a pre-release; refusing to publish it from Beta"; exit 1 ;;
+          esac
+
+      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
+      - run: npm run build:agent
+      - name: Test the real Windows Agent service
+        run: npm run test:agent
+        env:
+          HF_AGENT_WINDOWS_TEST: '1'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:database
+      - run: npm run test:ssh
+      - run: npm run test:vpn
+      - run: npm run test:template
+      - run: npm run build
+
+      # electron-builder creates the release lazily, once per uploaded asset,
+      # which can race with itself and split assets across two releases on one
+      # tag. Reserving the release (and the tag) up front avoids that.
+      - name: Reserve a single pre-release for this tag
+        shell: bash
+        run: |
+          tag='${{ steps.meta.outputs.tag }}'
+          ids=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$tag\") | .id")
+          for id in $ids; do
+            echo "removing pre-existing release $id for $tag"
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}"
+          done
+          gh release create "$tag" \
+            --title "$tag" \
+            --notes "HyperFamily Branch Monitor ${{ steps.meta.outputs.version }} (beta build from ${GITHUB_SHA})" \
+            --target "${GITHUB_SHA}" \
+            --prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The recovery tool is embedded in the installer via extraFiles, so it
+      # must exist before the main build starts.
+      - name: Build the credential recovery tool
+        run: |
+          npm --prefix electron/recovery install
+          npx electron-builder --config electron-builder.recovery.json --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Build and publish the beta installer
+        run: npx electron-builder --win nsis --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_PRE_RELEASE: "true"
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Attach the standalone agent
+        shell: bash
+        run: gh release upload '${{ steps.meta.outputs.tag }}' "agent/build/HyperFamilyStoreAgent.exe" "agent/build/HyperFamilyStoreAgent.exe.sha256" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach the standalone recovery tool
+        shell: bash
+        run: gh release upload '${{ steps.meta.outputs.tag }}' "recovery-dist/HyperFamily-Credential-Recovery.exe" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # electron-builder publishes as a draft by default; force it visible but
+      # keep it flagged as a pre-release and never mark it "latest".
+      - name: Publish as a pre-release
+        shell: bash
+        run: gh release edit '${{ steps.meta.outputs.tag }}' --draft=false --prerelease --latest=false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify exactly one release and that the installer is attached
+        shell: bash
+        run: |
+          tag='${{ steps.meta.outputs.tag }}'
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq "[.[] | select(.tag_name == \"$tag\")] | length")
+          echo "releases on $tag: $count"
+          [ "$count" = "1" ] || { echo "::error::$count releases share this tag"; exit 1; }
+          assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
+          echo "$assets"
+          echo "$assets" | grep -q '^HyperFamilyStoreAgent\.exe$' || { echo "::error::standalone agent missing"; exit 1; }
+          echo "$assets" | grep -q '\.exe$' || { echo "::error::no .exe asset on the release"; exit 1; }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

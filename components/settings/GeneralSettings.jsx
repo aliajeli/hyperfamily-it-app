@@ -185,6 +185,7 @@ export default function GeneralSettings({ settings, onSaved }) {
           </form>
         </CardContent>
       </Card>
+
     </div>
   )
 }

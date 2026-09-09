@@ -16,6 +16,9 @@ const { RemoteService } = require('../services/remote.service')
 const { VPNService } = require('../services/vpn.service')
 const { TerminalService } = require('../services/terminal.service')
 const { UpdateService } = require('../services/update.service')
+const { StoreUpdateService } = require('../services/store-update.service')
+const { SmbSessionManager } = require('../services/smb.service')
+let storeUpdateServiceRef = null
 const { registerIpcHandlers } = require('./ipc-handlers')
 const { registerDeviceWebviewHandlers } = require('./webview-window')
 
@@ -69,6 +72,26 @@ function createWindow() {
   })
   Menu.setApplicationMenu(null)
   mainWindow.once('ready-to-show', () => mainWindow.show())
+
+  // Uniform viewport scaling: the renderer is designed around a 1366×768
+  // layout viewport. Zooming the page so the real window maps onto that
+  // viewport makes the interface look exactly the same on every monitor —
+  // higher resolutions render the identical layout, simply larger, and
+  // smaller ones simply smaller. (getContentSize is DPI-aware, so Windows
+  // display scaling is compensated automatically.) The browser preview
+  // mirrors this with a CSS zoom in AppProviders.
+  const applyViewportScale = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    const [width, height] = mainWindow.getContentSize()
+    const scale = Math.min(width / 1366, height / 768)
+    const zoom = Math.min(2.5, Math.max(0.6, Math.round(scale * 100) / 100))
+    if (Math.abs(mainWindow.webContents.getZoomFactor() - zoom) > 0.015) mainWindow.webContents.setZoomFactor(zoom)
+  }
+  mainWindow.on('resize', applyViewportScale)
+  mainWindow.on('maximize', applyViewportScale)
+  mainWindow.on('unmaximize', applyViewportScale)
+  mainWindow.webContents.on('did-finish-load', applyViewportScale)
+  applyViewportScale()
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     try { const parsed = new URL(url); if (['https:', 'mailto:'].includes(parsed.protocol)) shell.openExternal(url) } catch {}
     return { action: 'deny' }
@@ -107,7 +130,22 @@ else {
     vpnService.startHealthMonitor()
     const updateService = new UpdateService(sendEvent)
     terminalService = new TerminalService(database, sendEvent)
-    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow: () => mainWindow })
+    // Credentials are read fresh on every call so a change in Settings takes
+    // effect immediately, without restarting the app.
+    const storeUpdateService = new StoreUpdateService(sendEvent, {
+      agentSourcePath: app.isPackaged
+        ? require('path').join(process.resourcesPath, 'agent', 'HyperFamilyStoreAgent.exe')
+        : require('path').join(__dirname, '../../agent/build/HyperFamilyStoreAgent.exe'),
+      getCredentials: () => {
+        try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
+      },
+      // Read per call so changing it in Settings applies without a restart.
+      getProgramName: () => {
+        try { return database.getSettings().store_program_name || '' } catch { return '' }
+      }
+    })
+    storeUpdateServiceRef = storeUpdateService
+    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, getWindow: () => mainWindow })
     registerDeviceWebviewHandlers(ipcMain)
     createWindow()
     pingMonitor = new PingMonitor(database, sendEvent)
@@ -118,4 +156,4 @@ else {
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('before-quit', () => { pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })
+app.on('before-quit', () => { pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); storeUpdateServiceRef?.smb?.releaseAll?.().catch(() => {}); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })

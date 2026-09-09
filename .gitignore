@@ -16,3 +16,9 @@ coverage/
 .DS_Store
 Thumbs.db
 recovery-dist/
+
+agent/bin/
+agent/obj/
+agent/build/
+
+test-artifacts/
