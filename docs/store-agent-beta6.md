@@ -1,5 +1,7 @@
 # Beta 6 — Store inventory agent
 
+> Historical .NET implementation. For the current native build and upgrade instructions, see [beta.8](store-agent-beta8.md).
+
 ## Operator workflow
 
 1. Install **3.0.1-beta.6** of the desktop app. Its installer bundles `resources/agent/HyperFamilyStoreAgent.exe`; no separate agent download is needed for Import.

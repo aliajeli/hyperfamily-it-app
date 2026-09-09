@@ -272,3 +272,7 @@ The Update Store App page now requires the bundled Windows Service agent. Use **
 ### Slow branch links (beta.7)
 
 Agent Import now uses progress-aware WAN timeouts rather than beta.6's fixed 60-second hash / 120-second copy cutoffs. Live operation progress and phase-specific errors help distinguish a slow healthy link from stalled I/O. See [beta.7 troubleshooting and limits](docs/store-agent-beta7.md).
+
+### Native inventory Agent (beta.8 — test release)
+
+The agent is now a small standalone C++/Win32 EXE, without a bundled .NET runtime or a VC++ Redistributable requirement. Service name, protocol, Import/SHA-256 behavior and beta.7 WAN timeout handling are unchanged. Release builds enforce a 2 MiB size ceiling and inbox-Windows-DLL-only dependencies. See [beta.8 upgrade/testing and native build instructions](docs/store-agent-beta8.md).
