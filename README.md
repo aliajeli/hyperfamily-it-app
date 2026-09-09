@@ -29,18 +29,21 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 | `/devices` | Compact branch-first workflow, type-specific forms, managed Switch ports, and complete Excel import |
 | `/inventory` | Search, filter, Warehouse Code, Template download, atomic import, and Excel export |
 | `/store-update` | Update Store App — per-checkout Store Commerce versions and verified file deployment to all checkouts |
-| `/settings` | General, Dashboard display, credentials, device tools, VPN, and theme settings |
+| `/settings` | General, Store App deployment and target access, Dashboard display, credentials, device tools, VPN, and theme settings |
 | `/about` | Build information, updates, stack, and support links |
 
 ## Technology
 
-- Next.js 15 App Router + React 19
-- Electron 41 (compatible with the requested Electron 33+ architecture)
-- Tailwind CSS 3.4 + shadcn-style Radix primitives
-- Framer Motion 11, Recharts 3, Zustand 4
+- Next.js 15 App Router + React 19; Electron 41 with its bundled Node.js runtime
+- Tailwind CSS + custom accessible Radix UI primitives
+- Framer Motion, Recharts, Zustand, React Hook Form + Zod, Lucide, and Sonner
 - `better-sqlite3-multiple-ciphers` (Better-SQLite3 API + SQLCipher)
-- bcryptjs, Windows DPAPI (`safeStorage`), optional keytar
-- ExcelJS and electron-updater
+- bcryptjs password hashing; Windows DPAPI (`safeStorage`) and AES-256-GCM secret-storage fallback
+- ssh2 terminal sessions, ExcelJS workbooks, and electron-updater delivery
+- C++17 / Win32 native Agent; Windows SMB admin shares and Service Control Manager; SHA-256 file verification
+- Build tooling: electron-builder / NSIS installer; CMake / MSVC native Agent build
+
+About credits describe technologies actually used, not every installed dependency. See [beta.9 UI changes, stack audit, and acceptance tests](docs/settings-about-beta9.md).
 
 ## Requirements
 

@@ -80,7 +80,7 @@ async function listRemotePrograms(host, options = {}) {
     // a stopped service is recoverable, denied credentials are not.
     const fail = (message, code) => { const error = new Error(message); error.code = code; throw error }
     if (runs.some((run) => run.timedOut)) fail(`${clean || 'This machine'} did not answer the registry query in time`, 'REGISTRY_TIMEOUT')
-    if (/access is denied/i.test(detail)) fail(`Access denied reading the registry on ${clean} — check Settings → Target access`, 'REGISTRY_DENIED')
+    if (/access is denied/i.test(detail)) fail(`Access denied reading the registry on ${clean} — check Settings → Store App → Target access`, 'REGISTRY_DENIED')
     if (/unable to find|network path|RPC server|cannot find the file/i.test(detail)) {
       fail(`The Remote Registry service is not answering on ${clean}`, 'REGISTRY_UNAVAILABLE')
     }

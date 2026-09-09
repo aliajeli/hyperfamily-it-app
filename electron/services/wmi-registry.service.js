@@ -60,7 +60,7 @@ function runWmiQuery(request, timeoutMs, exec = execFile) {
       if (error) {
         const failure = new Error(error.killed
           ? 'WMI registry query timed out — check the target WMI/DCOM firewall rules'
-          : 'WMI registry read failed — check Settings → Target access, WMI permissions and WMI/DCOM firewall rules')
+          : 'WMI registry read failed — check Settings → Store App → Target access, WMI permissions and WMI/DCOM firewall rules')
         failure.code = error.killed ? 'WMI_TIMEOUT' : 'WMI_UNAVAILABLE'
         reject(failure)
       } else resolve(String(stdout || ''))

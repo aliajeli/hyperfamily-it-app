@@ -20,3 +20,5 @@ recovery-dist/
 agent/bin/
 agent/obj/
 agent/build/
+
+test-artifacts/

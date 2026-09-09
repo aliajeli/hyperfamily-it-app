@@ -1,6 +1,6 @@
 {
   "name": "hyperfamily-branch-monitor",
-  "version": "3.0.1-beta.8",
+  "version": "3.0.1-beta.9",
   "private": true,
   "description": "Secure Windows desktop monitoring and inventory application for HyperFamily retail branches.",
   "author": "Ali Ajeli Lahiji",
@@ -17,7 +17,7 @@
     "build:electron": "npm run build:agent && npm run build && electron-builder --config electron-builder.json",
     "start": "electron .",
     "lint": "eslint .",
-    "test": "node --test tests/version.test.js tests/software-service.test.js tests/store-update-service.test.js tests/registry-service.test.js tests/wmi-registry-service.test.js tests/store-agent-service.test.js tests/agent-transfer-service.test.js tests/native-agent-binary.test.js",
+    "test": "node --test tests/version.test.js tests/software-service.test.js tests/store-update-service.test.js tests/registry-service.test.js tests/wmi-registry-service.test.js tests/store-agent-service.test.js tests/agent-transfer-service.test.js tests/native-agent-binary.test.js tests/about-metadata.test.js",
     "test:database": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/database.electron-test.js",
     "test:ssh": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/ssh-kex.electron-test.js",
     "test:vpn": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/vpn-connect.electron-test.js",
