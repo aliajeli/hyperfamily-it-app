@@ -45,7 +45,7 @@ class SmbSessionManager {
     this.sessions = new Map()
   }
 
-  /** Credentials as stored in Settings → Target access. */
+  /** Credentials as stored in Settings → Store App → Target access. */
   static credentialsFrom(settings = {}) {
     return {
       domain: String(settings.target_domain || '').trim(),
@@ -70,7 +70,7 @@ class SmbSessionManager {
       const message = (result.stderr || result.stdout || '').replace(/\s+/g, ' ').trim()
       if (result.timedOut) throw new Error(`Timed out opening an SMB session to ${host}`)
       if (/1326|logon failure|user name or password/i.test(message)) {
-        throw new Error(`${host} rejected the credentials for ${user} — check Settings → Target access`)
+        throw new Error(`${host} rejected the credentials for ${user} — check Settings → Store App → Target access`)
       }
       if (/1219/.test(message)) throw new Error(`${host} already has a session with different credentials; sign out of it and retry`)
       throw new Error(`Could not open an SMB session to ${host} — ${message || 'net use failed'}`)

@@ -8,7 +8,7 @@ const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync
 
 /**
  * The product exactly as Control Panel lists it. Deliberately hard-coded: the
- * operator configures WHO to connect as (Settings → Target access), not what
+ * operator configures WHO to connect as (Settings → Store App → Target access), not what
  * the product is called.
  */
 const STORE_COMMERCE_PROGRAM = 'Store Commerce'

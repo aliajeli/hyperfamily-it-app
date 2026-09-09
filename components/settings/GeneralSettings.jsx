@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity, KeyRound, Network, ShieldCheck, Store, UserRoundCog } from 'lucide-react'
+import { Activity, KeyRound, ShieldCheck, UserRoundCog } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label } from '@/components/ui'
 import { getApi } from '@/lib/api'
@@ -28,20 +28,6 @@ export default function GeneralSettings({ settings, onSaved }) {
     ping_interval: settings.ping_interval || 3,
     ping_history_count: settings.ping_history_count || 30
   })
-  const [store, setStore] = useState({
-    store_update_path: settings.store_update_path || 'C:\\Store Commerce\\Updates',
-    store_program_name: settings.store_program_name || 'Store Commerce'
-  })
-  // Target access: the account used to reach checkouts that sit in another,
-  // untrusting domain. The password is write-only — the backend never sends it
-  // back, so an empty box means "keep the stored one".
-  const [target, setTarget] = useState({
-    target_domain: settings.target_domain || '',
-    target_admin_user: settings.target_admin_user || '',
-    target_admin_password: '',
-    testHost: ''
-  })
-  const [passwordStored, setPasswordStored] = useState(Boolean(settings.target_admin_password))
   const [busy, setBusy] = useState('')
 
   const finishSettingsSave = (next) => {
@@ -93,75 +79,6 @@ export default function GeneralSettings({ settings, onSaved }) {
       setPing(normalized)
       finishSettingsSave(next)
       toast.success('Ping settings saved')
-    } catch (error) {
-      toast.error(error.message)
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const looksLikeDrivePath = (value) => /^[a-zA-Z]:[\\/].+/.test(String(value || '').trim())
-
-  const saveStore = async (event) => {
-    event.preventDefault()
-    const normalized = {
-      store_update_path: store.store_update_path.trim().replace(/[\\/]+$/, ''),
-      store_program_name: store.store_program_name.trim()
-    }
-    if (!looksLikeDrivePath(normalized.store_update_path)) return toast.error('The deploy destination must look like C:\\Store Commerce\\Updates')
-    if (!normalized.store_program_name) return toast.error('Enter the product name as it appears in Programs and Features')
-    setBusy('store')
-    try {
-      const next = await getApi().settings.save(normalized)
-      setStore(normalized)
-      finishSettingsSave(next)
-      toast.success('Store update settings saved')
-    } catch (error) {
-      toast.error(error.message)
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const saveTarget = async (event) => {
-    event.preventDefault()
-    const patch = {
-      target_domain: target.target_domain.trim().replace(/\\+$/, ''),
-      target_admin_user: target.target_admin_user.trim()
-    }
-    if (patch.target_admin_user && /[\\/@]/.test(patch.target_admin_user) === false && !patch.target_domain) {
-      return toast.error('Enter the domain of the target machines (for example okcs), or type the user as okcs\\administrator')
-    }
-    // An untouched password box must not wipe the stored secret.
-    if (target.target_admin_password) patch.target_admin_password = target.target_admin_password
-    else if (!passwordStored && patch.target_admin_user) return toast.error('Enter the password for the target account')
-    setBusy('target')
-    try {
-      const next = await getApi().settings.save(patch)
-      if (patch.target_admin_password) setPasswordStored(true)
-      setTarget({ ...target, ...patch, target_admin_password: '' })
-      finishSettingsSave(next)
-      toast.success('Target access saved')
-    } catch (error) {
-      toast.error(error.message)
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const testTarget = async () => {
-    const host = target.testHost.trim()
-    if (!host) return toast.error('Enter the hostname or IP of one checkout to test against')
-    setBusy('target-test')
-    try {
-      const result = await getApi().storeUpdate.testAccess({
-        host,
-        domain: target.target_domain.trim(),
-        username: target.target_admin_user.trim(),
-        // Test what is typed if the operator changed it, otherwise the stored one.
-        password: target.target_admin_password || undefined
-      })
-      toast.success(`${result.host} accepted ${result.user} — admin share reachable in ${result.durationMs} ms`)
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -269,81 +186,6 @@ export default function GeneralSettings({ settings, onSaved }) {
         </CardContent>
       </Card>
 
-      <Card className="xl:col-span-2">
-        <CardHeader className="p-3 pb-1.5">
-          <div className="flex items-center gap-2.5">
-            <div className="rounded-lg bg-nord-14/15 p-2 text-nord-14"><Store size={16} /></div>
-            <div>
-              <CardTitle className="text-sm">Update Store App — deploy destination</CardTitle>
-              <CardDescription className="mt-0.5 text-[11px] leading-snug">
-                Where pushed update files land on each checkout, reached over its admin share. The Store Commerce version itself is read from Programs and Features on the checkout, so no executable path is needed.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3 pt-1.5">
-          <form onSubmit={saveStore} className="space-y-2.5">
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              <label className="min-w-0">
-                <Label>Product name in Programs and Features</Label>
-                <Input className="font-mono text-[12px]" dir="ltr" value={store.store_program_name} onChange={(event) => setStore({ ...store, store_program_name: event.target.value })} placeholder="Store Commerce" />
-                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Matched as a case-insensitive substring, so “Store Commerce” also finds “Microsoft Store Commerce”. The magnifier on any checkout card lists what is really installed there.</p>
-              </label>
-              <label className="min-w-0">
-                <Label>Deploy destination folder</Label>
-                <Input className="font-mono text-[12px]" dir="ltr" value={store.store_update_path} onChange={(event) => setStore({ ...store, store_update_path: event.target.value })} placeholder="C:\Store Commerce\Updates" />
-                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Pushed files land here; the previous file is kept as 14050617-name.</p>
-              </label>
-            </div>
-            <Button disabled={busy === 'store'}>{busy === 'store' ? 'Saving…' : 'Save deploy destination'}</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card className="xl:col-span-2">
-        <CardHeader className="p-3 pb-1.5">
-          <div className="flex items-center gap-2.5">
-            <div className="rounded-lg bg-nord-13/15 p-2 text-nord-13"><Network size={16} /></div>
-            <div>
-              <CardTitle className="text-sm">Target access — administrator account on the checkouts</CardTitle>
-              <CardDescription className="mt-0.5 text-[11px] leading-snug">
-                This workstation and the checkouts are in different domains, so Windows will not pass your own sign-in through. Enter an account that is a local administrator on the target machines; it is used to open the admin share before every version check and file copy. The password is encrypted with DPAPI and never leaves this machine.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3 pt-1.5">
-          <form onSubmit={saveTarget} className="space-y-2.5">
-            <div className="grid gap-2.5 sm:grid-cols-3">
-              <label className="min-w-0">
-                <Label>Target domain</Label>
-                <Input dir="ltr" value={target.target_domain} onChange={(event) => setTarget({ ...target, target_domain: event.target.value })} placeholder="okcs" />
-                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">The domain of the checkouts, not the one this PC is joined to.</p>
-              </label>
-              <label className="min-w-0">
-                <Label>Username</Label>
-                <Input dir="ltr" autoComplete="off" value={target.target_admin_user} onChange={(event) => setTarget({ ...target, target_admin_user: event.target.value })} placeholder="administrator" />
-                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Signs in as okcs\username.</p>
-              </label>
-              <label className="min-w-0">
-                <Label>Password</Label>
-                <Input type="password" dir="ltr" autoComplete="new-password" value={target.target_admin_password} onChange={(event) => setTarget({ ...target, target_admin_password: event.target.value })} placeholder={passwordStored ? 'Stored — leave empty to keep it' : 'Password'} />
-                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">{passwordStored ? 'A password is stored; typing here replaces it.' : 'Required before the first sweep.'}</p>
-              </label>
-            </div>
-            <div className="flex flex-wrap items-end gap-2.5">
-              <label className="min-w-0 flex-1 sm:max-w-[260px]">
-                <Label>Test against one checkout</Label>
-                <Input dir="ltr" value={target.testHost} onChange={(event) => setTarget({ ...target, testHost: event.target.value })} placeholder="CO-01 or 10.10.1.5" />
-              </label>
-              <Button type="button" variant="secondary" disabled={busy === 'target-test'} onClick={testTarget}>
-                {busy === 'target-test' ? 'Testing…' : 'Test access'}
-              </Button>
-              <Button disabled={busy === 'target'}>{busy === 'target' ? 'Saving…' : 'Save target access'}</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
     </div>
   )
 }
