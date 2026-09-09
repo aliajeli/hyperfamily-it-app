@@ -268,3 +268,7 @@ MIT — see [LICENSE](LICENSE).
 ### Store inventory Agent (beta.6)
 
 The Update Store App page now requires the bundled Windows Service agent. Use **Import Agent** per checkout or **Import Agent to all**; SHA-256 gates copying and the service starts automatically before Login. See [agent setup, security, recovery and build instructions](docs/store-agent-beta6.md).
+
+### Slow branch links (beta.7)
+
+Agent Import now uses progress-aware WAN timeouts rather than beta.6's fixed 60-second hash / 120-second copy cutoffs. Live operation progress and phase-specific errors help distinguish a slow healthy link from stalled I/O. See [beta.7 troubleshooting and limits](docs/store-agent-beta7.md).

@@ -9,26 +9,19 @@ const { withTimeout } = require('./async-fs')
 const { checkReachable } = require('./reachability.service')
 const { SmbSessionManager } = require('./smb.service')
 const { AgentControl, AGENT_EXE, normalizeHost } = require('./agent-control.service')
+const { hashFile, copyFile, formatProgress } = require('./agent-transfer.service')
 
 const HEARTBEAT_MAX_AGE_MS = 60000
 const MAX_INVENTORY_BYTES = 8 * 1024 * 1024
 
-async function abortableStream(task, timeoutMs) {
+async function abortableStream(task, timeoutMs, label = 'Agent heartbeat read') {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try { return await task(controller.signal) } finally { clearTimeout(timer) }
-}
-
-async function hashFile(file) {
-  return abortableStream(async (signal) => {
-    const hash = crypto.createHash('sha256')
-    await pipeline(fs.createReadStream(file), new Writable({ write(chunk, _encoding, done) { hash.update(chunk); done() } }), { signal })
-    return hash.digest('hex')
-  }, 60000)
-}
-
-async function copyFile(source, destination) {
-  await abortableStream((signal) => pipeline(fs.createReadStream(source), fs.createWriteStream(destination, { flags: 'wx' }), { signal }), 120000)
+  try { return await task(controller.signal) }
+  catch (error) {
+    if (controller.signal.aborted) throw new Error(`${label}: timed out after ${timeoutMs / 1000} seconds`)
+    throw error
+  } finally { clearTimeout(timer) }
 }
 
 async function optionalStat(file) {
@@ -63,6 +56,7 @@ class StoreAgentService {
     this.reach = options.reach || checkReachable
     this.hash = options.hash || hashFile
     this.copy = options.copy || copyFile
+    this.transferOptions = options.transferOptions || {}
     this.now = options.now || Date.now
     this.send = options.send || (() => {})
     this.locks = new Map()
@@ -89,20 +83,24 @@ class StoreAgentService {
           chunks.push(chunk); done()
         } }), { signal })
         return validateSnapshot(Buffer.concat(chunks).toString('utf8'), this.now())
-      }, 12000)
+      }, 12000, `Agent heartbeat read on ${host}`)
       return { running: true, ...data }
     } catch (error) {
       return { running: false, reason: error.message }
     }
   }
 
-  async waitForHeartbeat(host, expectedHash) {
+  async waitForHeartbeat(host, expectedHash, verifyOptions) {
     const end = Date.now() + this.heartbeatWaitMs
     do {
       const result = await this.inspect(host)
       if (result.running) {
-        if (await this.hash(this.mapPath(host, AGENT_EXE)) !== expectedHash) throw new Error('Agent SHA-256 changed after installation')
-        return result
+        if (await this.hash(this.mapPath(host, AGENT_EXE), verifyOptions) !== expectedHash) throw new Error('Agent SHA-256 changed after installation')
+        // A WAN hash read can take minutes. Re-check liveness AFTER it rather
+        // than returning the heartbeat sampled before the long read.
+        const latest = await this.inspect(host)
+        if (!latest.running) throw new Error(`Agent stopped responding during final SHA-256 verification on ${host}: ${latest.reason || 'no fresh heartbeat'}`)
+        return latest
       }
       await delay(500)
     } while (Date.now() < end)
@@ -112,9 +110,11 @@ class StoreAgentService {
   async importOne(checkout) {
     const startedAt = Date.now()
     const steps = []
-    const record = (step, detail) => {
-      const entry = { step, detail, at: new Date().toISOString() }
-      steps.push(entry)
+    const record = (step, detail, progress) => {
+      const entry = { step, detail, at: new Date().toISOString(), ...(progress ? { progress } : {}) }
+      // Replace live samples rather than keeping hours of progress log lines.
+      if (progress && steps.at(-1)?.progress && steps.at(-1).step === step) steps[steps.length - 1] = entry
+      else steps.push(entry)
       this.send('store-update:agent-step', { checkoutId: checkout.id, name: checkout.name, ...entry })
     }
     try {
@@ -134,28 +134,36 @@ class StoreAgentService {
       return { checkoutId: checkout.id, name: checkout.name, host, ok: true, ...result, steps, durationMs: Date.now() - startedAt }
     } catch (error) {
       record('failed', error.message)
-      return { checkoutId: checkout.id, name: checkout.name, ok: false, error: error.message, steps, durationMs: Date.now() - startedAt }
+      return { checkoutId: checkout.id, name: checkout.name, ok: false, error: error.message, code: error.code, phase: error.phase, steps, durationMs: Date.now() - startedAt }
     }
   }
 
   async install(host, record) {
+    record('source-check', `Checking the bundled agent before import to ${host}`)
     const source = await optionalStat(this.sourcePath)
-    if (!source?.isFile()) throw new Error('The bundled agent EXE is missing. Install the full beta.6 desktop package or run npm run build:agent')
-    const expectedHash = await this.hash(this.sourcePath)
+    if (!source?.isFile()) throw new Error('The bundled agent EXE is missing. Install the full desktop package or run npm run build:agent')
+    const transfer = (step, label, totalBytes) => ({
+      ...this.transferOptions, label: `${label} on ${host}`, totalBytes,
+      onProgress: (progress) => record(step, `${label}: ${formatProgress(progress)}`, progress)
+    })
+    const expectedHash = await this.hash(this.sourcePath, transfer('source-hash', 'Hashing bundled agent', source.size))
     record('source', `Bundled agent SHA-256: ${expectedHash}`)
     const target = this.mapPath(host, AGENT_EXE)
     const directory = this.mapPath(host)
     const dataDirectory = this.mapPath(host, 'data')
+    record('target', `Checking agent paths and permissions on ${host}`)
     for (const file of [directory, dataDirectory, target]) {
       const stat = await optionalStat(file)
       if (stat?.isSymbolicLink()) throw new Error('Agent files/directories must not be symlinks or junctions')
     }
     await fsp.mkdir(dataDirectory, { recursive: true })
+    record('permissions', `Preparing protected agent directories on ${host}`)
     await this.control.secureDirectories(host)
     // An exclusive on-target lock also protects imports from OTHER workstations.
     // Never auto-delete an existing lock: an administrator can investigate a
     // crashed importer rather than risk two simultaneous binary replacements.
     const lockPath = this.mapPath(host, 'import.lock')
+    record('lock', `Acquiring the agent import lock on ${host}`)
     let lock
     try { lock = await fsp.open(lockPath, 'wx') }
     catch (error) { if (error.code === 'EEXIST') throw new Error('Agent import is locked on the target. Wait for the other importer; if it crashed, have IT remove C:\\Agent\\import.lock'); throw error }
@@ -169,20 +177,25 @@ class StoreAgentService {
     let complete = false
     let previous = { exists: false, state: 'Missing' }
     try {
+      record('service-check', `Checking the existing Windows agent service on ${host}`)
       previous = await this.control.query(host)
       if (previous.exists) await this.control.assertOwnedService(host)
       const targetStat = await optionalStat(target)
-      const installedHash = targetStat ? await this.hash(target) : null
+      if (targetStat && !targetStat.isFile()) throw new Error('The agent executable path is not a regular file')
+      if (targetStat) record('compare-hash', `Reading installed agent SHA-256 over SMB from ${host} (${targetStat.size} bytes); slow but progressing reads are allowed`)
+      const installedHash = targetStat ? await this.hash(target, transfer('compare-hash', 'Reading installed agent SHA-256', targetStat.size)) : null
       const copied = installedHash !== expectedHash
       record('compare', installedHash ? (copied ? 'SHA-256 mismatch — replacement required' : 'SHA-256 matches — copy skipped') : 'Agent EXE is missing — copy required')
       if (copied) {
-        await this.copy(this.sourcePath, stage)
-        if (await this.hash(stage) !== expectedHash) throw new Error('Copied agent failed SHA-256 verification; the existing service was not changed')
+        record('copy', `Copying the staged agent to ${host}`)
+        await this.copy(this.sourcePath, stage, transfer('copy', 'Copying staged agent', source.size))
+        record('verify-copy', `Reading back the staged copy from ${host} to verify SHA-256`)
+        if (await this.hash(stage, transfer('verify-copy', 'Verifying staged agent SHA-256', source.size)) !== expectedHash) throw new Error('Copied agent failed SHA-256 verification; the existing service was not changed')
         record('copy', 'Staged agent copied and SHA-256 verified')
       }
       // Stop even on a matching binary to apply the least-privilege account and
       // automatic startup consistently, without copying the EXE again.
-      if (previous.exists) { serviceTouched = true; await this.control.stop(host) }
+      if (previous.exists) { record('stop', `Stopping the verified agent service on ${host}`); serviceTouched = true; await this.control.stop(host) }
       // Remove old data so a successful restart cannot pass on an old heartbeat.
       await fsp.unlink(this.mapPath(host, 'data/inventory.json')).catch((error) => { if (error.code !== 'ENOENT') throw error })
       if (copied) {
@@ -193,10 +206,12 @@ class StoreAgentService {
       serviceTouched = true
       // Mark before create: configuration can fail AFTER create succeeded.
       createdService = !previous.exists
+      record('configure', `Configuring the automatic agent service on ${host}`)
       await this.control.configure(host, previous.exists)
       record('startup', 'Windows Service configured: Automatic startup, LocalService account, failure recovery')
       await this.control.start(host)
-      const heartbeat = await this.waitForHeartbeat(host, expectedHash)
+      record('heartbeat', `Waiting for a fresh agent heartbeat from ${host}; final SHA-256 verification follows`)
+      const heartbeat = await this.waitForHeartbeat(host, expectedHash, transfer('verify-running', 'Verifying running agent SHA-256', source.size))
       record('running', 'Service is Running and a fresh agent heartbeat was verified')
       complete = true
       if (backedUp) await fsp.unlink(backup).catch(() => {})

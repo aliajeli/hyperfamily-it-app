@@ -62,7 +62,12 @@ export default function StoreUpdatePage() {
     const api = getApi()
     const unsubs = [
       api.storeUpdate.onAgentStep((entry) => {
-        setAgentRun((previous) => ({ ...previous, steps: { ...previous.steps, [entry.checkoutId]: [...(previous.steps[entry.checkoutId] || []), entry] } }))
+        setAgentRun((previous) => {
+          const entries = previous.steps[entry.checkoutId] || []
+          const next = entry.progress && entries.at(-1)?.progress && entries.at(-1).step === entry.step
+            ? [...entries.slice(0, -1), entry] : [...entries, entry]
+          return { ...previous, steps: { ...previous.steps, [entry.checkoutId]: next } }
+        })
       }),
       api.storeUpdate.onVersion((result) => {
         setVersions((previous) => ({ ...previous, [result.checkoutId]: result }))

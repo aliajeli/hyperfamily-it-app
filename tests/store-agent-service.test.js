@@ -214,3 +214,59 @@ test('agent ACL setup uses framework APIs without PSModulePath-dependent Set-Acl
   } })
   await control.secureDirectories('CO-01')
 })
+
+for (const phase of ['compare-hash', 'verify-copy', 'verify-running']) {
+  test(`WAN regression: ${phase} stall is identified and preserves/restores the old agent`, async (t) => {
+    const { Readable } = require('stream')
+    const events = []
+    const f = fixture(t, { send: (_channel, entry) => events.push(entry) })
+    fs.mkdirSync(f.target('CO-01'), { recursive: true })
+    fs.writeFileSync(f.target('CO-01', AGENT_EXE), 'old-agent')
+    f.setState('Running')
+    const labels = {
+      'compare-hash': 'Reading installed agent SHA-256',
+      'verify-copy': 'Verifying staged agent SHA-256',
+      'verify-running': 'Verifying running agent SHA-256'
+    }
+    f.service.hash = (file, options = {}) => hashFile(file, options.label?.startsWith(labels[phase]) ? {
+      ...options, idleTimeoutMs: 40, maxDurationMs: 1000,
+      createReadStream: () => new Readable({ read() {} })
+    } : options)
+    const result = await f.service.importOne(checkout)
+    assert.equal(result.ok, false)
+    assert.equal(result.code, 'AGENT_TRANSFER_IDLE_TIMEOUT')
+    assert.match(result.error, /CO-01/)
+    assert.ok(result.error.includes(labels[phase]))
+    assert.ok(events.some((entry) => entry.step === phase))
+    assert.equal(fs.readFileSync(f.target('CO-01', AGENT_EXE), 'utf8'), 'old-agent')
+    assert.equal(fs.existsSync(f.target('CO-01', 'import.lock')), false)
+    assert.ok(!fs.readdirSync(f.target('CO-01')).some((name) => name.endsWith('.new')))
+    if (phase !== 'verify-running') assert.deepEqual(f.calls, [], 'Comparison/staging must not stop the previous service')
+    else assert.ok(result.steps.some((entry) => entry.step === 'rollback'))
+  })
+}
+
+test('long final verification checks a fresh heartbeat again before declaring success', async (t) => {
+  const f = fixture(t)
+  const hash = f.service.hash
+  f.service.hash = async (file, options) => {
+    const digest = await hash(file, options)
+    if (options?.label.startsWith('Verifying running agent')) f.setState('Stopped')
+    return digest
+  }
+  const result = await f.service.importOne(checkout)
+  assert.equal(result.ok, false)
+  assert.match(result.error, /stopped responding during final SHA-256/)
+})
+
+test('progress samples are coalesced in the retained import log', async (t) => {
+  const f = fixture(t)
+  const hash = f.service.hash
+  f.service.hash = async (file, options) => {
+    for (let bytes = 1; bytes < 100; bytes++) options?.onProgress?.({ bytes, totalBytes: 100, elapsedMs: 1000, bytesPerSecond: bytes })
+    return hash(file, options)
+  }
+  const result = await f.service.importOne(checkout)
+  assert.equal(result.ok, true, result.error)
+  assert.ok(result.steps.filter((entry) => entry.progress).length < 10, 'Do not accumulate thousands of progress samples per checkout')
+})
