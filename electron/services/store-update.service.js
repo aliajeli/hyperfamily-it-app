@@ -1,8 +1,8 @@
 const path = require('path')
 const { checkReachable } = require('./reachability.service')
-const { defaultRunPs, psLiteral, sha256File, streamCopy } = require('./software.service')
-const { listRemotePrograms, readHiveOverShare, pickProgram } = require('./registry.service')
-const { listProgramsViaWmi } = require('./wmi-registry.service')
+const { sha256File, streamCopy } = require('./software.service')
+const { pickProgram } = require('./registry.service')
+const { StoreAgentService } = require('./store-agent.service')
 const { SmbSessionManager } = require('./smb.service')
 const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync, withTimeout } = require('./async-fs')
 
@@ -13,21 +13,9 @@ const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync
  */
 const STORE_COMMERCE_PROGRAM = 'Store Commerce'
 
-/**
- * Where Store Commerce installs by default. Used only by the last-resort
- * lookup, when neither registry route is available.
- */
-const STORE_COMMERCE_EXE_CANDIDATES = [
-  'C:\\Program Files (x86)\\Microsoft Dynamics 365\\70\\Retail Modern POS\\ClientBroker\\StoreCommerce.exe',
-  'C:\\Program Files (x86)\\Microsoft Dynamics 365\\70\\Retail Modern POS\\StoreCommerce.exe',
-  'C:\\Program Files\\Microsoft Dynamics 365\\70\\Retail Modern POS\\StoreCommerce.exe',
-  'C:\\Store Commerce\\StoreCommerce.exe'
-]
-
 /** Deadlines so one unreachable checkout can never stall the queue. */
 const REACH_TIMEOUT_MS = 3000
-const REGISTRY_TIMEOUT_MS = 12000
-const CHECK_TIMEOUT_MS = 90000
+const CHECK_TIMEOUT_MS = 60000
 const COPY_TIMEOUT_MS = 15 * 60 * 1000
 
 /* --------------------------------------------------------------------------
@@ -100,17 +88,12 @@ class StoreUpdateService {
     // Reachability is a TCP probe of the SMB port, not ICMP: a firewalled but
     // perfectly healthy checkout answers no ping.
     this.reach = options.reach || checkReachable
-    this.runPs = options.runPs || defaultRunPs
     this.mapPath = options.pathMapper || uncPath
     // Async by design: the synchronous versions of these calls block Electron's
     // main thread on an unreachable UNC path and freeze the whole window.
     this.exists = options.exists || existsAsync
     this.probe = options.probe || probeAsync
     this.copyImpl = options.copier || streamCopy
-    this.listPrograms = options.listPrograms || listRemotePrograms
-    this.readHive = options.readHive || readHiveOverShare
-    this.listWmiPrograms = options.listWmiPrograms || listProgramsViaWmi
-    this.wmiTimeoutMs = options.wmiTimeoutMs || 30000
     this.reachTimeoutMs = options.reachTimeoutMs || REACH_TIMEOUT_MS
     this.smb = options.smb || new SmbSessionManager({ platform: this.platform })
     // Credentials for the target domain, supplied per call by the IPC layer.
@@ -120,11 +103,14 @@ class StoreUpdateService {
     // Deadlines are injectable so tests can prove the no-hang guarantee
     // without waiting the full production timeout.
     this.checkTimeoutMs = options.checkTimeoutMs || CHECK_TIMEOUT_MS
-    this.registryTimeoutMs = options.registryTimeoutMs || REGISTRY_TIMEOUT_MS
     this.copyTimeoutMs = options.copyTimeoutMs || COPY_TIMEOUT_MS
     // Copies and renames hit real UNC paths, which only exist on Windows; in
     // tests a custom pathMapper (plus the other injectables) substitutes them.
     this.realFs = this.platform === 'win32' || Boolean(options.pathMapper)
+    this.agent = options.agent || new StoreAgentService({
+      platform: this.platform, sourcePath: options.agentSourcePath,
+      smb: this.smb, getCredentials: this.getCredentials, reach: this.reach, send: this.sendEvent
+    })
   }
 
   /**
@@ -171,59 +157,7 @@ class StoreUpdateService {
     if (!this.realFs) throw new Error(`${action} is only available on Windows`)
   }
 
-  /**
-   * Reads the Store Commerce version from the executable itself. Last resort:
-   * this is the FILE version, which can differ from the Control Panel figure,
-   * so the result is labelled `file` and the UI shows that provenance.
-   */
-  async #versionFromExecutable(host) {
-    for (const candidate of STORE_COMMERCE_EXE_CANDIDATES) {
-      let target
-      try {
-        target = this.mapPath(host, candidate)
-      } catch {
-        continue
-      }
-      if (!(await this.exists(target, 8000))) continue
-      const script = `(Get-Item -LiteralPath ${psLiteral(target)}).VersionInfo | Select-Object FileVersion, ProductVersion, ProductName | ConvertTo-Json -Compress`
-      try {
-        const info = JSON.parse(String(await this.runPs(script, 20000)).trim() || '{}')
-        const version = String(info.ProductVersion || info.FileVersion || '').trim()
-        if (!version) continue
-        return { version, product: String(info.ProductName || '').trim() || this.programName, path: candidate }
-      } catch {
-        // Try the next candidate path.
-      }
-    }
-    return null
-  }
-
-  /** Shared live-registry → WMI/DCOM → backup chain for both UI entry points. */
-  async #readInstalledPrograms(address, attempts) {
-    const routes = [
-      ['control-panel', 'Remote Registry', () => this.listPrograms(address, { timeoutMs: this.registryTimeoutMs })],
-      ['wmi', 'WMI (DCOM)', () => this.listWmiPrograms(address, { timeoutMs: this.wmiTimeoutMs, credentials: this.getCredentials() })],
-      ['registry-backup', 'Registry backup', () => this.readHive(address, { timeoutMs: this.registryTimeoutMs })]
-    ]
-    for (const [source, label, read] of routes) {
-      try {
-        const programs = await read()
-        if (!Array.isArray(programs)) throw new Error('Invalid installed-programs response')
-        return { programs, source, stale: source === 'registry-backup' }
-      } catch (error) {
-        attempts.push(`${label}: ${error.message}`)
-        // Remote Registry ACLs and WMI namespace ACLs are different. An RPC
-        // denial must not prevent trying WMI with explicit target credentials.
-      }
-    }
-    return null
-  }
-
-  #registryHelp() {
-    return 'Check Settings → Target access and target administrator permissions. Allow WMI/DCOM from the management workstation, or have IT enable Remote Registry with scoped firewall rules. SMB access alone is not enough; Windows may have no RegBack backup.'
-  }
-
-  /** Read the Control Panel DisplayVersion, falling back to a labelled file version. */
+  /** Agent presence, SCM state and heartbeat are checked before any version. */
   async checkOne(checkout) {
     const host = this.#hostOf(checkout)
     if (!host) return { state: 'no-host', detail: 'No hostname or IP on record' }
@@ -241,62 +175,23 @@ class StoreUpdateService {
     // Everything downstream must talk to the address that actually answered.
     const address = reach.host || host
     const base = { host: address, label: this.#labelOf(checkout), pingTime: reach.ping_time, icmp: reach.icmp, smb: true, checkedAt: new Date().toISOString() }
-    const attempts = []
     try {
       this.#requireRealPaths('Reading a version from a remote machine')
       return await withTimeout(this.#withSession(address, async () => {
-        const inventory = await this.#readInstalledPrograms(address, attempts)
-        const { programs, source, stale } = inventory || {}
-
-        if (programs) {
-          const program = pickProgram(programs, this.programName)
-          if (program) {
-            return {
-              ...base,
-              state: 'ok',
-              version: program.version || 'unknown',
-              product: program.name,
-              publisher: program.publisher,
-              installLocation: program.installLocation,
-              source,
-              stale,
-              durationMs: Date.now() - startedAt
-            }
-          }
-          // The registry was readable and the product genuinely is not in it.
-          return {
-            ...base,
-            state: 'not-found',
-            detail: `“${this.programName}” is not listed in ${stale ? 'the registry backup (which may be outdated)' : 'Programs and Features'} on ${this.#labelOf(checkout)}`,
-            source,
-            stale,
-            installedCount: programs.length,
-            durationMs: Date.now() - startedAt
-          }
+        const inventory = await this.agent.inspect(address)
+        if (!inventory.running) return { ...base, state: 'agent-not-running', detail: inventory.reason || 'Agent is not running' }
+        if (inventory.inventoryError) return { ...base, state: 'error', error: inventory.inventoryError, source: 'agent' }
+        const program = pickProgram(inventory.programs, this.programName)
+        if (!program) return { ...base, state: 'not-found', source: 'agent', detail: `“${this.programName}” is not listed in the agent's current Programs and Features inventory`, installedCount: inventory.programs.length }
+        return {
+          ...base, state: 'ok', version: program.version || 'unknown', product: program.name,
+          publisher: program.publisher, installLocation: program.installLocation,
+          source: 'agent', stale: false, agentVersion: inventory.agentVersion,
+          inventoryAt: inventory.generatedAt, durationMs: Date.now() - startedAt
         }
-
-        // --- 3. The executable's version resource ------------------------
-        const fromFile = await this.#versionFromExecutable(address)
-        if (fromFile) {
-          return {
-            ...base,
-            state: 'ok',
-            version: fromFile.version,
-            product: fromFile.product,
-            installLocation: fromFile.path,
-            source: 'file',
-            stale: true,
-            detail: 'Read from the executable — Remote Registry was unavailable, so this is the file version rather than the Control Panel entry',
-            durationMs: Date.now() - startedAt
-          }
-        }
-
-        const error = new Error(`Could not read the installed version from ${this.#labelOf(checkout)}. ${attempts.join('; ')}. ${this.#registryHelp()}`)
-        error.attempts = attempts
-        throw error
       }), this.checkTimeoutMs, `${this.#labelOf(checkout)} did not return its installed programs in time`)
     } catch (error) {
-      return { ...base, state: 'error', error: error.message, attempts, durationMs: Date.now() - startedAt }
+      return { ...base, state: 'error', error: error.message, durationMs: Date.now() - startedAt }
     }
   }
 
@@ -319,11 +214,13 @@ class StoreUpdateService {
     const address = reach.host || host
     this.#requireRealPaths('Listing installed programs on a remote machine')
 
-    const attempts = []
     return withTimeout(this.#withSession(address, async () => {
-      const inventory = await this.#readInstalledPrograms(address, attempts)
-      if (!inventory) throw new Error(`Could not read the installed programs from ${this.#labelOf(checkout)}. ${attempts.join('; ')}. ${this.#registryHelp()}`)
-      const { programs, source, stale } = inventory
+      const inventory = await this.agent.inspect(address)
+      if (!inventory.running) throw new Error(`Agent is not running — ${inventory.reason || 'Import Agent to install/start the service'}`)
+      if (inventory.inventoryError) throw new Error(inventory.inventoryError)
+      const { programs } = inventory
+      const source = 'agent'
+      const stale = false
       const match = pickProgram(programs, this.programName)
       return {
         host: address,

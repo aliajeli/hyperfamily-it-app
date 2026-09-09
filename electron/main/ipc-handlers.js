@@ -164,6 +164,18 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
 
   // Update Store App: Store Commerce version sweeps and file deployments.
   // `secure` is required because these run on machines reachable over SMB.
+  ipcMain.handle('store-update:import-agent', secure(async (event, payload) => {
+    const result = await storeUpdateService.agent.importOne(payload?.checkout || {})
+    database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : result.error)
+    return result
+  }))
+  ipcMain.handle('store-update:import-agent-all', secure(async (event, payload) => {
+    const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
+    if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be imported in one run')
+    const summary = await storeUpdateService.agent.importAll(checkouts)
+    for (const result of summary.results) database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : result.error)
+    return summary
+  }))
   ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {})))
   // Diagnostic: the full Programs and Features list of one checkout, so the
   // operator can see how the product is really named there.
@@ -174,7 +186,7 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   }))
   ipcMain.handle('store-update:versions', secure(async (event, payload) => {
     const results = await storeUpdateService.checkMany(Array.isArray(payload?.checkouts) ? payload.checkouts : [])
-    database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${STORE_COMMERCE_PROGRAM} (read from Programs and Features)`)
+    database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${STORE_COMMERCE_PROGRAM} (read by local agent from Programs and Features)`)
     return results
   }))
   // Settings → Target access: proves the stored domain account can open the

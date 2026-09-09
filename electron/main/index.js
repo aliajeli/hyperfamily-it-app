@@ -133,6 +133,9 @@ else {
     // Credentials are read fresh on every call so a change in Settings takes
     // effect immediately, without restarting the app.
     const storeUpdateService = new StoreUpdateService(sendEvent, {
+      agentSourcePath: app.isPackaged
+        ? require('path').join(process.resourcesPath, 'agent', 'HyperFamilyStoreAgent.exe')
+        : require('path').join(__dirname, '../../agent/build/HyperFamilyStoreAgent.exe'),
       getCredentials: () => {
         try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
       },

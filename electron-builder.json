@@ -57,5 +57,11 @@
       "repo": "hyperfamily-it-app",
       "releaseType": "release"
     }
+  ],
+  "extraResources": [
+    {
+      "from": "agent/build/HyperFamilyStoreAgent.exe",
+      "to": "agent/HyperFamilyStoreAgent.exe"
+    }
   ]
 }

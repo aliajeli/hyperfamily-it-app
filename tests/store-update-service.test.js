@@ -52,296 +52,6 @@ test('pickBackupName adds the stamp and never overwrites an older backup', async
 const onlinePing = async () => ({ status: 'online', ping_time: 5, smb: true, icmp: true })
 const offlinePing = async () => ({ status: 'offline', ping_time: null, smb: false, icmp: false, detail: 'not reachable over SMB' })
 
-function makeService(overrides = {}) {
-  return new StoreUpdateService(overrides.send || null, {
-    platform: 'linux',
-    listWmiPrograms: async () => { throw new Error('WMI unavailable in fixture') },
-    readHive: async () => { throw new Error('No registry backup in fixture') },
-    reach: onlinePing,
-    // Stands the local tmp tree in for the UNC share, so Windows separators
-    // must be normalised — a Windows path is just a name pattern here.
-    pathMapper: (host, localPath) => path.join(overrides.root || fs.mkdtempSync(path.join(os.tmpdir(), 'store-update-')), localPath.replace(/^[a-zA-Z]:[\\/]/, '').replace(/\\/g, '/')),
-    ...overrides
-  })
-}
-
-const programs = (rows) => async () => rows
-
-test('checkOne reads the version from Programs and Features, not from the executable', async () => {
-  const service = makeService({
-    listPrograms: programs([
-      { name: 'Store Commerce Hardware Station', version: '9.9.9' },
-      { name: 'Store Commerce', version: '9.52.24020.3', publisher: 'Microsoft' },
-      { name: 'Google Chrome', version: '141.0' }
-    ])
-  })
-  const ok = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(ok.state, 'ok')
-  // The shortest matching name wins, so the add-on never masks the product.
-  assert.equal(ok.product, 'Store Commerce')
-  assert.equal(ok.version, '9.52.24020.3')
-  assert.equal(ok.source, 'control-panel')
-  assert.equal(ok.pingTime, 5)
-})
-
-test('checkOne: missing host, offline host and a product that is not installed', async () => {
-  const service = makeService({ listPrograms: programs([{ name: 'Google Chrome', version: '141.0' }]) })
-  assert.equal((await service.checkOne({})).state, 'no-host')
-  const offline = makeService({ reach: offlinePing, listPrograms: programs([]) })
-  assert.equal((await offline.checkOne({ ip: '10.0.0.9' })).state, 'offline')
-  const missing = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(missing.state, 'not-found')
-  assert.match(missing.detail, /Programs and Features/)
-})
-
-test('checkOne reports a registry failure as an error rather than throwing', async () => {
-  const service = makeService({ listPrograms: async () => { throw new Error('Access denied reading the registry on CO-01') } })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'error')
-  assert.match(result.error, /Access denied/)
-})
-
-test('checkOne never hangs: an unresponsive machine resolves as an error', async () => {
-  // A registry read that never settles must still let the card recover —
-  // this is the freeze the async rewrite is there to prevent.
-  const service = makeService({ listPrograms: () => new Promise(() => {}), checkTimeoutMs: 300 })
-  const result = await Promise.race([
-    service.checkOne({ hostname: 'CO-01' }),
-    new Promise((resolve) => setTimeout(() => resolve('HUNG'), 3000))
-  ])
-  assert.notEqual(result, 'HUNG')
-  assert.equal(result.state, 'error')
-})
-
-test('checkOne opens an authenticated SMB session for the target domain', async () => {
-  const calls = []
-  const service = makeService({
-    platform: 'win32',
-    getCredentials: () => ({ domain: 'okcs', username: 'administrator', password: 'secret' }),
-    smb: {
-      withHost: async (host, credentials, task) => { calls.push({ host, credentials }); return task() }
-    },
-    listPrograms: programs([{ name: 'Store Commerce', version: '9.52' }])
-  })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'ok')
-  assert.equal(calls.length, 1)
-  assert.equal(calls[0].host, 'CO-01')
-  assert.equal(calls[0].credentials.domain, 'okcs')
-})
-
-test('checkMany sweeps every checkout and streams one event each', async () => {
-  const events = []
-  const service = makeService({
-    send: (channel, payload) => events.push({ channel, ...payload }),
-    reach: async (host) => (host === 'offline-host' ? { status: 'offline', ping_time: null, smb: false } : { status: 'online', ping_time: 3, smb: true }),
-    listPrograms: programs([{ name: 'Store Commerce', version: '1.0.0' }])
-  })
-  const checkouts = [
-    { id: 1, name: 'CO 1', hostname: 'host-1', branch_id: 10 },
-    { id: 2, name: 'CO 2', hostname: 'offline-host', branch_id: 10 },
-    { id: 3, name: 'CO 3', hostname: 'host-3', branch_id: 11 }
-  ]
-  const results = await service.checkMany(checkouts)
-  assert.equal(results.length, 3)
-  assert.equal(events.filter((e) => e.channel === 'store-update:version').length, 3)
-  assert.ok(events.some((e) => e.checkoutId === 2 && e.state === 'offline'))
-})
-
-/* ------------------------------ the reported bug: ICMP-blocked but healthy */
-
-test('REGRESSION: a checkout that blocks ping but serves SMB is usable', async () => {
-  // st10007r02 in the bug report: firewall drops echo requests, port 445 open.
-  const firewalled = async () => ({ status: 'online', ping_time: null, smb: true, icmp: false, detail: 'SMB (port 445) answered in 4 ms; ICMP is filtered' })
-  const service = makeService({ reach: firewalled, listPrograms: programs([{ name: 'Store Commerce', version: '9.52.24020.3' }]) })
-  const result = await service.checkOne({ hostname: 'st10007r02' })
-  assert.equal(result.state, 'ok', 'a filtered ping must never mark the checkout offline')
-  assert.equal(result.version, '9.52.24020.3')
-  assert.equal(result.icmp, false)
-})
-
-test('REGRESSION: deployment proceeds to a checkout that blocks ping', async () => {
-  const { source, destBase, serviceOptions } = deployFixture()
-  const service = new StoreUpdateService(null, {
-    ...serviceOptions,
-    reach: async () => ({ status: 'online', ping_time: null, smb: true, icmp: false, detail: 'SMB (port 445) answered in 4 ms; ICMP is filtered' })
-  })
-  const result = await service.deployOne({ id: 2, name: 'Checkout 2', hostname: 'st10007r02' }, { source, destinationPath: 'C:\\Store Commerce', runId: 'r', stamp: '14050617' })
-  assert.equal(result.ok, true)
-  assert.equal(fs.readFileSync(path.join(destBase, 'st10007r02', 'Store Commerce', 'StoreCommerce-Update.exe'), 'utf8'), 'new installer payload')
-})
-
-test('a genuinely dead checkout still fails fast, with a reason', async () => {
-  const service = makeService({
-    reach: async () => ({ status: 'offline', ping_time: null, smb: false, icmp: false, detail: 'st10007r02 did not answer on port 445 (ECONNREFUSED) and did not answer a ping — it looks powered off' })
-  })
-  const result = await service.checkOne({ hostname: 'st10007r02' })
-  assert.equal(result.state, 'offline')
-  assert.match(result.detail, /powered off/)
-})
-
-/* ------------------------------------------- version lookup fallback chain */
-
-test('falls back to the registry backup hive when Remote Registry is stopped', async () => {
-  const stopped = Object.assign(new Error('The Remote Registry service is not answering on CO-01'), { code: 'REGISTRY_UNAVAILABLE' })
-  const service = makeService({
-    listPrograms: async () => { throw stopped },
-    readHive: programs([{ name: 'Store Commerce', version: '9.51.20000.1' }])
-  })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'ok')
-  assert.equal(result.version, '9.51.20000.1')
-  assert.equal(result.source, 'registry-backup')
-  assert.equal(result.stale, true, 'a backup hive can lag, so the UI must be able to say so')
-})
-
-test('falls back to the executable version when neither registry route works', async () => {
-  const service = makeService({
-    listPrograms: async () => { throw Object.assign(new Error('stopped'), { code: 'REGISTRY_UNAVAILABLE' }) },
-    readHive: async () => { throw Object.assign(new Error('no backup'), { code: 'HIVE_UNAVAILABLE' }) },
-    exists: async () => true,
-    runPs: async () => JSON.stringify({ ProductVersion: '9.52.24020.3', ProductName: 'Store Commerce' })
-  })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'ok')
-  assert.equal(result.version, '9.52.24020.3')
-  assert.equal(result.source, 'file')
-})
-
-test('Remote Registry access denied still tries WMI with target credentials', async () => {
-  const credentials = { domain: 'okcs', username: 'administrator', password: 'test-only' }
-  const service = makeService({
-    getCredentials: () => credentials,
-    listPrograms: async () => { throw Object.assign(new Error('Access denied'), { code: 'REGISTRY_DENIED' }) },
-    listWmiPrograms: async (_host, options) => {
-      assert.deepEqual(options.credentials, credentials)
-      return [{ name: 'Store Commerce', version: '9.52' }]
-    },
-    readHive: async () => { assert.fail('Live WMI data should skip the backup') }
-  })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'ok')
-  assert.equal(result.source, 'wmi')
-  assert.equal(result.stale, false)
-})
-
-test('every strategy failing yields one error listing what was tried', async () => {
-  const service = makeService({
-    listPrograms: async () => { throw Object.assign(new Error('service stopped'), { code: 'REGISTRY_UNAVAILABLE' }) },
-    readHive: async () => { throw Object.assign(new Error('no backup hive'), { code: 'HIVE_UNAVAILABLE' }) },
-    exists: async () => false
-  })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'error')
-  assert.match(result.error, /service stopped/)
-  assert.match(result.error, /no backup hive/)
-})
-
-test('a readable registry without the product is "not found", not an error', async () => {
-  const service = makeService({ listPrograms: programs([{ name: 'Google Chrome', version: '141' }]) })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'not-found')
-})
-
-/* ------------------------------------------ multi-branch host resolution */
-
-test('the IP is preferred over the hostname when connecting', async () => {
-  const seen = []
-  const service = makeService({
-    reach: async (host, options) => { seen.push({ host, candidates: options.candidates }); return { status: 'online', host: '10.19.1.3', ping_time: 4, smb: true, icmp: false } },
-    listPrograms: async (host) => { seen.push({ listedOn: host }); return [{ name: 'Store Commerce', version: '9.52' }] }
-  })
-  const result = await service.checkOne({ id: 1, name: 'Checkout 3', hostname: 'st10019r03', ip: '10.19.1.3' })
-  assert.equal(result.state, 'ok')
-  // The registry must be read from the address that actually answered.
-  assert.ok(seen.some((entry) => entry.listedOn === '10.19.1.3'))
-  assert.deepEqual(seen[0].candidates, ['10.19.1.3', 'st10019r03'])
-})
-
-test('a checkout with only a hostname still works', async () => {
-  const service = makeService({
-    reach: async () => ({ status: 'online', host: 'CO-01', ping_time: 3, smb: true }),
-    listPrograms: programs([{ name: 'Store Commerce', version: '9.52' }])
-  })
-  const result = await service.checkOne({ id: 1, name: 'CO 1', hostname: 'CO-01' })
-  assert.equal(result.state, 'ok')
-})
-
-test('REGRESSION: another branch reachable only by IP deploys successfully', async () => {
-  const { source, destBase, serviceOptions } = deployFixture()
-  const service = new StoreUpdateService(null, {
-    ...serviceOptions,
-    // The name is unresolvable; the IP answers.
-    reach: async () => ({ status: 'online', host: '10.19.1.3', ping_time: 6, smb: true, icmp: false })
-  })
-  const result = await service.deployOne(
-    { id: 9, name: 'Checkout 3', hostname: 'st10019r03', ip: '10.19.1.3' },
-    { source, destinationPath: 'C:\\Store Commerce', runId: 'r', stamp: '14050617' }
-  )
-  assert.equal(result.ok, true)
-  // The file must land under the IP-based UNC path, not the dead hostname.
-  assert.equal(fs.readFileSync(path.join(destBase, '10.19.1.3', 'Store Commerce', 'StoreCommerce-Update.exe'), 'utf8'), 'new installer payload')
-})
-
-/* -------------------------------------- configurable Control Panel name */
-
-test('the product name comes from settings and finds the Microsoft-prefixed entry', async () => {
-  const service = makeService({
-    getProgramName: () => 'Microsoft Store Commerce',
-    listPrograms: programs([
-      { name: 'Microsoft Store Commerce', version: '9.52.24020.3' },
-      { name: 'Store Commerce Hardware Station', version: '9.52.0.0' }
-    ])
-  })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'ok')
-  assert.equal(result.product, 'Microsoft Store Commerce')
-  assert.equal(result.version, '9.52.24020.3')
-})
-
-test('the default name matches both spellings as a substring', async () => {
-  const service = makeService({ listPrograms: programs([{ name: 'Microsoft Store Commerce', version: '9.52.24020.3' }]) })
-  const result = await service.checkOne({ hostname: 'CO-01' })
-  assert.equal(result.state, 'ok', '"Store Commerce" must find "Microsoft Store Commerce"')
-  assert.equal(result.version, '9.52.24020.3')
-})
-
-test('an empty configured name falls back to the built-in default', async () => {
-  const service = makeService({ getProgramName: () => '   ', listPrograms: programs([{ name: 'Store Commerce', version: '1.0' }]) })
-  assert.equal((await service.checkOne({ hostname: 'CO-01' })).state, 'ok')
-})
-
-/* ------------------------------------------- installed-programs diagnostic */
-
-test('listInstalledOn returns the whole list plus what the configured name matched', async () => {
-  const service = makeService({
-    listPrograms: programs([
-      { name: 'Google Chrome', version: '141' },
-      { name: 'Microsoft Store Commerce', version: '9.52.24020.3' }
-    ])
-  })
-  const result = await service.listInstalledOn({ id: 1, name: 'CO 1', hostname: 'CO-01', ip: '10.1.1.1' })
-  assert.equal(result.total, 2)
-  assert.equal(result.source, 'control-panel')
-  assert.equal(result.match.name, 'Microsoft Store Commerce')
-  assert.equal(result.configuredName, 'Store Commerce')
-})
-
-test('listInstalledOn reports no match when the name is wrong, without failing', async () => {
-  const service = makeService({
-    getProgramName: () => 'Nonexistent Product',
-    listPrograms: programs([{ name: 'Microsoft Store Commerce', version: '9.52' }])
-  })
-  const result = await service.listInstalledOn({ hostname: 'CO-01' })
-  assert.equal(result.match, null)
-  assert.equal(result.total, 1, 'the operator still sees the real list to pick from')
-})
-
-test('listInstalledOn refuses an unreachable checkout with the reachability reason', async () => {
-  const service = makeService({ reach: async () => ({ status: 'offline', detail: 'name could not be resolved by DNS' }) })
-  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), /DNS/)
-})
-
 /* --------------------------------------------------------- deploy pipeline */
 
 function deployFixture() {
@@ -355,8 +65,6 @@ function deployFixture() {
   const serviceOptions = {
     root,
     platform: 'linux',
-    listWmiPrograms: async () => { throw new Error('WMI unavailable in fixture') },
-    readHive: async () => { throw new Error('No registry backup in fixture') },
     reach: onlinePing,
     pathMapper: (host, localPath) => path.join(destBase, host, localPath.replace(/^[a-zA-Z]:[\\/]/, '').replace(/\\/g, '/'))
   }
@@ -471,67 +179,82 @@ test('deploy is guarded off Windows unless tests inject a path mapper', async ()
   )
 })
 
-/* beta.5: RemoteRegistry stopped, RegBack missing (reported st10007r02). */
-for (const method of ['checkOne', 'listInstalledOn']) {
-  test(`${method}: WMI reads the current Control Panel version without RemoteRegistry or RegBack`, async () => {
-    const calls = []
-    const credentials = { domain: 'okcs', username: 'admin', password: 'fixture' }
-    const service = makeService({
-      getCredentials: () => credentials,
-      listPrograms: async () => { calls.push('registry'); throw new Error('Remote Registry service is not answering') },
-      listWmiPrograms: async (host, options) => {
-        calls.push('wmi')
-        assert.equal(host, '172.18.168.33')
-        assert.deepEqual(options.credentials, credentials)
-        return [{ name: 'Store Commerce', version: '9.52.24020.3' }]
-      },
-      readHive: async () => { calls.push('backup'); throw new Error('No readable registry backup') }
-    })
-    const result = await service[method]({ hostname: 'st10007r02', ip: '172.18.168.33' })
-    assert.equal(result.source, 'wmi')
-    assert.equal(result.stale, false)
-    assert.equal(method === 'checkOne' ? result.version : result.match.version, '9.52.24020.3')
-    assert.deepEqual(calls, ['registry', 'wmi'])
+
+/* beta.6 replaces remote registry reads with agent-gated inventory. */
+function agentService(inspect, overrides = {}) {
+  return new StoreUpdateService(null, {
+    platform: 'win32', reach: onlinePing,
+    agent: { inspect },
+    // Legacy routes must never be used by Update Store App.
+    listPrograms: () => assert.fail('Remote Registry must not run'),
+    listWmiPrograms: () => assert.fail('WMI must not run'),
+    ...overrides
   })
 }
+const freshAgent = async () => ({ running: true, agentVersion: '3.0.1-beta.6', generatedAt: new Date().toISOString(), programs: [{ name: 'Microsoft Store Commerce', version: '9.52' }] })
 
-test('listInstalledOn explains recovery steps when every registry transport fails', async () => {
-  const service = makeService({ listPrograms: async () => { throw new Error('service stopped') } })
-  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), (error) => {
-    assert.match(error.message, /Remote Registry:/)
-    assert.match(error.message, /WMI \(DCOM\):/)
-    assert.match(error.message, /Registry backup:/)
-    assert.match(error.message, /Target access/)
-    assert.match(error.message, /SMB access alone is not enough/)
-    return true
-  })
+test('agent presence/running state gates the version and full inventory', async () => {
+  const service = agentService(async () => ({ running: false, reason: 'Agent service is Stopped' }))
+  const version = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(version.state, 'agent-not-running')
+  assert.equal(version.version, undefined)
+  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), /Agent is not running/)
 })
 
-test('listInstalledOn uses a labelled backup if both live transports fail', async () => {
-  const service = makeService({
-    listPrograms: async () => { throw new Error('service stopped') },
-    readHive: programs([{ name: 'Store Commerce', version: 'old' }])
-  })
-  const result = await service.listInstalledOn({ hostname: 'CO-01' })
-  assert.equal(result.source, 'registry-backup')
-  assert.equal(result.stale, true)
+test('running agent supplies the Control Panel version and respects configured names', async () => {
+  const service = agentService(freshAgent, { getProgramName: () => 'Microsoft Store Commerce' })
+  const version = await service.checkOne({ hostname: 'CO-01' })
+  assert.equal(version.version, '9.52')
+  assert.equal(version.source, 'agent')
+  assert.equal(version.stale, false)
+  const inventory = await service.listInstalledOn({ hostname: 'CO-01' })
+  assert.equal(inventory.source, 'agent')
+  assert.equal(inventory.match.name, 'Microsoft Store Commerce')
+  assert.equal(inventory.total, 1)
 })
 
-test('an empty live WMI inventory is not replaced with stale backup data', async () => {
-  const service = makeService({
-    listPrograms: async () => { throw new Error('service stopped') },
-    listWmiPrograms: programs([]),
-    readHive: async () => { assert.fail('Do not use stale data after a successful live read') }
-  })
-  assert.equal((await service.checkOne({ hostname: 'CO-01' })).state, 'not-found')
-  assert.equal((await service.listInstalledOn({ hostname: 'CO-01' })).total, 0)
+test('agent reports an empty inventory as not-found but does not hide registry errors', async () => {
+  assert.equal((await agentService(async () => ({ running: true, programs: [] })).checkOne({ hostname: 'CO-01' })).state, 'not-found')
+  const service = agentService(async () => ({ running: true, inventoryError: 'Registry denied', programs: [] }))
+  assert.equal((await service.checkOne({ hostname: 'CO-01' })).state, 'error')
+  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), /Registry denied/)
 })
 
-test('listInstalledOn is bounded even if the WMI runner never settles', async () => {
-  const service = makeService({
-    checkTimeoutMs: 30,
-    listPrograms: async () => { throw new Error('service stopped') },
-    listWmiPrograms: () => new Promise(() => {})
+test('missing/offline hosts are not queried; filtered ICMP with healthy SMB still works', async () => {
+  const unreachable = agentService(() => assert.fail(), { reach: offlinePing })
+  assert.equal((await unreachable.checkOne({})).state, 'no-host')
+  assert.equal((await unreachable.checkOne({ hostname: 'CO-01' })).state, 'offline')
+  await assert.rejects(unreachable.listInstalledOn({ hostname: 'CO-01' }), /not reachable/)
+  const service = agentService(freshAgent, { reach: async () => ({ status: 'online', icmp: false, smb: true }) })
+  assert.equal((await service.checkOne({ hostname: 'CO-01' })).state, 'ok')
+})
+
+test('agent queries reuse the reachable IP and target-domain SMB credentials', async () => {
+  const credentials = { domain: 'okcs', username: 'test', password: 'fixture' }
+  const service = agentService(async (host) => { assert.equal(host, '172.18.168.33'); return freshAgent() }, {
+    getCredentials: () => credentials,
+    reach: async (host) => { assert.equal(host, '172.18.168.33'); return { status: 'online', host } },
+    smb: { withHost: async (host, creds, task) => { assert.equal(host, '172.18.168.33'); assert.deepEqual(creds, credentials); return task() } }
   })
-  await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), /in time/)
+  assert.equal((await service.checkOne({ hostname: 'st10007r02', ip: '172.18.168.33' })).state, 'ok')
+})
+
+test('an unresponsive agent cannot leave a version check hanging', async () => {
+  const service = agentService(() => new Promise(() => {}), { checkTimeoutMs: 30 })
+  const keepAlive = setTimeout(() => {}, 1000)
+  try {
+    assert.equal((await service.checkOne({ hostname: 'CO-01' })).state, 'error')
+    await assert.rejects(service.listInstalledOn({ hostname: 'CO-01' }), /in time/)
+  } finally { clearTimeout(keepAlive) }
+})
+
+test('initial page sweep emits an agent state for every checkout', async () => {
+  const events = []
+  const service = new StoreUpdateService((channel, payload) => events.push({ channel, payload }), {
+    platform: 'win32', reach: onlinePing, agent: { inspect: async (host) => host === 'stopped' ? { running: false } : freshAgent() }
+  })
+  const results = await service.checkMany([{ id: 1, hostname: 'stopped' }, { id: 2, hostname: 'running' }])
+  assert.equal(results.length, 2)
+  assert.equal(events.length, 2)
+  assert.equal(results.find((row) => row.checkoutId === 1).state, 'agent-not-running')
 })
