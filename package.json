@@ -1,6 +1,6 @@
 {
   "name": "hyperfamily-branch-monitor",
-  "version": "3.0.1-beta.7",
+  "version": "3.0.1-beta.8",
   "private": true,
   "description": "Secure Windows desktop monitoring and inventory application for HyperFamily retail branches.",
   "author": "Ali Ajeli Lahiji",
@@ -17,7 +17,7 @@
     "build:electron": "npm run build:agent && npm run build && electron-builder --config electron-builder.json",
     "start": "electron .",
     "lint": "eslint .",
-    "test": "node --test tests/version.test.js tests/software-service.test.js tests/store-update-service.test.js tests/registry-service.test.js tests/wmi-registry-service.test.js tests/store-agent-service.test.js tests/agent-transfer-service.test.js",
+    "test": "node --test tests/version.test.js tests/software-service.test.js tests/store-update-service.test.js tests/registry-service.test.js tests/wmi-registry-service.test.js tests/store-agent-service.test.js tests/agent-transfer-service.test.js tests/native-agent-binary.test.js",
     "test:database": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/database.electron-test.js",
     "test:ssh": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/ssh-kex.electron-test.js",
     "test:vpn": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/vpn-connect.electron-test.js",
@@ -25,7 +25,7 @@
     "format": "prettier --write .",
     "postinstall": "electron-builder install-app-deps",
     "build:recovery": "npm --prefix electron/recovery install && electron-builder --config electron-builder.recovery.json --publish never",
-    "build:agent": "dotnet publish agent/HyperFamilyStoreAgent.csproj -c Release -r win-x64 -o agent/build",
+    "build:agent": "node electron/scripts/build-agent.js",
     "test:agent": "node --test tests/agent-windows.test.js"
   },
   "dependencies": {

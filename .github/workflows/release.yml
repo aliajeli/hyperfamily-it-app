@@ -16,9 +16,7 @@ jobs:
         with:
           node-version: 22.12
           cache: npm
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
+      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
       - run: npm run build:agent
       - name: Test the real Windows Agent service
         run: npm run test:agent
@@ -76,7 +74,7 @@ jobs:
 
       - name: Attach the standalone agent
         shell: bash
-        run: gh release upload "${GITHUB_REF_NAME}" "agent/build/HyperFamilyStoreAgent.exe" --clobber
+        run: gh release upload "${GITHUB_REF_NAME}" "agent/build/HyperFamilyStoreAgent.exe" "agent/build/HyperFamilyStoreAgent.exe.sha256" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
