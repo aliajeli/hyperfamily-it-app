@@ -86,7 +86,26 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     install: () => invoke('update:install'),
     subscribe: (callback) => subscribe('update:event', callback)
   },
+  storeUpdate: {
+    importAgent: (payload) => invoke('store-update:import-agent', payload),
+    importAgentAll: (payload) => invoke('store-update:import-agent-all', payload),
+    onAgentStep: (callback) => subscribe('store-update:agent-step', callback),
+    version: (payload) => invoke('store-update:version', payload),
+    versions: (payload) => invoke('store-update:versions', payload),
+    deploy: (payload) => invoke('store-update:deploy', payload),
+    deployAll: (payload) => invoke('store-update:deploy-all', payload),
+    testAccess: (payload) => invoke('store-update:test-access', payload),
+    installed: (payload) => invoke('store-update:installed', payload),
+    onVersion: (callback) => subscribe('store-update:version', callback),
+    onStep: (callback) => subscribe('store-update:step', callback),
+    onProgress: (callback) => subscribe('store-update:progress', callback),
+    onFinished: (callback) => subscribe('store-update:finished', callback)
+  },
   audit: { list: (limit) => invoke('audit:list', limit) },
-  dialog: { selectFile: (options) => invoke('dialog:select-file', options) },
+  dialog: {
+    selectFile: (options) => invoke('dialog:select-file', options),
+    selectFiles: (options) => invoke('dialog:select-files', options),
+    selectDirectory: (options) => invoke('dialog:select-directory', options)
+  },
   app: { info: () => invoke('app:info'), openExternal: (url) => invoke('app:open-external', url), pathExists: (path) => invoke('app:path-exists', path) }
 })

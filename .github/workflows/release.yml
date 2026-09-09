@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', '!v*-*']
 
 permissions:
   contents: write
@@ -16,6 +16,16 @@ jobs:
         with:
           node-version: 22.12
           cache: npm
+      - name: Verify stable release version
+        shell: bash
+        run: |
+          node -e "const v=require('./package.json').version; if (!/^\d+\.\d+\.\d+$/.test(v) || process.env.GITHUB_REF_NAME !== 'v'+v) throw new Error('Stable tag must match package.json version')"
+      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
+      - run: npm run build:agent
+      - name: Test the real Windows Agent service
+        run: npm run test:agent
+        env:
+          HF_AGENT_WINDOWS_TEST: '1'
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -38,7 +48,11 @@ jobs:
             echo "removing pre-existing release $id for ${GITHUB_REF_NAME}"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}"
           done
-          gh release create "${GITHUB_REF_NAME}" \
+          release_flags=()
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            release_flags+=(--prerelease --latest=false)
+          fi
+          gh release create "${GITHUB_REF_NAME}" "${release_flags[@]}" \
             --title "${GITHUB_REF_NAME#v}" \
             --notes "HyperFamily Branch Monitor ${GITHUB_REF_NAME#v}" \
             --target "${GITHUB_SHA}"
@@ -62,6 +76,12 @@ jobs:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
+      - name: Attach the standalone agent
+        shell: bash
+        run: gh release upload "${GITHUB_REF_NAME}" "agent/build/HyperFamilyStoreAgent.exe" "agent/build/HyperFamilyStoreAgent.exe.sha256" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Attach the standalone recovery tool to the release
         shell: bash
         run: gh release upload "${GITHUB_REF_NAME}" "recovery-dist/HyperFamily-Credential-Recovery.exe" --clobber
@@ -73,7 +93,12 @@ jobs:
       # updater can see this version and download the installer.
       - name: Publish the release so the in-app updater can see it
         shell: bash
-        run: gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            gh release edit "${GITHUB_REF_NAME}" --draft=false --prerelease --latest=false
+          else
+            gh release edit "${GITHUB_REF_NAME}" --draft=false --prerelease=false --latest
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -93,6 +118,10 @@ jobs:
           assets=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
           echo "$assets"
           echo "$assets" | grep -q '\.exe$'   || { echo "::error::no .exe asset on the release"; exit 1; }
-          echo "$assets" | grep -q '^latest\.yml$' || { echo "::error::latest.yml missing, the updater cannot detect this release"; exit 1; }
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "$assets" | grep -Eq '^(beta|alpha|latest)\.yml$' || { echo "::error::update metadata missing"; exit 1; }
+          else
+            echo "$assets" | grep -q '^latest\.yml$' || { echo "::error::latest.yml missing, the updater cannot detect this release"; exit 1; }
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

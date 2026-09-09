@@ -2,6 +2,7 @@ const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
 const { createImportTemplate, exportInventory, importDirectory } = require('../services/excel.service')
 const { openDeviceWebview, broadcastPalette } = require('./webview-window')
+const { STORE_COMMERCE_PROGRAM } = require('../services/store-update.service')
 
 function friendlyError(error) {
   if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE') && String(error.message).includes('devices.branch_id')) return new Error('Only one Router can be defined for each branch')
@@ -10,7 +11,7 @@ function friendlyError(error) {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, getWindow }) {
+function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, getWindow }) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
@@ -150,6 +151,86 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('dialog:select-file', secure(async (_event, options = {}) => {
     const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select file', properties: ['openFile'], filters: Array.isArray(options.filters) ? options.filters : [] })
     return result.canceled ? null : result.filePaths[0]
+  }))
+  // Multi-file and folder variants underpin the version checker's copy tool.
+  ipcMain.handle('dialog:select-files', secure(async (_event, options = {}) => {
+    const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select files', properties: ['openFile', 'multiSelections'], filters: Array.isArray(options.filters) ? options.filters : [] })
+    return result.canceled ? [] : result.filePaths
+  }))
+  ipcMain.handle('dialog:select-directory', secure(async (_event, options = {}) => {
+    const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select folder', properties: ['openDirectory', 'createDirectory'] })
+    return result.canceled ? null : result.filePaths[0]
+  }))
+
+  // Update Store App: Store Commerce version sweeps and file deployments.
+  // `secure` is required because these run on machines reachable over SMB.
+  ipcMain.handle('store-update:import-agent', secure(async (event, payload) => {
+    const result = await storeUpdateService.agent.importOne(payload?.checkout || {})
+    database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : result.error)
+    return result
+  }))
+  ipcMain.handle('store-update:import-agent-all', secure(async (event, payload) => {
+    const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
+    if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be imported in one run')
+    const summary = await storeUpdateService.agent.importAll(checkouts)
+    for (const result of summary.results) database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : result.error)
+    return summary
+  }))
+  ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {})))
+  // Diagnostic: the full Programs and Features list of one checkout, so the
+  // operator can see how the product is really named there.
+  ipcMain.handle('store-update:installed', secure(async (event, payload) => {
+    const result = await storeUpdateService.listInstalledOn(payload?.checkout || {})
+    database.audit(sessions.get(event.sender.id).username, 'STORE_LIST_INSTALLED', result.label, `${result.total} program(s) read from ${result.source}`)
+    return result
+  }))
+  ipcMain.handle('store-update:versions', secure(async (event, payload) => {
+    const results = await storeUpdateService.checkMany(Array.isArray(payload?.checkouts) ? payload.checkouts : [])
+    database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${STORE_COMMERCE_PROGRAM} (read by local agent from Programs and Features)`)
+    return results
+  }))
+  // Settings → Target access: proves the stored domain account can open the
+  // admin share of one checkout before an operator relies on it in a sweep.
+  ipcMain.handle('store-update:test-access', secure(async (event, payload) => {
+    const settings = database.getSettings()
+    const host = String(payload?.host || '').trim()
+    if (!host) throw new Error('Enter the hostname or IP of a checkout to test against')
+    const credentials = {
+      domain: String(payload?.domain ?? settings.target_domain ?? '').trim(),
+      username: String(payload?.username ?? settings.target_admin_user ?? '').trim(),
+      password: payload?.password ? String(payload.password) : String(settings.target_admin_password || '')
+    }
+    const result = await storeUpdateService.smb.test(host, credentials)
+    database.audit(sessions.get(event.sender.id).username, 'TARGET_ACCESS_TEST', host, `Signed in as ${result.user} in ${result.durationMs} ms`)
+    return result
+  }))
+  ipcMain.handle('store-update:deploy', secure(async (event, payload) => {
+    const result = await storeUpdateService.deployOne(payload?.checkout || {}, {
+      source: String(payload?.source || ''),
+      destinationPath: String(payload?.destinationPath || ''),
+      runId: payload?.runId || `single-${Date.now()}`,
+      stamp: payload?.stamp
+    })
+    database.audit(
+      sessions.get(event.sender.id).username,
+      'STORE_DEPLOY_ONE',
+      `${payload?.checkout?.name || payload?.checkout?.hostname || 'checkout'} — ${result.ok ? 'OK' : 'FAILED'}`,
+      `${result.error || `Deployed ${result.bytes ?? 0} bytes in ${result.durationMs} ms`}${result.backup ? `; backup: ${result.backup}` : ''}`
+    )
+    return result
+  }))
+  ipcMain.handle('store-update:deploy-all', secure(async (event, payload) => {
+    const summary = await storeUpdateService.deployAll(Array.isArray(payload?.checkouts) ? payload.checkouts : [], {
+      source: String(payload?.source || ''),
+      destinationPath: String(payload?.destinationPath || '')
+    })
+    database.audit(
+      sessions.get(event.sender.id).username,
+      'STORE_DEPLOY_ALL',
+      `${summary.ok}/${summary.total} checkout(s) updated`,
+      `File: ${String(payload?.source || '').split(/[\\/]/).pop() || '—'} → ${String(payload?.destinationPath || '—')} (${summary.durationMs} ms)`
+    )
+    return summary
   }))
   ipcMain.handle('app:info', secure(() => ({ version: app.getVersion(), platform: `${process.platform} ${process.arch}`, dataPath: app.getPath('userData'), databasePath: database.filePath })))
   ipcMain.handle('app:open-external', secure(async (_event, value) => {

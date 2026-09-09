@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, Update, Beta]
   pull_request:
 
 permissions:
@@ -17,6 +17,12 @@ jobs:
         with:
           node-version: 22.12
           cache: npm
+      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
+      - run: npm run build:agent
+      - name: Test the real Windows Agent service
+        run: npm run test:agent
+        env:
+          HF_AGENT_WINDOWS_TEST: '1'
       - run: npm ci
       - run: npm run lint
       - run: npm test

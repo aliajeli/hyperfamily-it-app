@@ -6,8 +6,8 @@ Security fixes are applied to the latest release line.
 
 | Version | Supported |
 | --- | --- |
-| 1.x | Yes |
-| < 1.0 | No |
+| Latest stable release (3.0.x) | Yes |
+| Older releases | Upgrade to the latest stable release |
 
 ## Reporting a vulnerability
 
@@ -17,7 +17,7 @@ Use the repository's private vulnerability-reporting option under **Security →
 
 ## Security model
 
-- Renderer processes have `nodeIntegration: false` and `contextIsolation: true`.
+- Renderer processes have `nodeIntegration: false` and `contextIsolation: true`; the main window currently uses `sandbox: false`.
 - A narrow preload bridge exposes allow-listed IPC methods only.
 - Privileged IPC requires an in-memory authenticated renderer session.
 - External navigation is limited to HTTPS and `mailto:` links.
@@ -29,13 +29,13 @@ Use the repository's private vulnerability-reporting option under **Security →
 - Credential and VPN password fields receive a second encryption layer.
 - RDP credentials are target-scoped in Windows Credential Manager.
 - Sensitive values are excluded from audit logs.
-- Split-tunnel profiles require `route-nopull` and explicit private routes.
+- Current VPN operation uses the installed FortiClient system tunnel; older proxy/split-tunnel implementations are not current supported modes.
 
 ## Operational limitations
 
 This is a local administrator tool, not a zero-trust remote-access broker. A process running as the same Windows user may observe renderer memory or command-line arguments used by third-party VPN/remote clients. Protect the workstation with disk encryption, endpoint protection, account lockout, and least privilege.
 
-Code signing is required for a trusted production installer and updater chain. Do not enable unattended update installation from unsigned releases.
+Code signing is required for a trusted production installer and updater chain. Signing depends on configured release secrets; `verifyUpdateCodeSignature` is currently disabled in the packaging configuration. Do not enable unattended update installation from unsigned releases.
 
 ## Secret handling
 

@@ -2,33 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { RefreshCw, Download, Rocket, Github, CircleDot, Calendar, HardDrive, ShieldCheck, Code2, ExternalLink, CheckCircle2, Mail, Pause, Play, Square, ScrollText, X } from 'lucide-react'
+import { RefreshCw, Download, Rocket, Github, CircleDot, HardDrive, Code2, ExternalLink, CheckCircle2, Mail, Pause, Play, Square, ScrollText, X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BrandMark from '@/components/layout/BrandMark'
-import { Badge, Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
+import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
 import { getApi } from '@/lib/api'
+import { APP_NAME, APP_VERSION } from '@/lib/constants'
+import stack from '@/lib/technology-stack.json'
+import packageInfo from '@/package.json'
 
-/**
- * Each entry carries the brand colour of the technology it names. The tiles
- * rest in the neutral surface palette and bloom into that colour on hover, so
- * the stack reads as a calm grid until the pointer explores it.
- */
-const technologies = [
-  ['Next.js 15', 'Static App Router UI', '#000000', '#8FBCBB'],
-  ['Electron 41', 'Secure Windows shell', '#2B2E3A', '#9FEAF9'],
-  ['Encrypted SQLite', 'Local operational data', '#0F80CC', '#6FC3F7'],
-  ['Framer Motion 11', 'Interface motion', '#BB4B96', '#E879C4'],
-  ['shadcn/ui', 'Accessible components', '#111827', '#A3AEC2'],
-  ['Recharts', 'Live response charts', '#22B5BF', '#5FD8E0'],
-  ['Zustand', 'Focused client state', '#7A5233', '#C79A6B'],
-  ['Tailwind CSS', 'Themeable design system', '#38BDF8', '#7DD3FC'],
-  ['Lucide Icons', 'Interface iconography', '#F56565', '#FCA5A5'],
-  ['ssh2', 'In-app SSH terminal', '#4C8B2B', '#A3BE8C'],
-  ['ExcelJS', 'Inventory workbooks', '#1D6F42', '#6FCF97'],
-  ['Windows DPAPI', 'Secret encryption', '#0078D4', '#69B7F0']
-]
+// Credit technologies used by the shipped application and its Windows build.
+// Versioned labels follow the dependency manifest rather than handwritten majors.
+const technologies = stack.map((entry) => {
+  const version = packageInfo.dependencies[entry.package] || packageInfo.devDependencies[entry.package]
+  const major = entry.showMajor && version?.match(/\d+/)?.[0]
+  return { ...entry, name: major ? `${entry.name} ${major}` : entry.name }
+})
 
 /** Developer contact. mailto: hands the address to the default mail client. */
 const DEVELOPER_EMAIL = 'Lahiji.ali@hyperfamili.com'
@@ -58,7 +49,7 @@ function formatDuration(seconds) {
 }
 
 export default function AboutPage() {
-  const [info, setInfo] = useState({ version: '2.0.22', platform: 'Windows 10/11', dataPath: '—' })
+  const [info, setInfo] = useState({ version: APP_VERSION, platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState(null)
   const [checking, setChecking] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -242,26 +233,28 @@ export default function AboutPage() {
           <p className="page-subtitle">Product information, secure updates, technology credits, and support.</p>
         </div>
 
-        <div className="grid gap-2 lg:grid-cols-[1.05fr_.95fr]">
-          <Card className="relative overflow-hidden">
-            <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-[rgb(var(--primary)/.16)] blur-3xl" />
-            <CardContent className="relative flex min-h-0 flex-col justify-center p-2.5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <BrandMark className="h-10 w-10 shrink-0" symbol />
+        <div className="grid items-start gap-2 lg:grid-cols-[1.05fr_.95fr]">
+          <Card aria-label="Product overview" className="relative overflow-hidden border-[rgb(var(--primary)/.25)]">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.10)] via-transparent to-[rgb(var(--primary)/.04)]" />
+            <CardContent className="relative p-4">
+              <div className="flex items-center gap-3">
+                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-[rgb(var(--primary)/.18)] bg-[rgb(var(--surface)/.75)] shadow-sm">
+                  <BrandMark className="h-12 w-12" symbol />
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-[9px] font-bold uppercase tracking-[.18em] text-[rgb(var(--primary))]">HyperFamily Stores · IT Operations</p>
+                  <h2 className="text-lg font-bold leading-tight tracking-tight">{APP_NAME}</h2>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-[rgb(var(--muted))]">Branch connectivity, inventory and remote support — together in one Windows workspace.</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[rgb(var(--primary)/.15)] pt-3">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-black">HyperFamily Branch Monitor</h2>
-                    <Badge status="online" className="px-1.5 py-0.5 text-[9px]">v{info.version}</Badge>
-                  </div>
-                  <p className="mt-0.5 max-w-xl text-[10.5px] leading-snug text-[rgb(var(--muted))]">
-                    A secure desktop control center for retail branch connectivity, inventory, remote support, and operational visibility.
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
-                    <span className="flex items-center gap-1.5"><Code2 size={12} className="text-nord-8" />Ali Ajeli Lahiji</span>
-                    <span className="flex items-center gap-1.5"><ShieldCheck size={12} className="text-nord-14" />HyperFamily Stores</span>
-                    <span className="flex items-center gap-1.5"><Calendar size={12} className="text-nord-13" />v{info.version}</span>
-                    <span className="flex items-center gap-1.5"><HardDrive size={12} className="text-nord-15" />{info.platform}</span>
-                  </div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">{info.version.includes('-') ? 'Preview release' : 'Stable release'}</p>
+                  <p className="mt-0.5 font-mono text-sm font-bold text-[rgb(var(--primary))]">v{info.version}</p>
+                </div>
+                <div className="space-y-1 text-[10px] text-[rgb(var(--muted))]">
+                  <span className="flex items-center gap-1.5"><HardDrive size={12} />{info.platform}</span>
+                  <span className="flex items-center gap-1.5"><Code2 size={12} />Ali Ajeli Lahiji</span>
                 </div>
               </div>
             </CardContent>
@@ -379,11 +372,11 @@ export default function AboutPage() {
         <Card>
           <CardHeader className="p-2.5 pb-1">
             <CardTitle className="text-[13px]">Production technology stack</CardTitle>
-            <CardDescription className="mt-0 text-[10.5px] leading-snug">Focused tools selected for a responsive, offline-first Windows application.</CardDescription>
+            <CardDescription className="mt-0 text-[10.5px] leading-snug">Core runtime, interface, data protection, native Agent, and Windows build tools.</CardDescription>
           </CardHeader>
           <CardContent className="p-2.5 pt-1">
             <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
-              {technologies.map(([name, description, brand, brandDark], index) => (
+              {technologies.map(({ name, description, brand, brandDark }, index) => (
                 <motion.div
                   key={name}
                   initial={{ opacity: 0, y: 8 }}
@@ -396,8 +389,8 @@ export default function AboutPage() {
                   className="tech-tile group relative min-w-0 overflow-hidden rounded-lg border bg-[rgb(var(--surface)/.38)] px-2 py-1.5"
                 >
                   <span aria-hidden className="tech-tile-wash" />
-                  <b className="tech-tile-name relative block truncate text-[10.5px]">{name}</b>
-                  <p className="relative truncate text-[9px] leading-snug text-[rgb(var(--muted))]">{description}</p>
+                  <b className="tech-tile-name relative block text-[10.5px] leading-snug">{name}</b>
+                  <p className="relative mt-0.5 text-[9px] leading-snug text-[rgb(var(--muted))]">{description}</p>
                 </motion.div>
               ))}
             </div>

@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SlidersHorizontal, KeyRound, Link2, MonitorCog, PlugZap, TerminalSquare, Shield, Palette, Type, LayoutDashboard } from 'lucide-react'
+import { SlidersHorizontal, KeyRound, Link2, MonitorCog, PlugZap, TerminalSquare, Shield, Palette, Type, LayoutDashboard, Store } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import GeneralSettings from '@/components/settings/GeneralSettings'
+import StoreAppSettings from '@/components/settings/StoreAppSettings'
 import CredentialsSettings from '@/components/settings/CredentialsSettings'
 import AssignmentsSettings from '@/components/settings/AssignmentsSettings'
 import ConnectionsSettings from '@/components/settings/ConnectionsSettings'
@@ -20,6 +21,7 @@ import { DEFAULT_SETTINGS } from '@/lib/constants'
 
 const tabs = [
   { value: 'general', label: 'General', icon: <SlidersHorizontal size={14} /> },
+  { value: 'store-app', label: 'Store App', icon: <Store size={14} /> },
   { value: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
   { value: 'credentials', label: 'Credentials', icon: <KeyRound size={14} /> },
   { value: 'assignments', label: 'Assignments', icon: <Link2 size={14} /> },
@@ -46,7 +48,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-[1600px] space-y-3">
         <div>
           <h1 className="page-title">Application settings</h1>
-          <p className="page-subtitle">Security, monitoring, the dashboard experience, credentials and their assignments, connection methods, device tools, terminal, VPN, and appearance.</p>
+          <p className="page-subtitle">Security, monitoring, Store App deployment, the dashboard experience, credentials and their assignments, connection methods, device tools, terminal, VPN, and appearance.</p>
         </div>
 
         {!settings ? (
@@ -57,6 +59,7 @@ export default function SettingsPage() {
           <Tabs value={tab} onValueChange={setTab} tabs={tabs} listClassName="mb-2.5 w-fit max-w-full">
             <Card className="p-3">
               <TabsContent value="general"><GeneralSettings settings={settings} onSaved={setSettings} /></TabsContent>
+              <TabsContent value="store-app"><StoreAppSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="dashboard"><DashboardSettings settings={settings} onSaved={setSettings} /></TabsContent>
               <TabsContent value="credentials"><CredentialsSettings /></TabsContent>
               <TabsContent value="assignments"><AssignmentsSettings /></TabsContent>
