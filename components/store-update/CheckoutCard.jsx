@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CloudUpload, MonitorSmartphone, PackageSearch, RefreshCw } from 'lucide-react'
+import { CloudUpload, MonitorSmartphone, PackageSearch, RefreshCw, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** Three bouncing dots — the wait indicator inside the “Checking…” pill. */
@@ -35,6 +35,7 @@ function VersionPill({ version }) {
     // Where the number came from matters: only the Control Panel entry is
     // authoritative, the other two routes can lag behind an update.
     const provenance = {
+      agent: 'Read locally by the running HyperFamily Agent (Programs and Features)',
       'control-panel': 'Read from Programs and Features',
       wmi: 'Read from the live uninstall registry via WMI (Programs and Features version)',
       'registry-backup': 'Read from the registry backup — Remote Registry was stopped, so this may be slightly out of date',
@@ -54,6 +55,7 @@ function VersionPill({ version }) {
     )
   }
   const looks = {
+    'agent-not-running': { className: 'bg-nord-13/20 text-[#8b6e1c]', dot: 'bg-nord-13', label: 'Agent is not running' },
     offline: { className: 'bg-nord-11/15 text-nord-11', dot: 'bg-nord-11', label: 'Offline' },
     'not-found': { className: 'bg-nord-13/20 text-[#8b6e1c]', dot: 'bg-nord-13', label: 'Not installed' },
     'no-host': { className: 'bg-nord-3/15 text-[rgb(var(--muted))]', dot: 'bg-nord-3', label: 'No address' },
@@ -73,7 +75,7 @@ function VersionPill({ version }) {
  * its address, a recheck action and a deploy action. `deployBusy` disables
  * both actions while that checkout is being updated.
  */
-export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, onInspect, deployBusy = false, anyDeployRunning = false }) {
+export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, onInspect, onImportAgent, agentBusy = false, deployBusy = false, anyDeployRunning = false }) {
   return (
     <motion.div
       layout
@@ -95,7 +97,7 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
           <button
             type="button"
             onClick={() => onInspect(checkout)}
-            disabled={deployBusy}
+            disabled={deployBusy || agentBusy}
             aria-label="List installed programs"
             title="Show everything installed on this checkout — use it to find the exact product name"
             className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.55)] hover:text-[rgb(var(--text))] disabled:opacity-40"
@@ -106,7 +108,7 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
         <button
           type="button"
           onClick={() => onRecheck(checkout)}
-          disabled={deployBusy || version?.state === 'checking'}
+          disabled={deployBusy || agentBusy || version?.state === 'checking'}
           aria-label="Recheck version"
           title="Recheck Store Commerce version"
           className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.55)] hover:text-[rgb(var(--text))] disabled:opacity-40"
@@ -114,8 +116,13 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
           <RefreshCw size={13} className={version?.state === 'checking' ? 'animate-spin' : ''} />
         </button>
       </div>
-      <div className="mt-2.5 flex items-center justify-between gap-2">
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
         <VersionPill version={version} />
+        <button type="button" onClick={() => onImportAgent(checkout)} disabled={anyDeployRunning}
+          className="inline-flex items-center gap-1 rounded-lg bg-[rgb(var(--primary)/.12)] px-2 py-1 text-[10.5px] font-bold text-[rgb(var(--primary))] disabled:opacity-40"
+          title="Compare SHA-256, import the agent and configure automatic startup">
+          <ShieldCheck size={12} />{agentBusy ? 'Importing…' : 'Import Agent'}
+        </button>
         <button
           type="button"
           onClick={() => onDeploy(checkout)}

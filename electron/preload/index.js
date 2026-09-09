@@ -87,6 +87,9 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     subscribe: (callback) => subscribe('update:event', callback)
   },
   storeUpdate: {
+    importAgent: (payload) => invoke('store-update:import-agent', payload),
+    importAgentAll: (payload) => invoke('store-update:import-agent-all', payload),
+    onAgentStep: (callback) => subscribe('store-update:agent-step', callback),
     version: (payload) => invoke('store-update:version', payload),
     versions: (payload) => invoke('store-update:versions', payload),
     deploy: (payload) => invoke('store-update:deploy', payload),

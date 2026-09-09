@@ -264,3 +264,7 @@ Application support and reproducible bug reports are tracked through the reposit
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+### Store inventory Agent (beta.6)
+
+The Update Store App page now requires the bundled Windows Service agent. Use **Import Agent** per checkout or **Import Agent to all**; SHA-256 gates copying and the service starts automatically before Login. See [agent setup, security, recovery and build instructions](docs/store-agent-beta6.md).

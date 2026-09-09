@@ -17,6 +17,14 @@ jobs:
         with:
           node-version: 22.12
           cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: npm run build:agent
+      - name: Test the real Windows Agent service
+        run: npm run test:agent
+        env:
+          HF_AGENT_WINDOWS_TEST: '1'
       - run: npm ci
       - run: npm run lint
       - run: npm test

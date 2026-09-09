@@ -38,6 +38,14 @@ jobs:
             *) echo "::error::package.json version '$version' is not a pre-release; refusing to publish it from Beta"; exit 1 ;;
           esac
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: npm run build:agent
+      - name: Test the real Windows Agent service
+        run: npm run test:agent
+        env:
+          HF_AGENT_WINDOWS_TEST: '1'
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -85,6 +93,12 @@ jobs:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
+      - name: Attach the standalone agent
+        shell: bash
+        run: gh release upload '${{ steps.meta.outputs.tag }}' "agent/build/HyperFamilyStoreAgent.exe" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Attach the standalone recovery tool
         shell: bash
         run: gh release upload '${{ steps.meta.outputs.tag }}' "recovery-dist/HyperFamily-Credential-Recovery.exe" --clobber
@@ -109,6 +123,7 @@ jobs:
           [ "$count" = "1" ] || { echo "::error::$count releases share this tag"; exit 1; }
           assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
           echo "$assets"
+          echo "$assets" | grep -q '^HyperFamilyStoreAgent\.exe$' || { echo "::error::standalone agent missing"; exit 1; }
           echo "$assets" | grep -q '\.exe$' || { echo "::error::no .exe asset on the release"; exit 1; }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

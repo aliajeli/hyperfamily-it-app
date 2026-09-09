@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { Building2, CloudUpload, FileUp, HardDriveDownload, RefreshCw, Settings2, ShoppingCart, X } from 'lucide-react'
+import { Building2, CloudUpload, FileUp, HardDriveDownload, RefreshCw, Settings2, ShoppingCart, ShieldCheck, X } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import CheckoutCard from '@/components/store-update/CheckoutCard'
+import AgentImportDialog from '@/components/store-update/AgentImportDialog'
 import DeployDialog from '@/components/store-update/DeployDialog'
 import InstalledProgramsDialog from '@/components/store-update/InstalledProgramsDialog'
 import { Button, Card, CardContent, EmptyState, Skeleton } from '@/components/ui'
@@ -40,6 +41,8 @@ export default function StoreUpdatePage() {
   const [versions, setVersions] = useState({})
   const [file, setFile] = useState(null) // { path, name }
   const [deploying, setDeploying] = useState(false)
+  const [agentRun, setAgentRun] = useState({ open: false, running: false, targets: [], results: [], steps: {}, summary: null })
+  const agentBusyRef = useRef(false)
   const [dialog, setDialog] = useState({ open: false, run: null })
   // Diagnostic list of everything installed on one checkout.
   const [inspect, setInspect] = useState({ open: false, checkout: null })
@@ -51,13 +54,16 @@ export default function StoreUpdatePage() {
   dialogRef.current = dialog
 
   const allCheckouts = useMemo(() => groups.flatMap((group) => group.checkouts), [groups])
-  const anyDeployRunning = deploying
+  const anyDeployRunning = deploying || agentRun.running
 
   /* ------------------------------------------------ data + subscriptions */
   useEffect(() => {
     let alive = true
     const api = getApi()
     const unsubs = [
+      api.storeUpdate.onAgentStep((entry) => {
+        setAgentRun((previous) => ({ ...previous, steps: { ...previous.steps, [entry.checkoutId]: [...(previous.steps[entry.checkoutId] || []), entry] } }))
+      }),
       api.storeUpdate.onVersion((result) => {
         setVersions((previous) => ({ ...previous, [result.checkoutId]: result }))
       }),
@@ -93,7 +99,14 @@ export default function StoreUpdatePage() {
     })
     getApi().storeUpdate.versions({ checkouts })
       .then(() => toast.success(`Version sweep finished for ${checkouts.length} checkout(s)`))
-      .catch((error) => toast.error(error.message))
+      .catch((error) => {
+        setVersions((previous) => {
+          const next = { ...previous }
+          for (const checkout of checkouts) if (next[checkout.id]?.state === 'checking') next[checkout.id] = { state: 'error', error: error.message }
+          return next
+        })
+        toast.error(error.message)
+      })
   }, [])
 
   // Automatic sweep on first load — the page's whole point is seeing every
@@ -130,6 +143,31 @@ export default function StoreUpdatePage() {
       toast.error(error.message)
     }
   }, [settings])
+
+  const importAgents = async (targets, all = false) => {
+    if (agentBusyRef.current || deploying || !targets.length) return
+    const accepted = await confirm({
+      title: all ? `Import Agent to all ${targets.length} checkout(s)?` : `Import Agent to ${targets[0].name}?`,
+      description: 'The bundled EXE will be compared using SHA-256 and copied to C:\\Agent only if missing or different. A Windows Service will be installed/started with Automatic startup before Login. Existing agents are briefly restarted. Target access must have administrator permissions.',
+      confirmLabel: all ? 'Import Agent to all' : 'Import Agent', destructive: false
+    })
+    if (!accepted || agentBusyRef.current) return
+    agentBusyRef.current = true
+    setAgentRun({ open: true, running: true, targets, results: [], steps: {}, summary: null })
+    try {
+      const api = getApi().storeUpdate
+      const summary = all
+        ? await api.importAgentAll({ checkouts: targets })
+        : await api.importAgent({ checkout: targets[0] }).then((result) => ({ total: 1, ok: result.ok ? 1 : 0, failed: result.ok ? 0 : 1, results: [result] }))
+      setAgentRun((previous) => ({ ...previous, running: false, results: summary.results, summary }))
+      if (summary.failed) toast.error(`${summary.failed} agent import(s) failed — see details`)
+      else toast.success(`Agent is running on ${summary.ok} checkout(s)`)
+      runSweep(targets)
+    } catch (error) {
+      setAgentRun((previous) => ({ ...previous, running: false, results: targets.map((checkout) => ({ checkoutId: checkout.id, ok: false, error: error.message })) }))
+      toast.error(error.message)
+    } finally { agentBusyRef.current = false }
+  }
 
   /* --------------------------------------------------------- file picker */
   const pickFile = async () => {
@@ -170,7 +208,7 @@ export default function StoreUpdatePage() {
   }
 
   const deployOne = async (checkout) => {
-    if (deploying) return
+    if (anyDeployRunning) return
     if (!file) { toast.error('Choose the update file first') ; return }
     beginRun('single', [checkout])
     try {
@@ -184,7 +222,7 @@ export default function StoreUpdatePage() {
   }
 
   const deployAll = async () => {
-    if (deploying) return
+    if (anyDeployRunning) return
     if (!file) { toast.error('Choose the update file first'); return }
     if (!allCheckouts.length) { toast.error('No checkout is registered in the directory'); return }
     const onlineTargets = allCheckouts.filter((checkout) => checkout.hostname || checkout.ip)
@@ -249,15 +287,18 @@ export default function StoreUpdatePage() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={pickFile} disabled={deploying}>
+              <Button variant="secondary" size="sm" onClick={() => importAgents(allCheckouts, true)} disabled={anyDeployRunning || !allCheckouts.length}>
+                <ShieldCheck size={14} /> Import Agent to all
+              </Button>
+              <Button variant="secondary" size="sm" onClick={pickFile} disabled={anyDeployRunning}>
                 <FileUp size={14} />
                 {file ? 'Change file…' : 'Select file…'}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => runSweep(allCheckouts)} disabled={deploying || !allCheckouts.length || Object.values(versions).some((v) => v.state === 'checking')}>
+              <Button variant="ghost" size="sm" onClick={() => runSweep(allCheckouts)} disabled={anyDeployRunning || !allCheckouts.length || Object.values(versions).some((v) => v.state === 'checking')}>
                 <RefreshCw size={14} />
                 Recheck all
               </Button>
-              <Button size="sm" onClick={deployAll} disabled={deploying || !file || !allCheckouts.length}>
+              <Button size="sm" onClick={deployAll} disabled={anyDeployRunning || !file || !allCheckouts.length}>
                 <CloudUpload size={14} />
                 Deploy to all
               </Button>
@@ -269,7 +310,7 @@ export default function StoreUpdatePage() {
         {settings && (
           <p className="rounded-xl border border-[rgb(var(--border)/.55)] bg-[rgb(var(--surface)/.45)] px-3 py-2 text-[11px] leading-relaxed text-[rgb(var(--muted))]">
             <Settings2 size={12} className="mr-1 inline-block" />
-            The Store Commerce version is read from Programs and Features on each checkout, and files land in <b className="font-mono">{settings.store_update_path}</b> (changeable in Settings → General).
+            The local Agent reads the Store Commerce version from Programs and Features. Import installs it in C:\Agent as an automatic Windows Service. Missing/stopped agents show “Agent is not running”. Update files land in <b className="font-mono">{settings.store_update_path}</b> (changeable in Settings → General).
             Checkouts in another domain are reached with the account from Settings → Target access.
             Per checkout: connection check → dated backup of the existing file (<b className="font-mono">14050617-name</b>) → copy → SHA-256 proof, with delete-and-retry on mismatch.
           </p>
@@ -300,6 +341,8 @@ export default function StoreUpdatePage() {
                       checkout={checkout}
                       version={versions[checkout.id] || { state: 'checking' }}
                       onRecheck={recheck}
+                      onImportAgent={(target) => importAgents([target])}
+                      agentBusy={agentRun.running && agentRun.targets.some((target) => target.id === checkout.id)}
                       onDeploy={deployOne}
                       onInspect={(target) => setInspect({ open: true, checkout: target })}
                       anyDeployRunning={anyDeployRunning}
@@ -311,6 +354,8 @@ export default function StoreUpdatePage() {
           ))
         )}
       </div>
+
+      <AgentImportDialog run={agentRun} onClose={() => setAgentRun((previous) => ({ ...previous, open: false }))} />
 
       <InstalledProgramsDialog
         open={inspect.open}

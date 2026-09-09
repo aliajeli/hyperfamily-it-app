@@ -53,7 +53,7 @@ export default function InstalledProgramsDialog({ open, onOpenChange, checkout, 
         {state.data && (
           <>
             <p className="text-[11px] text-[rgb(var(--muted))]">
-              {state.data.source === 'wmi' ? 'Source: live registry via WMI (Programs and Features).' : state.data.source === 'registry-backup' ? 'Source: registry backup — versions may be outdated.' : 'Source: live registry (Programs and Features).'}
+              {state.data.source === 'agent' ? 'Source: running local Agent (Programs and Features).' : state.data.source === 'wmi' ? 'Source: live registry via WMI (Programs and Features).' : state.data.source === 'registry-backup' ? 'Source: registry backup — versions may be outdated.' : 'Source: live registry (Programs and Features).'}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-0 flex-1">
