@@ -202,3 +202,15 @@ test('Windows PowerShell query does not assume .NET Core ServiceController.Start
   })
   assert.equal((await control.query('CO-01')).state, 'Running')
 })
+
+test('agent ACL setup uses framework APIs without PSModulePath-dependent Set-Acl autoload', async () => {
+  const control = new AgentControl({ runPs: async (script) => {
+    assert.doesNotMatch(script, /Set-Acl/)
+    assert.match(script, /DirectoryInfo\(\$entry.Path\)\)\.SetAccessControl/)
+    assert.match(script, /FileInfo\(\$exe\)\)\.SetAccessControl/)
+    assert.match(script, /S-1-5-19/)
+    assert.match(script, /ReadAndExecute/)
+    assert.match(script, /Modify/)
+  } })
+  await control.secureDirectories('CO-01')
+})
