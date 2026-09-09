@@ -76,7 +76,7 @@ foreach ($entry in @(@{ Path = $root; AgentRights = 'ReadAndExecute' }, @{ Path 
     $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, $grant.Rights, 'ContainerInherit,ObjectInherit', 'None', 'Allow')
     $acl.AddAccessRule($rule)
   }
-  Set-Acl -LiteralPath $entry.Path -AclObject $acl
+  (New-Object System.IO.DirectoryInfo($entry.Path)).SetAccessControl($acl)
 }
 # Reset the executable's own ACL as well if it already existed with explicit
 # grants. It must inherit only the now-protected parent directory's rules.
@@ -84,7 +84,7 @@ $exe = Join-Path $root '${AGENT_EXE}'
 if (Test-Path -LiteralPath $exe) {
   $acl = New-Object System.Security.AccessControl.FileSecurity
   $acl.SetAccessRuleProtection($false, $false)
-  Set-Acl -LiteralPath $exe -AclObject $acl
+  (New-Object System.IO.FileInfo($exe)).SetAccessControl($acl)
 }
 `
     await this.runPs(script, 20000)
