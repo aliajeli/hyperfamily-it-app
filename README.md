@@ -130,12 +130,15 @@ npm run build:electron
 ```
 
 Expected artifact:
+(`npm run build:recovery` remains available to build the optional standalone recovery tool; it is no longer needed for the installer.)
+
+Expected artifact:
 
 ```text
 dist/HyperFamily-Branch-Monitor-Setup-2.0.22.exe
 ```
 
-For a trusted organizational rollout, configure an Authenticode certificate before publishing. Unsigned installers will trigger Windows SmartScreen warnings.
+The Agent bundle is embedded via `extraResources` and must be built before packaging. For a trusted organizational rollout, configure an Authenticode certificate before publishing. Unsigned installers will trigger Windows SmartScreen warnings.
 
 ## Data and encryption
 
@@ -158,15 +161,15 @@ The app never commits runtime databases or secrets. Database keys are tied to th
 Forgotten the administrator login? Two paths, both gated by a recovery PIN:
 
 1. The login screen has a **Recover credentials** link in the corner — enter the PIN to see the stored username and password.
-2. The installer also places a small standalone tool next to the application:
+2. The installed application itself has a **recovery mode** — same small PIN-gated window, opened from the main executable (no separate tool is bundled anymore):
 
 ```text
-%LOCALAPPDATA%\Programs\hyperfamily-branch-monitor\HyperFamily-Credential-Recovery.exe
+"%LOCALAPPDATA%\Programs\hyperfamily-branch-monitor\HyperFamily Branch Monitor.exe" --recovery
 ```
 
-The application mirrors the administrator username and password into a tiny DPAPI-encrypted file (`credentials.dat`, inside `%APPDATA%\HyperFamily Branch Monitor\`) at every start and after every password change. The tool only reads that one file — no database access, no native modules. No desktop shortcut is created; it only works for the same Windows user who runs the application.
+The application mirrors the administrator username and password into a tiny DPAPI-encrypted file (`credentials.dat`, inside `%APPDATA%\HyperFamily Branch Monitor\`) at every start and after every password change. Recovery only reads that one file — no database access, no native modules, and it skips the single-instance lock, so it also opens while the dashboard is running. It only works for the same Windows user who runs the application.
 
-**Protection:** set a 4–8 digit recovery PIN in Settings → General. Only the PIN (never stored in plain text — scrypt-hashed) unlocks the credentials, and 5 wrong attempts lock recovery for 5 minutes across both the in-app dialog and the standalone tool. Without a PIN the credentials are never revealed; installs upgraded from before v2.0.18 see a "change the password once" hint until the password is saved once. A standalone copy of the tool is also attached to every GitHub release.
+**Protection:** set a 4–8 digit recovery PIN in Settings → General. Only the PIN (never stored in plain text — scrypt-hashed) unlocks the credentials, and 5 wrong attempts lock recovery for 5 minutes across both the in-app dialog and recovery mode. Without a PIN the credentials are never revealed; installs upgraded from before v2.0.18 see a "change the password once" hint until the password is saved once. A standalone copy of the old recovery tool can still be produced on demand with `npm run build:recovery`, but it is no longer shipped.
 
 See [SECURITY.md](SECURITY.md) for the threat model and disclosure process.
 
