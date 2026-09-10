@@ -129,6 +129,9 @@ else {
     // every second, so it also turns red if the tunnel drops on its own.
     vpnService.startHealthMonitor()
     const updateService = new UpdateService(sendEvent)
+    // Restore the persisted update channel (main/beta). With nothing stored,
+    // prerelease builds follow beta and stable builds follow main.
+    try { updateService.setChannel(database.getSettings().update_channel) } catch { /* default channel stays */ }
     terminalService = new TerminalService(database, sendEvent)
     // Credentials are read fresh on every call so a change in Settings takes
     // effect immediately, without restarting the app.

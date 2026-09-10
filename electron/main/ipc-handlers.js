@@ -138,6 +138,13 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   ipcMain.handle('vpn:disconnect', secure((event) => vpnService.disconnect(sessions.get(event.sender.id).username)))
   // Reports the untouched gateway reply so a misbehaving portal can be identified.
   ipcMain.handle('vpn:diagnose', secure(() => vpnService.diagnose()))
+  ipcMain.handle('update:channel:get', secure(() => updateService.channelState()))
+  ipcMain.handle('update:channel:set', secure((event, channel) => {
+    const state = updateService.setChannel(channel)
+    // Persisted as an application setting so the preference survives restarts.
+    database.saveSettings({ update_channel: state.channel }, sessions.get(event.sender.id)?.username || 'Admin')
+    return state
+  }))
   ipcMain.handle('update:check', secure(() => updateService.check()))
   // Lets the About page restore the Download/Install button after navigation.
   ipcMain.handle('update:state', secure(() => updateService.state()))

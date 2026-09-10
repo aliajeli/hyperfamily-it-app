@@ -30,7 +30,7 @@ A secure, offline-first Windows desktop application for monitoring HyperFamily r
 | `/inventory` | Search, filter, Warehouse Code, Template download, atomic import, and Excel export |
 | `/store-update` | Update Store App — per-checkout Store Commerce versions and verified file deployment to all checkouts |
 | `/settings` | General, Store App deployment and target access, Dashboard display, credentials, device tools, VPN, and theme settings |
-| `/about` | Build information, updates, stack, and support links |
+| `/about` | Build information, updates with main/beta channel choice, stack, and support links |
 
 ## Technology
 

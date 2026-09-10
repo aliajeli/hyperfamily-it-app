@@ -26,7 +26,10 @@
     "node_modules/better-sqlite3-multiple-ciphers/prebuilds/win32-x64.node",
     "!node_modules/exceljs/dist/**",
     "!node_modules/keytar/prebuilds/{darwin,linux,linuxmusl,win32-arm64}*.node",
-    "!node_modules/cpu-features/prebuilds/{darwin,linux,linuxmusl,win32-arm64}*.node"
+    "!node_modules/cpu-features/prebuilds/{darwin,linux,linuxmusl,win32-arm64}*.node",
+    "!node_modules/**/*.map",
+    "!node_modules/**/*.d.ts",
+    "!node_modules/**/*.md"
   ],
   "win": {
     "target": [
