@@ -77,6 +77,8 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     subscribe: (callback) => subscribe('vpn:status', callback)
   },
   update: {
+    channel: () => invoke('update:channel:get'),
+    setChannel: (channel) => invoke('update:channel:set', channel),
     check: () => invoke('update:check'),
     state: () => invoke('update:state'),
     download: () => invoke('update:download'),

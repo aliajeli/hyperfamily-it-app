@@ -2,6 +2,8 @@
   "appId": "com.hyperfamily.branchmonitor",
   "productName": "HyperFamily Branch Monitor",
   "asar": true,
+  "compression": "maximum",
+  "afterPack": "electron/scripts/after-pack.cjs",
   "asarUnpack": [
     "node_modules/better-sqlite3-multiple-ciphers/**/*",
     "node_modules/keytar/**/*",
@@ -13,17 +15,21 @@
   },
   "files": [
     "electron/**/*",
-    "!electron/recovery/**",
+    "!electron/recovery/node_modules/**",
+    "!electron/recovery/package.json",
+    "!electron/recovery/package-lock.json",
     "out/**/*",
     "public/**/*",
     "package.json",
-    "node_modules/**/*"
-  ],
-  "extraFiles": [
-    {
-      "from": "recovery-dist/HyperFamily-Credential-Recovery.exe",
-      "to": "HyperFamily-Credential-Recovery.exe"
-    }
+    "node_modules/**/*",
+    "!node_modules/better-sqlite3-multiple-ciphers/prebuilds/*.node",
+    "node_modules/better-sqlite3-multiple-ciphers/prebuilds/win32-x64.node",
+    "!node_modules/exceljs/dist/**",
+    "!node_modules/keytar/prebuilds/{darwin,linux,linuxmusl,win32-arm64}*.node",
+    "!node_modules/cpu-features/prebuilds/{darwin,linux,linuxmusl,win32-arm64}*.node",
+    "!node_modules/**/*.map",
+    "!node_modules/**/*.d.ts",
+    "!node_modules/**/*.md"
   ],
   "win": {
     "target": [

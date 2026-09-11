@@ -1,16 +1,16 @@
-# HyperFamily Branch Monitor — 3.0.0
+# HyperFamily Branch Monitor — 3.1.0
 
 A Windows desktop workspace for HyperFamily retail IT: branch connectivity monitoring, device and asset inventory, remote support, and verified checkout application deployment.
 
 [![CI](https://github.com/aliajeli/hyperfamily-it-app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aliajeli/hyperfamily-it-app/actions/workflows/ci.yml)
 [![Release](https://github.com/aliajeli/hyperfamily-it-app/actions/workflows/release.yml/badge.svg)](https://github.com/aliajeli/hyperfamily-it-app/actions/workflows/release.yml)
 
-**Stable version:** `3.0.0` · **Stable branch:** `main` · **Platform:** Windows 10/11 x64 · **License:** MIT
+**Stable version:** `3.1.0` · **Stable branch:** `main` · **Platform:** Windows 10/11 x64 · **License:** MIT
 
 ## Contents
 
 - [Download and install](#download-and-install)
-- [What is included in 3.0.0](#what-is-included-in-300)
+- [What is included in 3.1.0](#what-is-included-in-310)
 - [First-run checklist](#first-run-checklist)
 - [Screens and settings](#screens-and-settings)
 - [Branches, devices and Excel](#branches-devices-and-excel)
@@ -26,14 +26,13 @@ A Windows desktop workspace for HyperFamily retail IT: branch connectivity monit
 
 ## Download and install
 
-Use the [3.0.0 release page](https://github.com/aliajeli/hyperfamily-it-app/releases/tag/v3.0.0) for the exact release, or [latest stable release](https://github.com/aliajeli/hyperfamily-it-app/releases/latest) for subsequent stable versions.
+Use the [3.1.0 release page](https://github.com/aliajeli/hyperfamily-it-app/releases/tag/v3.1.0) for the exact release, or [latest stable release](https://github.com/aliajeli/hyperfamily-it-app/releases/latest) for subsequent stable versions.
 
 | Release file | Purpose |
 | --- | --- |
-| [HyperFamily-Branch-Monitor-Setup-3.0.0.exe](https://github.com/aliajeli/hyperfamily-it-app/releases/download/v3.0.0/HyperFamily-Branch-Monitor-Setup-3.0.0.exe) | Main Windows installer; includes the desktop app, native Agent bundle and credential recovery tool |
+| [HyperFamily-Branch-Monitor-Setup-3.1.0.exe](https://github.com/aliajeli/hyperfamily-it-app/releases/download/v3.1.0/HyperFamily-Branch-Monitor-Setup-3.1.0.exe) | Main Windows installer; includes the desktop app with integrated credential recovery, plus the native Agent bundle |
 | `HyperFamilyStoreAgent.exe` | Standalone checkout Windows Service binary; normally installed using the desktop Import action |
 | `HyperFamilyStoreAgent.exe.sha256` | SHA-256 checksum of the standalone Agent |
-| `HyperFamily-Credential-Recovery.exe` | Separate recovery tool for the original Windows user's saved application login |
 | Installer `.blockmap` and `latest.yml` | Update metadata; not additional programs to install |
 
 ### Management workstation
@@ -48,15 +47,15 @@ Run the setup program under the Windows account that will operate the app. The i
 
 ### Upgrade from the approved beta
 
-Version **3.0.0** promotes the user-tested `3.0.1-beta.9` feature set to `main`, using the requested stable release number. Under semantic version ordering, `3.0.0` is **lower** than `3.0.1-beta.9`. The updater does not allow downgrades, so beta users should close the app and run the **3.0.0 installer manually** rather than wait for an automatic update offer.
+Version **3.1.0** supersedes the `3.0.1-beta.x` line and carries the same or newer features, so the updater offers it to beta installs normally. Users of a beta older than beta.10 can close the app and run the **3.1.0 installer manually** instead.
 
-Before installing, close the app and make an approved backup of its data and key files. Use the same Windows account and installation identity. Do not delete the application data or assume that a database copied to another account can be decrypted. After installation, confirm **3.0.0** in About and check your saved branches, product selection, deployment destination and target account.
+Before installing, close the app and make an approved backup of its data and key files. Use the same Windows account and installation identity. Do not delete the application data or assume that a database copied to another account can be decrypted. After installation, confirm **3.1.0** in About and check your saved branches, product selection, deployment destination and target account.
 
 Existing Agent installations remain in place until explicitly imported again. Install the new desktop build **before** importing its bundled Agent; an older desktop still carries its own older Agent.
 
-## What is included in 3.0.0
+## What is included in 3.1.0
 
-This stable release includes the approved Beta work through beta.9:
+This stable release includes the approved Beta work through beta.10:
 
 - **Branch monitoring:** parallel reachability checks, live status, response charts, active alerts, uptime information and configurable dashboard presentation.
 - **Device inventory:** ten equipment types, branch/warehouse associations, switch port records, filtering and workbook import/export.
@@ -68,7 +67,7 @@ This stable release includes the approved Beta work through beta.9:
 - **Refreshed About:** compact product card, package-derived version, audited technology credits, update controls and support links.
 - **Local data and customization:** encrypted SQLite storage, per-field secret protection, PIN-gated recovery, multiple light/dark themes, custom colors, fonts, scaling and operational notes.
 
-The stable release also aligns the desktop and recovery-tool manifests to `3.0.0` and removes the native Agent's Windows prerelease flag for stable builds. See [3.0.0 release notes](docs/release-3.0.0.md).
+On top of the beta line, 3.1.0 cuts the Windows installer from roughly 300 MB to about 100 MB (the separate recovery app is now integrated into the desktop app), and adds a selectable **main/beta update channel** in About. The stable release also aligns the desktop manifests and removes the native Agent's Windows prerelease flag for stable builds. See [3.1.0 release notes](docs/release-3.1.0.md).
 
 ## First-run checklist
 
@@ -96,7 +95,7 @@ The local application administrator login and the remote checkout administrator 
 | `/store-update` | Installed product/version checks, Agent Import and update-file deployment |
 | `/notes` | Operational notes |
 | `/settings` | Application, checkout, connectivity and appearance settings |
-| `/about` | Product/version information, updates, technology credits and support |
+| `/about` | Product/version information, updates with main/beta channel choice, technology credits and support |
 
 ### Settings tabs
 
@@ -236,7 +235,7 @@ The local application login is verified using bcryptjs. For PIN-gated recovery, 
 Two recovery paths use that PIN:
 
 1. **Recover credentials** on the login screen.
-2. `HyperFamily-Credential-Recovery.exe`, placed alongside the installed desktop app and also attached to the release.
+2. **Recovery mode** of the installed desktop app: run `HyperFamily-Branch-Monitor.exe --recovery` (or `npm run recovery` in development). The same PIN-gated window opens from the main executable — a separate recovery app is no longer bundled or attached to releases. A standalone build remains available via `npm run build:recovery` if ever needed.
 
 The recovery file has a canonical location:
 
@@ -244,7 +243,7 @@ The recovery file has a canonical location:
 %APPDATA%\HyperFamily Branch Monitor\credentials.dat
 ```
 
-The recovery tool reads that file under the same Windows user; it does not bypass DPAPI or provide access to another account's database. The PIN is scrypt-hashed. Five wrong attempts lock recovery for five minutes. Without a configured PIN, credentials are not revealed. Older upgraded profiles may need the application password saved once before a recoverable copy is available.
+Recovery reads that file under the same Windows user; it does not bypass DPAPI or provide access to another account's database. The PIN is scrypt-hashed. Five wrong attempts lock recovery for five minutes. Without a configured PIN, credentials are not revealed. Older upgraded profiles may need the application password saved once before a recoverable copy is available.
 
 ### Security boundaries
 
@@ -280,7 +279,7 @@ agent/                  Native Windows service, CMake resources and C++ tests
 electron/main/          Electron lifecycle, preload and IPC handlers
 electron/database/      Encrypted persistence and migrations
 electron/services/      Monitoring, deployment, terminal, VPN and other OS services
-electron/recovery/      Standalone credential recovery application
+electron/recovery/      Shared credential recovery core, page and optional standalone shell
 electron/scripts/       Native Agent build and binary verification
 tests/                  Unit, Electron, Windows service and browser checks
 docs/                   Architecture, release notes and validation guides
@@ -328,17 +327,18 @@ npm run test:ssh
 npm run test:vpn
 npm run test:template
 npm run build
-npm run build:recovery
 npx electron-builder --win nsis --x64 --publish never
 ```
+
+(`npm run build:recovery` remains available to build the optional standalone recovery tool; it is no longer needed for the installer.)
 
 Expected installer:
 
 ```text
-dist/HyperFamily-Branch-Monitor-Setup-3.0.0.exe
+dist/HyperFamily-Branch-Monitor-Setup-3.1.0.exe
 ```
 
-The recovery executable must exist **before** packaging the main installer because it is embedded via `extraFiles`. The Agent bundle is embedded via `extraResources`.
+The Agent bundle is embedded via `extraResources` and must be built before packaging.
 
 ### Scripts
 
@@ -361,7 +361,7 @@ The recovery executable must exist **before** packaging the main installer becau
 
 ## Tests and validation
 
-The approved beta.9 passed its Windows CI/release pipelines, all 87 Node unit tests on Windows, native Agent service tests and browser regression checks. Version 3.0.0 additionally checks stable Windows version-resource flags and consistent desktop/recovery manifests. Release-specific CI results remain the authoritative build evidence; simulated tests do not certify every physical checkout or gateway.
+The beta line passed its Windows CI/release pipelines, the Node unit test suite (96 tests), native Agent service tests and browser regression checks. Version 3.1.0 additionally checks stable Windows version-resource flags, consistent desktop/recovery manifests and the update-channel logic with dedicated unit tests. Release-specific CI results remain the authoritative build evidence; simulated tests do not certify every physical checkout or gateway.
 
 ### Real Windows service tests
 
@@ -397,12 +397,12 @@ Before a real branch rollout, test a known checkout, authenticated admin shares,
 | --- | --- |
 | Push / pull request to supported CI branches | Validation; branch pushes also package an unsigned test installer |
 | Push to `Beta` | Beta Release workflow builds the version in `package.json` and publishes a **prerelease** |
-| Push stable tag such as `v3.0.0` | Release workflow builds/tests Windows artifacts and publishes the stable release |
+| Push stable tag such as `v3.1.0` | Release workflow builds/tests Windows artifacts and publishes the stable release |
 | Push to `main` without a release tag | CI only; it does not by itself publish a stable GitHub release |
 
 For a stable release, update the root and recovery package/lock versions together, validate, commit on `main`, and push the matching `v<version>` tag. Keep the `Beta` branch and historical prerelease tags intact; never retag an already-published release to silently replace its contents.
 
-About checks published **stable** GitHub releases. Drafts and prereleases are excluded. Where supported, downloads use differential metadata and expose progress, pause/resume/stop and install/restart controls; a full download can still be needed. Installation is an explicit action. Normal version comparison does not offer `3.0.0` as an upgrade from `3.0.1-beta.9`.
+About offers a selectable **update channel** next to the update controls: **Main release** offers only published stable releases, and **Beta release** offers the newest release including prereleases; the choice is stored per installation. A beta install that selects **Main release** is offered the newest stable version even when its number is lower than the installed beta — switching back from beta is a deliberate, confirmed downgrade. Drafts are excluded on both channels. Where supported, downloads use differential metadata and expose progress, pause/resume/stop and install/restart controls; a full download can still be needed. Installation is an explicit action.
 
 The release workflow uses its repository `GITHUB_TOKEN`. Configure `CSC_LINK` and `CSC_KEY_PASSWORD` securely if producing signed installers; never put them in source files. A successful workflow alone does not prove that signing secrets were configured.
 
@@ -415,9 +415,7 @@ The release workflow uses its repository `GITHUB_TOKEN`. Configure `CSC_LINK` an
 | Agent transfer times out | Inspect the reported hash/copy/verification phase and progress. Check WAN throughput and endpoint scanning. Initial legacy-Agent hashing can be slow. |
 | Product/version missing | Check the selected product on Update Store App, machine-wide Programs and Features entries, Agent freshness and any inventory error. |
 | Wrong deployment destination | Update Settings → Store App; the path is interpreted on each checkout. Saving it should not change product selection. |
-| Beta does not offer 3.0.0 automatically | Install 3.0.0 manually; it is numerically below 3.0.1-beta.9. |
 | Native module ABI error | Run `npx electron-builder install-app-deps`; use Electron for its native integration tests. |
-| Missing embedded recovery tool during packaging | Build `npm run build:recovery` before packaging the desktop installer. |
 | Device unknown/offline | Check ICMP, address/DNS, VPN/routes, ping settings and Dashboard visibility. |
 | External executable not found | Set its actual installed path under Device tools or VPN; the app does not install third-party clients. |
 | FortiClient is open but VPN is off | Complete connection in FortiClient and verify a real tunnel adapter/routes; process presence alone is insufficient. |
@@ -426,14 +424,14 @@ The release workflow uses its repository `GITHUB_TOKEN`. Configure `CSC_LINK` an
 
 ## Documentation, support and license
 
-- [3.0.0 release notes and upgrade checklist](docs/release-3.0.0.md)
+- [3.1.0 release notes and upgrade checklist](docs/release-3.1.0.md)
 - [Settings/About changes and technology audit](docs/settings-about-beta9.md)
 - [Native Agent architecture, build and upgrade notes](docs/store-agent-beta8.md)
 - [WAN timeout/progress troubleshooting](docs/store-agent-beta7.md)
 - [Service/import design history](docs/store-agent-beta6.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Windows validation plan](docs/WINDOWS-TEST-PLAN.md) · [Security policy](SECURITY.md)
 
-Beta guides are historical implementation/test references; their beta version numbers and pre-approval merge instructions are not the current stable release status. This README and the 3.0.0 release notes describe the approved promotion to `main`.
+Beta guides are historical implementation/test references; their beta version numbers and pre-approval merge instructions are not the current stable release status. This README and the 3.1.0 release notes describe the current stable release on `main`.
 
 **Developer:** Ali Ajeli Lahiji — IT Specialist, HyperFamily Retail Stores
 **Email:** [Lahiji.ali@hyperfamili.com](mailto:Lahiji.ali@hyperfamili.com)

@@ -57,6 +57,8 @@ export default function AboutPage() {
   const [paused, setPaused] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
   const [changelogOpen, setChangelogOpen] = useState(false)
+  // Which update channel this install follows: 'main' (stable only) or 'beta'.
+  const [channel, setChannel] = useState('main')
   // Live transfer figures: how much has arrived, how much is left, how fast.
   const [transfer, setTransfer] = useState({ transferred: 0, total: 0, remaining: 0, bytesPerSecond: 0, etaSeconds: null })
   const [installing, setInstalling] = useState(false)
@@ -65,6 +67,7 @@ export default function AboutPage() {
     const api = getApi()
     if (!api) return undefined
     api.app.info().then(setInfo).catch(() => {})
+    api.update.channel?.().then((state) => { if (state?.channel) setChannel(state.channel) }).catch(() => {})
     // A previous visit may already have finished the download; restore the
     // button straight into its Install state instead of offering Download again.
     api.update.state?.().then((state) => {
@@ -140,6 +143,36 @@ export default function AboutPage() {
       toast.error(error.message)
     } finally {
       setChecking(false)
+    }
+  }
+
+  /**
+   * Switches the update channel. The preference is persisted on the main side
+   * (settings key update_channel); the service cancels anything belonging to
+   * the old channel, so the screen resets cleanly, and a fresh check runs so
+   * the button immediately offers that channel's release. Notably, a beta
+   * install that switches to 'main' is offered the newest stable even when
+   * its version number is lower (an intentional switch-back downgrade).
+   */
+  const selectChannel = async (next) => {
+    if (next === channel) return
+    const previous = channel
+    setChannel(next)
+    try {
+      await getApi().update.setChannel(next)
+      setUpdate(null)
+      setDownloaded(false)
+      setDownloading(false)
+      setPaused(false)
+      setProgress(0)
+      setTransfer({ transferred: 0, total: 0, remaining: 0, bytesPerSecond: 0, etaSeconds: null })
+      toast.success(next === 'beta' ? 'Beta updates enabled' : 'Stable (main) updates only', {
+        description: next === 'beta' ? 'You will be offered the newest release, including betas.' : 'Only stable releases will be offered — a beta install switches back to the newest stable.'
+      })
+      await check()
+    } catch (error) {
+      setChannel(previous)
+      toast.error(error.message)
     }
   }
 
@@ -315,6 +348,46 @@ export default function AboutPage() {
                   </div>
                 )}
               </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1" role="radiogroup" aria-label="Update channel">
+                <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">Update channel</span>
+                <label className={`flex items-center gap-1.5 text-[11px] ${downloading || paused ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    role="radio"
+                    aria-checked={channel === 'main'}
+                    className="h-3.5 w-3.5 accent-[rgb(var(--primary))]"
+                    checked={channel === 'main'}
+                    disabled={downloading || paused}
+                    onChange={() => selectChannel('main')}
+                  />
+                  Main release
+                  <span className="text-[10px] text-[rgb(var(--muted))]">(stable only)</span>
+                </label>
+                <label className={`flex items-center gap-1.5 text-[11px] ${downloading || paused ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    role="radio"
+                    aria-checked={channel === 'beta'}
+                    className="h-3.5 w-3.5 accent-[rgb(var(--primary))]"
+                    checked={channel === 'beta'}
+                    disabled={downloading || paused}
+                    onChange={() => selectChannel('beta')}
+                  />
+                  Beta release
+                  <span className="text-[10px] text-[rgb(var(--muted))]">(new features first)</span>
+                </label>
+              </div>
+              {update?.hasUpdate && update.isDowngrade && (
+                <p className="mt-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10.5px] leading-snug text-amber-600 dark:text-amber-400">
+                  Switching to stable: v{update.latestVersion} will replace this beta (v{info.version}) — the version number goes down, but this is the newest main release.
+                </p>
+              )}
+              {update?.hasUpdate && update.latestIsPrerelease && (
+                <p className="mt-1.5 rounded-md border border-[rgb(var(--primary)/.25)] bg-[rgb(var(--primary)/.08)] px-2 py-1 text-[10.5px] leading-snug text-[rgb(var(--primary))]">
+                  v{update.latestVersion} is a beta preview — the newest main release stays on the Main channel.
+                </p>
+              )}
 
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <Button size="sm" onClick={check} disabled={checking} variant="secondary">

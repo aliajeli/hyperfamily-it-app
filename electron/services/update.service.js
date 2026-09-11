@@ -6,6 +6,12 @@ const { app, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 
 const { compareVersions } = require('./version')
+const {
+  isPrereleaseVersion,
+  normalizeChannel,
+  updaterFlags,
+  evaluateChannelUpdate
+} = require('./update-channel')
 
 const RELEASES_API = 'https://api.github.com/repos/aliajeli/hyperfamily-it-app/releases'
 const REQUEST_HEADERS = { 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: 'application/vnd.github+json' }
@@ -45,6 +51,10 @@ class UpdateService {
     autoUpdater.disableDifferentialDownload = false
     autoUpdater.allowDowngrade = false
     autoUpdater.logger = null
+    // Update channel (main / beta). Defaults to beta on prerelease builds and
+    // main on stable builds until setChannel applies the stored preference.
+    this.channel = normalizeChannel(null, app.getVersion())
+    this.applyChannelFlags()
     // The installer is not code signed yet, so Authenticode verification would
     // reject every download with ERR_UPDATER_INVALID_SIGNATURE. Skip it until a
     // certificate is configured (CSC_LINK / CSC_KEY_PASSWORD).
@@ -173,6 +183,42 @@ class UpdateService {
     return { ...this.status, canInstall: this.status.downloaded, isPackaged: app.isPackaged }
   }
 
+  /** Tunes electron-updater so the active channel behaves as documented. */
+  applyChannelFlags() {
+    const flags = updaterFlags(this.channel, app.getVersion())
+    autoUpdater.allowPrerelease = flags.allowPrerelease
+    autoUpdater.allowDowngrade = flags.allowDowngrade
+  }
+
+  /**
+   * Switches the update channel ('main' | 'beta'; anything else restores the
+   * version-based default). Any in-flight or finished download belongs to the
+   * previous channel, so it is cancelled quietly — installing one channel's
+   * file from the other channel's screen is exactly what this prevents.
+   */
+  setChannel(channel) {
+    this.channel = normalizeChannel(channel, app.getVersion())
+    this.applyChannelFlags()
+
+    try { this.cancellationToken?.cancel() } catch { /* token may be gone */ }
+    try { this.fallbackAbort?.abort() } catch { /* no fallback running */ }
+    this.cancellationToken = null
+    this.fallbackAbort = null
+    this.paused = false
+    this.installerPath = null
+    this.status = { ...UpdateService.idleStatus() }
+    this.latestInstaller = null
+    return this.channelState()
+  }
+
+  channelState() {
+    return {
+      channel: this.channel,
+      currentVersion: app.getVersion(),
+      currentIsPrerelease: isPrereleaseVersion(app.getVersion())
+    }
+  }
+
   /**
    * Pauses the download in place.
    *
@@ -217,27 +263,28 @@ class UpdateService {
 
   async check() {
     const currentVersion = app.getVersion()
+    const channel = this.channel
     const response = await fetch(`${RELEASES_API}?per_page=20`, { headers: REQUEST_HEADERS })
-    if (response.status === 404) return { currentVersion, latestVersion: currentVersion, hasUpdate: false, releaseNotes: 'No published release found yet.' }
+    if (response.status === 404) return { currentVersion, channel, latestVersion: currentVersion, hasUpdate: false, isDowngrade: false, releaseNotes: 'No published release found yet.' }
     if (!response.ok) throw new Error(`GitHub update check failed (${response.status})`)
 
+    // The channel decides what competes: main only sees stable releases, beta
+    // lets prereleases in too. On main a prerelease install is pointed at the
+    // newest stable even when that version number is lower — switching back
+    // from beta is a deliberate downgrade, never a silent "you are current".
     const releases = await response.json()
-    const published = (Array.isArray(releases) ? releases : []).filter((item) => item && !item.draft && !item.prerelease)
-    if (!published.length) return { currentVersion, latestVersion: currentVersion, hasUpdate: false, releaseNotes: 'No published release found yet.' }
+    const evaluation = evaluateChannelUpdate({ releases, channel, currentVersion })
+    if (!evaluation.release) return { currentVersion, channel, latestVersion: currentVersion, hasUpdate: false, isDowngrade: false, releaseNotes: 'No published release found yet.' }
 
     // A tag can carry more than one release when a publish run races with
-    // itself, and the installer may sit on either of them. Pick the newest
-    // version, then merge every release sharing that tag so the .exe is found
-    // regardless of which one it was attached to.
-    const newest = published
-      .map((item) => ({ item, version: String(item.tag_name || '').replace(/^v/, '') }))
-      .sort((a, b) => compareVersions(b.version, a.version))[0]
-
-    const sameTag = published.filter((item) => item.tag_name === newest.item.tag_name)
+    // itself, and the installer may sit on either of them. Merge every
+    // release sharing the picked tag so the .exe is found regardless of
+    // which one it was attached to.
+    const { release, latestVersion, hasUpdate, isDowngrade } = evaluation
+    const sameTag = (Array.isArray(releases) ? releases : []).filter((item) => item && item.tag_name === release.tag_name)
     const assets = sameTag.flatMap((item) => item.assets || [])
     const installer = assets.find((item) => item.name.toLowerCase().endsWith('.exe'))
     const notes = sameTag.map((item) => item.body).find(Boolean) || ''
-    const latestVersion = newest.version
 
     this.latestInstaller = installer
       ? { url: installer.browser_download_url, name: installer.name, size: installer.size, version: latestVersion }
@@ -251,11 +298,15 @@ class UpdateService {
 
     return {
       currentVersion,
+      channel,
+      currentIsPrerelease: isPrereleaseVersion(currentVersion),
       latestVersion,
-      hasUpdate: compareVersions(latestVersion, currentVersion) > 0,
+      latestIsPrerelease: Boolean(release.prerelease),
+      hasUpdate,
+      isDowngrade,
       releaseNotes: notes,
-      publishedAt: newest.item.published_at,
-      downloadUrl: installer?.browser_download_url || newest.item.html_url || null,
+      publishedAt: release.published_at,
+      downloadUrl: installer?.browser_download_url || release.html_url || null,
       downloadSize: installer?.size || 0,
       downloadName: installer?.name || null,
       ...this.state()
@@ -301,6 +352,8 @@ class UpdateService {
 
   /** electron-updater path: differential download when possible. */
   async downloadWithUpdater() {
+    // Re-apply in case the channel (or app version) changed since construction.
+    this.applyChannelFlags()
     let updaterError = null
     const onError = (error) => { updaterError = error }
     autoUpdater.on('error', onError)
