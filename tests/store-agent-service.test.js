@@ -135,7 +135,7 @@ test('unreadable registry is distinct from agent liveness; malformed/oversized d
 })
 
 test('protocol and timestamp checks reject incompatible, future and invalid inventory', () => {
-  for (const patch of [{ protocolVersion: 2 }, { pid: 0 }, { programs: [null] }, { generatedAt: 'invalid' }, { generatedAt: new Date(Date.now() + 120000).toISOString() }]) {
+  for (const patch of [{ protocolVersion: 2 }, { pid: 0 }, { programs: [null] }, { generatedAt: 'invalid' }, { generatedAt: new Date(Date.now() + 150000).toISOString() }]) {
     assert.throws(() => validateSnapshot(JSON.stringify(snapshot(patch))))
   }
   assert.equal(validateSnapshot(JSON.stringify(snapshot())).programs[0].version, '9.52')
@@ -269,4 +269,66 @@ test('progress samples are coalesced in the retained import log', async (t) => {
   const result = await f.service.importOne(checkout)
   assert.equal(result.ok, true, result.error)
   assert.ok(result.steps.filter((entry) => entry.progress).length < 10, 'Do not accumulate thousands of progress samples per checkout')
+})
+
+test('WAN: a slowly trickling heartbeat read completes; only a stalled link fails', async () => {
+  const { Readable } = require('stream')
+  const { readWithIdleDeadline } = require('../electron/services/store-agent.service')
+  const parts = ['{"alpha":"', 'bravo","n":', '42}']
+  const trickle = () => Readable.from((async function* () {
+    for (const part of parts) { await new Promise((r) => setTimeout(r, 30)); yield Buffer.from(part) }
+  })())
+  const read = await readWithIdleDeadline('unused', { idleTimeoutMs: 250, maxReadMs: 5000, createReadStream: trickle })
+  assert.equal(read.toString('utf8'), parts.join(''))
+
+  const stalled = () => Readable.from((async function* () {
+    yield Buffer.from('partial')
+    await new Promise((r) => setTimeout(r, 5000))
+    yield Buffer.from('never')
+  })())
+  await assert.rejects(readWithIdleDeadline('unused', { idleTimeoutMs: 100, maxReadMs: 3000, createReadStream: stalled }), /no data/i)
+})
+
+test('WAN: continuous but endless trickle still hits the absolute read ceiling', async () => {
+  const { Readable } = require('stream')
+  const { readWithIdleDeadline } = require('../electron/services/store-agent.service')
+  const endless = () => Readable.from((async function* () {
+    for (;;) { await new Promise((r) => setTimeout(r, 10)); yield Buffer.alloc(1024) }
+  })())
+  // Bytes keep arriving (idle never trips), size cap fires first here.
+  await assert.rejects(readWithIdleDeadline('unused', { idleTimeoutMs: 250, maxReadMs: 60000, maxBytes: 4096, createReadStream: endless }), /too large/)
+})
+
+test('WAN: waitForHeartbeat keeps polling until a late heartbeat appears', async (t) => {
+  const f = fixture(t, { heartbeatWaitMs: 10000, heartbeatPollMs: 1, delay: async () => {} })
+  let polls = 0
+  // Simulate a completed install: target holds the same bytes as the bundle.
+  fs.mkdirSync(f.target('CO-01'), { recursive: true })
+  fs.writeFileSync(f.target('CO-01', AGENT_EXE), 'new-agent-binary')
+  const wanted = await hashFile(f.source)
+  f.service.inspect = async () => (++polls >= 3 ? { running: true, agentVersion: 'x' } : { running: false, reason: 'no fresh inventory yet' })
+  const heartbeat = await f.service.waitForHeartbeat('CO-01', wanted, {})
+  assert.equal(heartbeat.running, true)
+  assert.equal(polls, 4) // two failed polls, one running, one post-hash freshness re-check
+})
+
+test('WAN: heartbeat wait honours its window and reports the slow-VPN guidance', async () => {
+  let fakeNow = 0
+  const service = new StoreAgentService({
+    platform: 'linux', agentPathMapper: () => '', heartbeatWaitMs: 30000, heartbeatPollMs: 1,
+    delay: async () => { fakeNow += 1000 }, now: () => fakeNow,
+    reach: async (host) => ({ status: 'online', host }),
+    smb: { withHost: async (_h, _c, task) => task() }
+  })
+  service.inspect = async () => ({ running: false, reason: 'still starting' })
+  const waits = []
+  await assert.rejects(service.waitForHeartbeat('CO-99', 'deadbeef', {}, (elapsed, reason) => waits.push([elapsed, reason])), /slow VPN/)
+  assert.ok(waits.length >= 30)
+})
+
+test('agent staleness window accepts remote-slow heartbeats but rejects dead ones', () => {
+  const now = Date.now()
+  const fresh90 = snapshot({ generatedAt: new Date(now - 90000).toISOString() })
+  assert.equal(validateSnapshot(JSON.stringify(fresh90), now).programs[0].name, 'Store Commerce')
+  assert.throws(() => validateSnapshot(JSON.stringify(snapshot({ generatedAt: new Date(now - 121000).toISOString() })), now), /stale/)
 })

@@ -12,9 +12,15 @@ function normalizeHost(host) {
   return clean
 }
 
+// Every sc.exe/OpenSCManager hop negotiates RPC-over-SMB with the remote
+// Service Control Manager; over a slow VPN that handshake alone can stretch
+// past the old 20 s cap. 45 s stays far below any human attention span yet
+// comfortably covers a lossy branch link.
+const SC_TIMEOUT_MS = 45000
+
 function runSc(host, args, allowed = []) {
   return new Promise((resolve, reject) => {
-    execFile('sc.exe', [`\\\\${normalizeHost(host)}`, ...args], { timeout: 20000, windowsHide: true, encoding: 'utf8' }, (error, stdout = '', stderr = '') => {
+    execFile('sc.exe', [`\\\\${normalizeHost(host)}`, ...args], { timeout: SC_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' }, (error, stdout = '', stderr = '') => {
       if (error && !allowed.includes(Number(error.code))) {
         reject(new Error(`Agent service control failed on ${host} — ${String(stderr || stdout || 'Allow Remote Service Management and check Target access administrator permissions').trim()}`))
       } else resolve({ code: Number(error?.code || 0), stdout: String(stdout) })
@@ -47,7 +53,7 @@ try {
   else { throw 'Cannot query the agent service. Check Target access and Remote Service Management firewall permissions.' }
 } finally { $service.Dispose() }
 `
-    return JSON.parse(String(await this.runPs(script, 15000)).trim())
+    return JSON.parse(String(await this.runPs(script, SC_TIMEOUT_MS)).trim())
   }
 
   async assertOwnedService(host) {
@@ -87,10 +93,11 @@ if (Test-Path -LiteralPath $exe) {
   (New-Object System.IO.FileInfo($exe)).SetAccessControl($acl)
 }
 `
-    await this.runPs(script, 20000)
+    // ACL work is many small SMB transactions — allow extra time on WAN/VPN.
+    await this.runPs(script, 60000)
   }
 
-  async waitFor(host, state, timeoutMs = 45000) {
+  async waitFor(host, state, timeoutMs = 120000) {
     const end = Date.now() + timeoutMs
     do {
       const status = await this.query(host)

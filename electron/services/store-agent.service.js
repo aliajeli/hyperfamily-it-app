@@ -2,8 +2,6 @@ const fs = require('fs')
 const fsp = require('fs/promises')
 const path = require('path')
 const crypto = require('crypto')
-const { pipeline } = require('stream/promises')
-const { Writable } = require('stream')
 const { setTimeout: delay } = require('node:timers/promises')
 const { withTimeout } = require('./async-fs')
 const { checkReachable } = require('./reachability.service')
@@ -11,21 +9,68 @@ const { SmbSessionManager } = require('./smb.service')
 const { AgentControl, AGENT_EXE, normalizeHost } = require('./agent-control.service')
 const { hashFile, copyFile, formatProgress } = require('./agent-transfer.service')
 
-const HEARTBEAT_MAX_AGE_MS = 60000
+/**
+ * VPN/WAN note (v3.1.2)
+ * ---------------------
+ * Over a slow FortiClient VPN into a branch, SMB writes (the agent copy) keep
+ * working but small reads and SCM calls stretch out. The old constants were
+ * LAN-sized — a fixed 12 s cap on the heartbeat read and a 45 s overall wait
+ * — so a healthy agent looked invisible and an import stalled at "waiting for
+ * the agent" even though bits were arriving. The constants below follow
+ * progress instead of elapsed time, same idea as agent-transfer.service.
+ */
+const HEARTBEAT_MAX_AGE_MS = 120000
+const HEARTBEAT_IDLE_READ_MS = 45000
+const HEARTBEAT_MAX_READ_MS = 5 * 60 * 1000
+const DEFAULT_HEARTBEAT_WAIT_MS = 5 * 60 * 1000
+const STAT_TIMEOUT_MS = 30000
 const MAX_INVENTORY_BYTES = 8 * 1024 * 1024
 
-async function abortableStream(task, timeoutMs, label = 'Agent heartbeat read') {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try { return await task(controller.signal) }
-  catch (error) {
-    if (controller.signal.aborted) throw new Error(`${label}: timed out after ${timeoutMs / 1000} seconds`)
-    throw error
-  } finally { clearTimeout(timer) }
+/**
+ * Reads the agent heartbeat/inventory over SMB. On a LAN this is instant; on
+ * a VPN an 8 MB inventory can stream for minutes. The idle deadline re-arms
+ * on every chunk (progress keeps the read alive) — only a genuinely stalled
+ * link or an absurd total duration fails.
+ */
+async function readWithIdleDeadline(file, options = {}) {
+  const idleTimeoutMs = options.idleTimeoutMs ?? HEARTBEAT_IDLE_READ_MS
+  const maxReadMs = options.maxReadMs ?? HEARTBEAT_MAX_READ_MS
+  const maxBytes = options.maxBytes ?? MAX_INVENTORY_BYTES
+  const label = options.label || 'Agent heartbeat read'
+  const create = options.createReadStream || fs.createReadStream
+
+  let failure = null
+  const expire = (stream, idle) => {
+    if (failure) return
+    failure = new Error(idle
+      ? `${label}: no data for ${Math.round(idleTimeoutMs / 1000)} s — the SMB/VPN link stalled; check the branch connection and retry`
+      : `${label}: exceeded the ${Math.round(maxReadMs / 60000)}-minute read window on a slowly progressing link`)
+    stream.destroy(failure)
+  }
+
+  const input = create(file, { highWaterMark: 256 * 1024 })
+  let idleTimer = setTimeout(() => expire(input, true), idleTimeoutMs)
+  const maxTimer = setTimeout(() => expire(input, false), maxReadMs)
+  const chunks = []
+  let bytes = 0
+  try {
+    for await (const chunk of input) {
+      bytes += chunk.length
+      if (bytes > maxBytes) throw new Error('Agent inventory is too large')
+      chunks.push(chunk)
+      clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => expire(input, true), idleTimeoutMs)
+    }
+  } finally {
+    clearTimeout(idleTimer)
+    clearTimeout(maxTimer)
+  }
+  if (failure) throw failure
+  return Buffer.concat(chunks)
 }
 
 async function optionalStat(file) {
-  try { return await withTimeout(fsp.lstat(file), 12000, 'Timed out accessing the agent files') }
+  try { return await withTimeout(fsp.lstat(file), STAT_TIMEOUT_MS, 'Timed out accessing the agent files; the link to the checkout is very slow or down') }
   catch (error) { if (error.code === 'ENOENT') return null; throw error }
 }
 
@@ -60,7 +105,12 @@ class StoreAgentService {
     this.now = options.now || Date.now
     this.send = options.send || (() => {})
     this.locks = new Map()
-    this.heartbeatWaitMs = options.heartbeatWaitMs || 45000
+    // Five minutes, not 45 s: over a VPN every inspect below carries one slow
+    // SCM query plus a slow SMB read, so the first service starts can need
+    // several polls before a fresh heartbeat is even visible.
+    this.heartbeatWaitMs = options.heartbeatWaitMs || DEFAULT_HEARTBEAT_WAIT_MS
+    this.heartbeatPollMs = options.heartbeatPollMs || 1500
+    this.delay = options.delay || delay
   }
 
   async inspect(host) {
@@ -73,25 +123,18 @@ class StoreAgentService {
       const file = this.mapPath(host, 'data/inventory.json')
       const stat = await optionalStat(file)
       if (!stat?.isFile() || stat.isSymbolicLink() || stat.size > MAX_INVENTORY_BYTES) return { running: false, reason: 'Agent has not produced a readable heartbeat yet' }
-      // readFile is abortable, and snapshot publication is an atomic rename.
-      const data = await abortableStream(async (signal) => {
-        const chunks = []
-        let bytes = 0
-        await pipeline(fs.createReadStream(file), new Writable({ write(chunk, _encoding, done) {
-          bytes += chunk.length
-          if (bytes > MAX_INVENTORY_BYTES) return done(new Error('Agent inventory is too large'))
-          chunks.push(chunk); done()
-        } }), { signal })
-        return validateSnapshot(Buffer.concat(chunks).toString('utf8'), this.now())
-      }, 12000, `Agent heartbeat read on ${host}`)
-      return { running: true, ...data }
+      // Publication is an atomic rename, so a read never sees a torn file;
+      // only the speed of the link decides how long it takes.
+      const raw = await readWithIdleDeadline(file, { label: `Agent heartbeat read on ${host}` })
+      return { running: true, ...validateSnapshot(raw.toString('utf8'), this.now()) }
     } catch (error) {
       return { running: false, reason: error.message }
     }
   }
 
-  async waitForHeartbeat(host, expectedHash, verifyOptions) {
-    const end = Date.now() + this.heartbeatWaitMs
+  async waitForHeartbeat(host, expectedHash, verifyOptions, onWait) {
+    const startedAt = this.now()
+    const end = startedAt + this.heartbeatWaitMs
     do {
       const result = await this.inspect(host)
       if (result.running) {
@@ -102,9 +145,10 @@ class StoreAgentService {
         if (!latest.running) throw new Error(`Agent stopped responding during final SHA-256 verification on ${host}: ${latest.reason || 'no fresh heartbeat'}`)
         return latest
       }
-      await delay(500)
-    } while (Date.now() < end)
-    throw new Error('Agent service started but no fresh heartbeat arrived; check C:\\Agent\\data permissions and the checkout clock')
+      try { onWait?.(this.now() - startedAt, result.reason) } catch { /* UI hints must not break the wait */ }
+      await this.delay(this.heartbeatPollMs)
+    } while (this.now() < end)
+    throw new Error(`Agent service started but no fresh heartbeat arrived within ${Math.round(this.heartbeatWaitMs / 60000)} min; over a slow VPN the first inventory can take minutes — check C:\\Agent\\data permissions, the checkout clock and that the service stays Running, then retry Import Agent`)
   }
 
   async importOne(checkout) {
@@ -210,8 +254,9 @@ class StoreAgentService {
       await this.control.configure(host, previous.exists)
       record('startup', 'Windows Service configured: Automatic startup, LocalService account, failure recovery')
       await this.control.start(host)
-      record('heartbeat', `Waiting for a fresh agent heartbeat from ${host}; final SHA-256 verification follows`)
-      const heartbeat = await this.waitForHeartbeat(host, expectedHash, transfer('verify-running', 'Verifying running agent SHA-256', source.size))
+      record('heartbeat', `Waiting for a fresh agent heartbeat from ${host}; over a slow VPN this can take several minutes — final SHA-256 verification follows`)
+      const heartbeat = await this.waitForHeartbeat(host, expectedHash, transfer('verify-running', 'Verifying running agent SHA-256', source.size),
+        (elapsedMs, reason) => record('heartbeat', `Still waiting for the agent heartbeat on ${host} (${Math.round(elapsedMs / 1000)} s; ${reason || 'no fresh inventory yet'})`, { elapsedSeconds: Math.round(elapsedMs / 1000) }))
       record('running', 'Service is Running and a fresh agent heartbeat was verified')
       complete = true
       if (backedUp) await fsp.unlink(backup).catch(() => {})
@@ -246,4 +291,4 @@ class StoreAgentService {
   }
 }
 
-module.exports = { StoreAgentService, validateSnapshot, hashFile, copyFile, HEARTBEAT_MAX_AGE_MS }
+module.exports = { StoreAgentService, validateSnapshot, readWithIdleDeadline, hashFile, copyFile, HEARTBEAT_MAX_AGE_MS, DEFAULT_HEARTBEAT_WAIT_MS }
