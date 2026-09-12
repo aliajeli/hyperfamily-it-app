@@ -1,6 +1,23 @@
 {
   "entries": [
     {
+      "version": "3.1.4",
+      "date": "2026-09-12",
+      "channel": "main",
+      "title": "One-click Store Commerce update on any checkout",
+      "changes": {
+        "added": [
+          "Update Store App can now install Store Commerce itself: tick one, several or all checkouts and the app checks the connection, closes a running Store Commerce, verifies it is closed, finds Hyper.StoreCommerce.Installer.exe in the deploy folder and runs it with /install through the agent — no signed-in user and no UAC prompt on the checkout.",
+          "Every checkout ends with a green or red info chip; clicking it shows the installer's exit code, everything the installer printed, and the Store Commerce version before → after.",
+          "The agent gained a command channel (status, close, install) on the same SMB share as its heartbeat — whitelisted actions only, atomic command and answer files.",
+          "The Store Commerce update batch can be stopped between checkouts; a running installer is never interrupted mid-install."
+        ],
+        "improved": [
+          "The agent now polls its command folder every second while keeping the 15-second inventory heartbeat unchanged."
+        ]
+      }
+    },
+    {
       "version": "3.1.3-beta.3",
       "date": "2026-09-12",
       "channel": "beta",
