@@ -42,6 +42,7 @@ jobs:
       # the same script the app's About page reads. Failing here means a beta
       # can never be published without a changelog the operator can read.
       - name: Require a changelog entry for this version
+        shell: bash
         run: node scripts/release-notes.js "${{ steps.meta.outputs.version }}" > /dev/null
 
       # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
