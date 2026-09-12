@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { Building2, CloudUpload, FileUp, HardDriveDownload, Loader2, RefreshCw, Settings2, ShoppingCart, ShieldCheck, X } from 'lucide-react'
+import { Building2, CloudUpload, FileUp, HardDriveDownload, ListChecks, Loader2, RefreshCw, Settings2, ShoppingCart, ShieldCheck, Wrench, X } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import CheckoutCard from '@/components/store-update/CheckoutCard'
 import AgentImportDialog from '@/components/store-update/AgentImportDialog'
 import DeployDialog from '@/components/store-update/DeployDialog'
+import StoreInstallDialog from '@/components/store-update/StoreInstallDialog'
 import InstalledProgramsDialog from '@/components/store-update/InstalledProgramsDialog'
 import { Button, Card, CardContent, EmptyState, Skeleton } from '@/components/ui'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -47,6 +48,13 @@ export default function StoreUpdatePage() {
   // targets the run that is actually in flight.
   const agentRunIdRef = useRef(null)
   const [dialog, setDialog] = useState({ open: false, run: null })
+  // Update Store Commerce: selection, live run, and the last result per checkout.
+  const [selected, setSelected] = useState(() => new Set())
+  const [installRun, setInstallRun] = useState({ open: false, running: false, cancelling: false, runId: null, targets: [], results: [], steps: {}, summary: null })
+  const [installResults, setInstallResults] = useState({})
+  const [installView, setInstallView] = useState({ open: false, checkout: null })
+  const installBusyRef = useRef(false)
+  const installRunIdRef = useRef(null)
   // Diagnostic list of everything installed on one checkout.
   const [inspect, setInspect] = useState({ open: false, checkout: null })
   // Live deploy narration: checkoutId → step list / progress
@@ -57,7 +65,7 @@ export default function StoreUpdatePage() {
   dialogRef.current = dialog
 
   const allCheckouts = useMemo(() => groups.flatMap((group) => group.checkouts), [groups])
-  const anyDeployRunning = deploying || agentRun.running
+  const anyDeployRunning = deploying || agentRun.running || installRun.running
 
   /* ------------------------------------------------ data + subscriptions */
   useEffect(() => {
@@ -80,6 +88,12 @@ export default function StoreUpdatePage() {
       }),
       api.storeUpdate.onProgress((entry) => {
         setProgress((previous) => ({ ...previous, [entry.checkoutId]: entry }))
+      }),
+      api.storeUpdate.onInstallStep((entry) => {
+        setInstallRun((previous) => {
+          const entries = previous.steps[entry.checkoutId] || []
+          return { ...previous, activeId: entry.checkoutId, steps: { ...previous.steps, [entry.checkoutId]: [...entries, entry] } }
+        })
       })
     ]
     Promise.all([api.settings.get(), api.branches.list(), api.devices.list()])
@@ -219,6 +233,86 @@ export default function StoreUpdatePage() {
     }
   }
 
+  /* -------------------------------------------- update Store Commerce */
+  /**
+   * One, several (the selected checkboxes) or all checkouts: the guided
+   * pipeline closes Store Commerce, runs the deployed installer with /install
+   * through the agent and reports the resulting version per checkout.
+   */
+  const startInstall = async (targets, { all = false } = {}) => {
+    if (installBusyRef.current || anyDeployRunning || !targets.length || !settings) return
+    const accepted = await confirm({
+      title: all ? `Update Store Commerce on all ${targets.length} checkout(s)?`
+        : targets.length === 1 ? `Update Store Commerce on ${targets[0].name}?`
+        : `Update Store Commerce on ${targets.length} selected checkout(s)?`,
+      description: `Per checkout: connection check → is Store Commerce open? → close it → verify it is closed → look for Hyper.StoreCommerce.Installer.exe in ${settings.store_update_path} → run it with /install using system rights through the agent → report the new version. Checkouts are updated strictly one after another and the batch can be stopped at any time.`,
+      confirmLabel: 'Update Store Commerce', destructive: false
+    })
+    if (!accepted || installBusyRef.current) return
+    installBusyRef.current = true
+    const runId = `install-${Date.now()}`
+    installRunIdRef.current = runId
+    setInstallRun({ open: true, running: true, cancelling: false, runId, targets, results: [], steps: {}, summary: null })
+    try {
+      const api = getApi().storeUpdate
+      const payload = { checkouts: targets, destinationPath: settings.store_update_path, runId }
+      const summary = await api.installAll(payload)
+      setInstallRun((previous) => ({
+        ...previous, running: false, cancelling: false,
+        results: summary.results, summary: { ...summary, durationMs: summary.durationMs ?? summary.results?.reduce((sum, row) => sum + (row.durationMs || 0), 0) }
+      }))
+      setInstallResults((previous) => {
+        const next = { ...previous }
+        for (const row of summary.results) next[row.checkoutId] = row
+        return next
+      })
+      if (summary.cancelledByOperator) toast.info('Store Commerce update stopped', { description: 'Remaining checkouts were skipped.' })
+      else if (summary.failed) toast.error(`${summary.failed} of ${summary.total} checkout(s) failed — click the red info for details`)
+      else toast.success(`Store Commerce updated on ${summary.ok} checkout(s)`)
+      runSweep(targets)
+    } catch (error) {
+      setInstallRun((previous) => ({
+        ...previous, running: false, cancelling: false,
+        results: targets.map((checkout) => ({ checkoutId: checkout.id, ok: false, error: error.message, steps: [] })),
+        summary: { total: targets.length, ok: 0, failed: targets.length, skipped: 0, cancelledByOperator: false, results: [], durationMs: 0 }
+      }))
+      toast.error(error.message)
+    } finally { installBusyRef.current = false; installRunIdRef.current = null }
+  }
+
+  const stopInstall = async () => {
+    const runId = installRunIdRef.current
+    if (!runId || !installRun.running || installRun.cancelling) return
+    const accepted = await confirm({
+      title: 'Stop the Store Commerce update?',
+      description: 'The checkout in progress finishes its current step, every remaining checkout is skipped. An installer that is already running on a checkout is not interrupted mid-install.',
+      confirmLabel: 'Stop update', destructive: true
+    })
+    if (!accepted) return
+    setInstallRun((previous) => ({ ...previous, cancelling: true }))
+    try {
+      const state = await getApi().storeUpdate.cancelInstall({ runId })
+      if (!state?.cancelled) toast.info('That update had already finished')
+      else toast.info('Stopping the update…')
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setInstallRun((previous) => (previous.running ? previous : { ...previous, cancelling: false }))
+    }
+  }
+
+  const toggleSelect = (checkout) => {
+    setSelected((previous) => {
+      const next = new Set(previous)
+      if (next.has(checkout.id)) next.delete(checkout.id)
+      else next.add(checkout.id)
+      return next
+    })
+  }
+
+  /** Green/red info on a card: reopen that checkout's result dialog. */
+  const showInstallResult = (checkout) => setInstallView({ open: true, checkout })
+
   /* --------------------------------------------------------- file picker */
   const pickFile = async () => {
     try {
@@ -340,6 +434,18 @@ export default function StoreUpdatePage() {
               <Button variant="secondary" size="sm" onClick={() => importAgents(allCheckouts, true)} disabled={anyDeployRunning || !allCheckouts.length}>
                 <ShieldCheck size={14} /> Import Agent to all
               </Button>
+              <Button
+                variant="secondary" size="sm"
+                onClick={() => startInstall(allCheckouts.filter((checkout) => selected.has(checkout.id)), {})}
+                disabled={anyDeployRunning || selected.size === 0}
+                title="Run the Store Commerce update pipeline on the ticked checkouts"
+              >
+                <ListChecks size={14} /> Update selected{selected.size ? ` (${selected.size})` : ''}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => startInstall(allCheckouts, { all: true })} disabled={anyDeployRunning || !allCheckouts.length}
+                title="Run the Store Commerce update pipeline on every checkout, one after another">
+                <Wrench size={14} /> Update all
+              </Button>
               <Button variant="secondary" size="sm" onClick={pickFile} disabled={anyDeployRunning}>
                 <FileUp size={14} />
                 {file ? 'Change file…' : 'Select file…'}
@@ -395,6 +501,11 @@ export default function StoreUpdatePage() {
                       agentBusy={agentRun.running && agentRun.targets.some((target) => target.id === checkout.id)}
                       onDeploy={deployOne}
                       onInspect={(target) => setInspect({ open: true, checkout: target })}
+                      onUpdateStore={(target) => startInstall([target])}
+                      selected={selected.has(checkout.id)}
+                      onSelect={toggleSelect}
+                      installResult={installResults[checkout.id]}
+                      onShowInstallResult={showInstallResult}
                       anyDeployRunning={anyDeployRunning}
                     />
                   ))}
@@ -404,6 +515,18 @@ export default function StoreUpdatePage() {
           ))
         )}
       </div>
+
+      {/* A minimized update keeps running; this pill brings the narration back. */}
+      {installRun.running && !installRun.open && (
+        <button
+          type="button"
+          onClick={() => setInstallRun((previous) => ({ ...previous, open: true }))}
+          className="no-drag fixed bottom-4 right-4 z-[90] flex items-center gap-2 rounded-full border border-nord-14/50 bg-[rgb(var(--surface)/.92)] px-3.5 py-2 text-2xs font-bold text-[rgb(var(--text))] shadow-xl backdrop-blur transition hover:border-nord-14"
+        >
+          <Loader2 size={14} className="animate-spin text-nord-14" />
+          Store Commerce update running — {installRun.targets.length} checkout(s)
+        </button>
+      )}
 
       {/* A minimized import keeps running; this pill brings the narration back. */}
       {agentRun.running && !agentRun.open && (
@@ -436,6 +559,37 @@ export default function StoreUpdatePage() {
         run={dialog.run ? { ...dialog.run, steps, progress } : null}
         running={deploying}
         onClose={() => setDialog((previous) => ({ ...previous, open: false }))}
+      />
+
+      <StoreInstallDialog
+        open={installRun.open}
+        onOpenChange={(open) => setInstallRun((previous) => ({ ...previous, open }))}
+        run={installRun.runId ? {
+          mode: installRun.targets.length > 1 ? 'all' : 'single',
+          checkouts: installRun.targets,
+          steps: installRun.steps,
+          activeId: installRun.activeId,
+          summary: installRun.summary,
+          cancelling: installRun.cancelling
+        } : null}
+        running={installRun.running}
+        onCancel={stopInstall}
+        onClose={() => setInstallRun((previous) => ({ ...previous, open: false }))}
+      />
+
+      {/* The green/red info of a single card reopens just that checkout's answer. */}
+      <StoreInstallDialog
+        open={Boolean(installView.open && installView.checkout && installResults[installView.checkout.id])}
+        onOpenChange={(open) => setInstallView((previous) => ({ ...previous, open }))}
+        run={installView.checkout && installResults[installView.checkout.id] ? {
+          mode: 'single',
+          checkouts: [installView.checkout],
+          steps: { [installView.checkout.id]: installResults[installView.checkout.id].steps || [] },
+          summary: { total: 1, ok: installResults[installView.checkout.id].ok ? 1 : 0, failed: installResults[installView.checkout.id].ok ? 0 : 1, skipped: 0, results: [installResults[installView.checkout.id]], durationMs: installResults[installView.checkout.id].durationMs || 0 },
+          cancelling: false
+        } : null}
+        running={false}
+        onClose={() => setInstallView((previous) => ({ ...previous, open: false }))}
       />
     </AppShell>
   )

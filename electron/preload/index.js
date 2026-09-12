@@ -98,6 +98,12 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     versions: (payload) => invoke('store-update:versions', payload),
     deploy: (payload) => invoke('store-update:deploy', payload),
     deployAll: (payload) => invoke('store-update:deploy-all', payload),
+    // Update Store Commerce: close → verify → installer /install → version.
+    install: (payload) => invoke('store-update:install-one', payload),
+    installAll: (payload) => invoke('store-update:install-all', payload),
+    cancelInstall: (payload) => invoke('store-update:cancel-install', payload),
+    onInstallStep: (callback) => subscribe('store-update:install-step', callback),
+    onInstallFinished: (callback) => subscribe('store-update:install-finished', callback),
     testAccess: (payload) => invoke('store-update:test-access', payload),
     installed: (payload) => invoke('store-update:installed', payload),
     onVersion: (callback) => subscribe('store-update:version', callback),

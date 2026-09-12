@@ -11,7 +11,7 @@ function friendlyError(error) {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, getWindow }) {
+function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, getWindow }) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
@@ -257,6 +257,46 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
       `File: ${String(payload?.source || '').split(/[\\/]/).pop() || '—'} → ${String(payload?.destinationPath || '—')} (${summary.durationMs} ms)`
     )
     return summary
+  }))
+  // Update Store Commerce: the guided install pipeline (close → verify →
+  // installer /install → version) driven through the checkout's agent.
+  ipcMain.handle('store-update:install-one', secure(async (event, payload) => {
+    const result = await storeInstallService.installOne(payload?.checkout || {}, {
+      destinationPath: String(payload?.destinationPath || ''),
+      runId: payload?.runId
+    })
+    database.audit(
+      sessions.get(event.sender.id).username,
+      'STORE_INSTALL_ONE',
+      `${payload?.checkout?.name || payload?.checkout?.hostname || 'checkout'} — ${result.ok ? 'OK' : result.cancelled ? 'STOPPED' : 'FAILED'}`,
+      result.ok
+        ? `Exit code ${result.exitCode}; Store Commerce ${result.versionBefore || '?'} → ${result.version || '?'}`
+        : (result.error || 'Install failed')
+    )
+    return result
+  }))
+  ipcMain.handle('store-update:install-all', secure(async (event, payload) => {
+    const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
+    if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be updated in one run')
+    const summary = await storeInstallService.installAll(checkouts, {
+      destinationPath: String(payload?.destinationPath || ''),
+      runId: payload?.runId
+    })
+    database.audit(
+      sessions.get(event.sender.id).username,
+      'STORE_INSTALL_ALL',
+      `${summary.ok}/${summary.total} checkout(s) updated`,
+      `Store Commerce installer /install (${summary.durationMs} ms)`
+    )
+    return summary
+  }))
+  /** Stop button of the Update Store Commerce dialog; safe after the run settled. */
+  ipcMain.handle('store-update:cancel-install', secure(async (event, payload) => {
+    const state = storeInstallService.cancel(payload?.runId)
+    if (state.cancelled) {
+      database.audit(sessions.get(event.sender.id).username, 'STORE_INSTALL_CANCEL', String(payload?.runId || '—'), 'Operator stopped a running Store Commerce update')
+    }
+    return state
   }))
   ipcMain.handle('app:info', secure(() => ({ version: app.getVersion(), platform: `${process.platform} ${process.arch}`, dataPath: app.getPath('userData'), databasePath: database.filePath })))
   ipcMain.handle('app:open-external', secure(async (_event, value) => {

@@ -17,6 +17,7 @@ const { VPNService } = require('../services/vpn.service')
 const { TerminalService } = require('../services/terminal.service')
 const { UpdateService } = require('../services/update.service')
 const { StoreUpdateService } = require('../services/store-update.service')
+const { StoreInstallService } = require('../services/store-install.service')
 const { SmbSessionManager } = require('../services/smb.service')
 let storeUpdateServiceRef = null
 const { registerIpcHandlers } = require('./ipc-handlers')
@@ -155,7 +156,12 @@ else {
       }
     })
     storeUpdateServiceRef = storeUpdateService
-    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, getWindow: () => mainWindow })
+    const storeInstallService = new StoreInstallService(sendEvent, {
+      getCredentials: () => {
+        try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
+      }
+    })
+    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, getWindow: () => mainWindow })
     registerDeviceWebviewHandlers(ipcMain)
     createWindow()
     pingMonitor = new PingMonitor(database, sendEvent)

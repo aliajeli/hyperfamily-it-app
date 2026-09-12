@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CloudUpload, MonitorSmartphone, PackageSearch, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Check, CircleCheck, CircleX, CloudUpload, Info, MonitorSmartphone, PackageSearch, RefreshCw, ShieldCheck, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** Three bouncing dots — the wait indicator inside the “Checking…” pill. */
@@ -75,7 +75,7 @@ function VersionPill({ version }) {
  * its address, a recheck action and a deploy action. `deployBusy` disables
  * both actions while that checkout is being updated.
  */
-export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, onInspect, onImportAgent, agentBusy = false, deployBusy = false, anyDeployRunning = false }) {
+export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, onInspect, onImportAgent, onUpdateStore, installResult, onShowInstallResult, selected = false, onSelect, agentBusy = false, deployBusy = false, anyDeployRunning = false }) {
   return (
     <motion.div
       layout
@@ -85,6 +85,22 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
       className="rounded-xl border border-[rgb(var(--border)/.65)] bg-[rgb(var(--surface)/.6)] p-3 transition-colors hover:border-[rgb(var(--primary)/.35)]"
     >
       <div className="flex items-start gap-2.5">
+        {onSelect && (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={selected}
+            aria-label={`Select ${checkout.name}`}
+            onClick={() => onSelect(checkout)}
+            disabled={anyDeployRunning}
+            className={cn(
+              'mt-2 grid h-4 w-4 shrink-0 place-items-center rounded border transition disabled:opacity-40',
+              selected ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))] text-white' : 'border-[rgb(var(--border))] bg-transparent text-transparent hover:border-[rgb(var(--primary)/.6)]'
+            )}
+          >
+            <Check size={11} />
+          </button>
+        )}
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]">
           <MonitorSmartphone size={16} />
         </span>
@@ -133,7 +149,38 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
           <CloudUpload size={12} />
           Deploy
         </button>
+        {onUpdateStore && (
+          <button
+            type="button"
+            onClick={() => onUpdateStore(checkout)}
+            disabled={anyDeployRunning}
+            className="inline-flex items-center gap-1 rounded-lg bg-nord-14/15 px-2 py-1 text-xs font-bold text-[#4c6a3a] transition hover:bg-nord-14/25 disabled:opacity-40"
+            title="Close Store Commerce and run the deployed installer with /install"
+          >
+            <Wrench size={12} />
+            Update
+          </button>
+        )}
       </div>
+      {installResult && onShowInstallResult && (
+        <button
+          type="button"
+          onClick={() => onShowInstallResult(checkout)}
+          className={cn(
+            'mt-2 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-2xs font-bold transition',
+            installResult.ok ? 'bg-nord-14/12 text-[#4c6a3a] hover:bg-nord-14/20'
+              : installResult.cancelled ? 'bg-nord-13/15 text-[#8b6e1c] hover:bg-nord-13/25'
+              : 'bg-nord-11/12 text-nord-11 hover:bg-nord-11/20'
+          )}
+          title="Show the answer of the last Store Commerce update"
+        >
+          {installResult.ok ? <CircleCheck size={13} className="shrink-0" /> : <CircleX size={13} className="shrink-0" />}
+          <span className="min-w-0 flex-1 truncate">
+            {installResult.ok ? `Updated to v${installResult.version || '?'}` : installResult.cancelled ? 'Update stopped' : (installResult.error || 'Update failed')}
+          </span>
+          <Info size={12} className="shrink-0 opacity-70" />
+        </button>
+      )}
     </motion.div>
   )
 }
