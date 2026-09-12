@@ -346,7 +346,7 @@ export default function TerminalScreen({
             top: Math.min(8 + (snapshot.cursor.y + 1) * lineHeight + 4, Math.max(8, (holderRef.current?.clientHeight || 240) - 232))
           }}
         >
-          <div className="px-2 pb-1 pt-0.5 text-[9px] font-bold uppercase tracking-widest text-[rgb(var(--muted))]">
+          <div className="px-2 pb-1 pt-0.5 text-xs font-bold uppercase tracking-widest text-[rgb(var(--muted))]">
             {picker.items.length} match{picker.items.length === 1 ? '' : 'es'}{picker.prefix ? ` for “${picker.prefix}”` : ''}
           </div>
           {picker.items.map((item, index) => (
@@ -358,7 +358,7 @@ export default function TerminalScreen({
               // Mouse-down keeps focus on the screen so the completion still lands.
               onMouseDown={(event) => { event.preventDefault(); applyCompletion(item); setPicker(null) }}
               onMouseEnter={() => setPicker((p) => (p ? { ...p, index } : p))}
-              className={`block w-full truncate rounded-lg px-2 py-1 text-left font-mono text-[11px] ${
+              className={`block w-full truncate rounded-lg px-2 py-1 text-left font-mono text-2xs ${
                 index === picker.index ? 'bg-[rgb(var(--primary)/.16)] text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]'
               }`}
             >
@@ -372,7 +372,7 @@ export default function TerminalScreen({
         <button
           type="button"
           onClick={() => { setFollowTail(true); if (screenRef.current) screenRef.current.scrollTop = screenRef.current.scrollHeight }}
-          className="absolute bottom-3 right-3 rounded-lg border bg-[rgb(var(--surface))] px-2.5 py-1 text-[10px] font-bold shadow-lg"
+          className="absolute bottom-3 right-3 rounded-lg border bg-[rgb(var(--surface))] px-2.5 py-1 text-xs font-bold shadow-lg"
         >
           Jump to latest
         </button>

@@ -114,7 +114,7 @@ export default function GlobalSearch() {
       >
         <Search size={16} className="text-[rgb(var(--muted))] transition-transform duration-300 group-hover:scale-110 group-hover:text-[rgb(var(--primary))]" />
         <span className="w-full text-xs text-[rgb(var(--muted))]">Search devices…</span>
-        <span className="flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] text-[rgb(var(--muted))]"><Command size={9} />K</span>
+        <span className="flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs text-[rgb(var(--muted))]"><Command size={9} />K</span>
       </button>
 
       <button type="button" onClick={() => setOpen(true)} aria-label="Open global search" className="grid h-9 w-9 place-items-center rounded-xl border bg-[rgb(var(--surface)/.58)] text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))] xl:hidden">
@@ -125,7 +125,7 @@ export default function GlobalSearch() {
         {open && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="no-drag fixed inset-0 z-50 flex items-start justify-center bg-black/45 p-4 pt-[12vh] backdrop-blur-sm"
+            className="global-search-overlay no-drag fixed inset-0 z-50 flex items-start justify-center bg-black/45 p-4 pt-[12vh] backdrop-blur-sm"
             onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}
           >
             <motion.div
@@ -144,7 +144,7 @@ export default function GlobalSearch() {
                   className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-[rgb(var(--muted))]"
                 />
                 {loading && <LoaderCircle size={14} className="animate-spin text-[rgb(var(--muted))]" />}
-                <kbd className="rounded-md border px-1.5 py-0.5 text-[9px] text-[rgb(var(--muted))]">ESC</kbd>
+                <kbd className="rounded-md border px-1.5 py-0.5 text-xs text-[rgb(var(--muted))]">ESC</kbd>
               </div>
 
               <div className="max-h-80 overflow-y-auto p-1.5">
@@ -161,7 +161,7 @@ export default function GlobalSearch() {
                       <Icon size={15} className={index === active ? 'text-[rgb(var(--primary))]' : ''} />
                       <span className="min-w-0 flex-1">
                         <b className="block truncate text-xs text-[rgb(var(--text))]">{item.label}</b>
-                        {item.hint && <span className="block truncate text-[10px]">{item.hint}</span>}
+                        {item.hint && <span className="block truncate text-xs">{item.hint}</span>}
                       </span>
                       {index === active && <CornerDownLeft size={12} />}
                     </button>
@@ -171,7 +171,7 @@ export default function GlobalSearch() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between border-t px-3.5 py-2 text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">
+              <div className="flex items-center justify-between border-t px-3.5 py-2 text-xs uppercase tracking-wider text-[rgb(var(--muted))]">
                 <span>↑ ↓ to navigate · ⏎ to open</span>
                 <span>{results.length} result{results.length === 1 ? '' : 's'}</span>
               </div>

@@ -55,9 +55,9 @@ export default function TerminalSettings({ settings, onSaved }) {
             <label>
               <Label>Console font size</Label>
               <Input type="number" min={9} max={24} value={form.terminal_font_size} onChange={(e) => setForm({ ...form, terminal_font_size: e.target.value })} />
-              <span className="mt-1.5 block text-[10px] text-[rgb(var(--muted))]">The terminal screen also has a per-session font size selector.</span>
+              <span className="mt-1.5 block text-xs text-[rgb(var(--muted))]">The terminal screen also has a per-session font size selector.</span>
             </label>
-            <p className="rounded-xl border border-dashed p-3 text-[11px] leading-relaxed text-[rgb(var(--muted))]">
+            <p className="rounded-xl border border-dashed p-3 text-2xs leading-relaxed text-[rgb(var(--muted))]">
               Whether a switch connects over SSH or Telnet comes from its <b>Terminal protocol</b> field in Branches &amp; devices. The credential assigned to the <b>Switch</b> device type (or to the individual switch) is used to log in.
             </p>
           </CardContent>
@@ -72,11 +72,11 @@ export default function TerminalSettings({ settings, onSaved }) {
             <label className="flex items-center justify-between rounded-xl border p-3">
               <span>
                 <b className="text-xs">Sign in automatically</b>
-                <span className="mt-0.5 block text-[11px] leading-relaxed text-[rgb(var(--muted))]">Fill the device login form with the assigned credential and submit it as soon as the page loads. Turn this off to type the password yourself.</span>
+                <span className="mt-0.5 block text-2xs leading-relaxed text-[rgb(var(--muted))]">Fill the device login form with the assigned credential and submit it as soon as the page loads. Turn this off to type the password yourself.</span>
               </span>
               <Switch checked={Boolean(form.webview_autologin)} onCheckedChange={(value) => setForm({ ...form, webview_autologin: value })} />
             </label>
-            <p className="rounded-xl border border-dashed p-3 text-[11px] leading-relaxed text-[rgb(var(--muted))]">
+            <p className="rounded-xl border border-dashed p-3 text-2xs leading-relaxed text-[rgb(var(--muted))]">
               Embedded sessions share one isolated browser profile, so cookies stay separate from your normal browser. Self-signed certificates on iLO and NVR appliances are accepted automatically.
             </p>
           </CardContent>

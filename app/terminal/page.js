@@ -202,7 +202,7 @@ function TerminalWorkspaceInner() {
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><TerminalSquare size={20} /></span>
             <div>
               <h1 className="text-lg font-extrabold tracking-tight">Terminal</h1>
-              <p className="text-[11px] text-[rgb(var(--muted))]">SSH and Telnet console for branch switches</p>
+              <p className="text-2xs text-[rgb(var(--muted))]">SSH and Telnet console for branch switches</p>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-1.5">
@@ -212,7 +212,7 @@ function TerminalWorkspaceInner() {
                 aria-label="Terminal font"
                 value={fontFamily}
                 onChange={(event) => setFontFamily(event.target.value)}
-                className="max-w-[9rem] bg-transparent text-[11px] font-bold outline-none"
+                className="max-w-[9rem] bg-transparent text-2xs font-bold outline-none"
               >
                 {MONO_FONTS.map((font) => <option key={font.id} value={font.id}>{font.label}</option>)}
               </select>
@@ -221,7 +221,7 @@ function TerminalWorkspaceInner() {
                 aria-label="Font size"
                 value={fontSize}
                 onChange={(event) => setFontSize(Number(event.target.value))}
-                className="bg-transparent text-[11px] font-bold outline-none"
+                className="bg-transparent text-2xs font-bold outline-none"
               >
                 {FONT_SIZES.map((value) => <option key={value} value={value}>{value}px</option>)}
               </select>
@@ -249,18 +249,18 @@ function TerminalWorkspaceInner() {
               type="button"
               onClick={() => setActiveBranchId(branch.id)}
               className={cn(
-                'relative shrink-0 rounded-xl px-3 py-1.5 text-[12px] font-bold transition-colors',
+                'relative shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors',
                 branch.id === activeBranchId ? 'text-[rgb(var(--primary))]' : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))]'
               )}
             >
               {branch.id === activeBranchId && <motion.span layoutId="terminal-branch-pill" transition={{ type: 'spring', stiffness: 420, damping: 34 }} className="absolute inset-0 rounded-xl bg-[rgb(var(--primary)/.13)]" />}
               <span className="relative flex items-center gap-1.5">
                 {branch.name}
-                <span className="rounded-md bg-[rgb(var(--border)/.7)] px-1.5 text-[9px]">{branch.switches.length}</span>
+                <span className="rounded-md bg-[rgb(var(--border)/.7)] px-1.5 text-xs">{branch.switches.length}</span>
               </span>
             </button>
           ))}
-          {!loading && !branches.length && <span className="px-2 text-[11px] text-[rgb(var(--muted))]">No branch has a switch yet.</span>}
+          {!loading && !branches.length && <span className="px-2 text-2xs text-[rgb(var(--muted))]">No branch has a switch yet.</span>}
         </div>
 
         <div className={cn(
@@ -293,11 +293,11 @@ function TerminalWorkspaceInner() {
                         ? <Loader2 size={14} className="animate-spin text-[rgb(var(--primary))]" />
                         : <Cable size={14} className={cn('text-[rgb(var(--muted))]', isActive && 'text-[rgb(var(--primary))]')} />}
                       <span className="min-w-0">
-                        <span className="block truncate text-[12px] font-bold leading-tight">{device.name}</span>
-                        <span className="block truncate font-mono text-[10px] text-[rgb(var(--muted))]">{device.ip}</span>
+                        <span className="block truncate text-xs font-bold leading-tight">{device.name}</span>
+                        <span className="block truncate font-mono text-xs text-[rgb(var(--muted))]">{device.ip}</span>
                       </span>
                       <span className={cn(
-                        'ml-1 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide',
+                        'ml-1 rounded-md px-1.5 py-0.5 text-xs font-extrabold uppercase tracking-wide',
                         device.transport === 'telnet' ? 'bg-nord-13/20 text-nord-13' : 'bg-nord-14/20 text-nord-14'
                       )}>{device.transport}</span>
                     </motion.button>
@@ -309,13 +309,13 @@ function TerminalWorkspaceInner() {
             {/* Session bar + screen */}
             {session ? (
               <div className="flex min-h-0 flex-1 flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-[rgb(var(--surface))] px-3 py-1.5 text-[11px]">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-[rgb(var(--surface))] px-3 py-1.5 text-2xs">
                   <Circle size={8} fill={statusStyle.color} color={statusStyle.color} className={status.state === 'connecting' ? 'animate-pulse' : undefined} />
                   <span className="font-extrabold">{session.name}</span>
                   <span className="font-mono text-[rgb(var(--muted))]">{session.username ? `${session.username}@` : ''}{session.host}:{session.port}</span>
-                  <span className="rounded-md bg-[rgb(var(--border)/.7)] px-1.5 py-0.5 text-[9px] font-extrabold uppercase">{session.transport}</span>
+                  <span className="rounded-md bg-[rgb(var(--border)/.7)] px-1.5 py-0.5 text-xs font-extrabold uppercase">{session.transport}</span>
                   <span className="text-[rgb(var(--muted))]">{statusStyle.label}{status.message ? ` — ${status.message}` : ''}</span>
-                  <span className="ml-auto font-mono text-[10px] text-[rgb(var(--muted))]">{grid.cols}×{grid.rows}</span>
+                  <span className="ml-auto font-mono text-xs text-[rgb(var(--muted))]">{grid.cols}×{grid.rows}</span>
                   <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard?.writeText(`${session.host}:${session.port}`); toast.success('Address copied') }} title="Copy address"><Copy size={13} /></Button>
                   {live
                     ? <Button variant="danger" size="sm" onClick={disconnect}><Power size={13} /> Disconnect</Button>
@@ -361,7 +361,7 @@ function TerminalWorkspaceInner() {
               )}
             >
               {showSnippets ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
-              <span className="text-[10px] font-bold uppercase tracking-widest [writing-mode:vertical-rl]">Snippets</span>
+              <span className="text-xs font-bold uppercase tracking-widest [writing-mode:vertical-rl]">Snippets</span>
             </button>
           )}
         </div>

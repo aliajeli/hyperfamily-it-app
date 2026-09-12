@@ -7,6 +7,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BrandMark from '@/components/layout/BrandMark'
+import ChangeLogCard from '@/components/about/ChangeLogCard'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import { APP_NAME, APP_VERSION } from '@/lib/constants'
@@ -266,26 +267,28 @@ export default function AboutPage() {
           <p className="page-subtitle">Product information, secure updates, technology credits, and support.</p>
         </div>
 
-        <div className="grid items-start gap-2 lg:grid-cols-[1.05fr_.95fr]">
-          <Card aria-label="Product overview" className="relative overflow-hidden border-[rgb(var(--primary)/.25)]">
+        {/* Both cards stretch to the same height on every breakpoint: the row
+            has no items-start, and each card fills its grid cell. */}
+        <div className="grid gap-2 lg:grid-cols-[1.05fr_.95fr]">
+          <Card aria-label="Product overview" className="relative flex h-full flex-col overflow-hidden border-[rgb(var(--primary)/.25)]">
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.10)] via-transparent to-[rgb(var(--primary)/.04)]" />
-            <CardContent className="relative p-4">
+            <CardContent className="relative flex h-full flex-col justify-center p-4">
               <div className="flex items-center gap-3">
                 <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-[rgb(var(--primary)/.18)] bg-[rgb(var(--surface)/.75)] shadow-sm">
                   <BrandMark className="h-12 w-12" symbol />
                 </div>
                 <div className="min-w-0">
-                  <p className="mb-1 text-[9px] font-bold uppercase tracking-[.18em] text-[rgb(var(--primary))]">HyperFamily Stores · IT Operations</p>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[rgb(var(--primary))]">HyperFamily Stores · IT Operations</p>
                   <h2 className="text-lg font-bold leading-tight tracking-tight">{APP_NAME}</h2>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-[rgb(var(--muted))]">Branch connectivity, inventory and remote support — together in one Windows workspace.</p>
+                  <p className="mt-1.5 text-2xs leading-relaxed text-[rgb(var(--muted))]">Branch connectivity, inventory and remote support — together in one Windows workspace.</p>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[rgb(var(--primary)/.15)] pt-3">
                 <div>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">{info.version.includes('-') ? 'Preview release' : 'Stable release'}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">{info.version.includes('-') ? 'Preview release' : 'Stable release'}</p>
                   <p className="mt-0.5 font-mono text-sm font-bold text-[rgb(var(--primary))]">v{info.version}</p>
                 </div>
-                <div className="space-y-1 text-[10px] text-[rgb(var(--muted))]">
+                <div className="space-y-1 text-xs text-[rgb(var(--muted))]">
                   <span className="flex items-center gap-1.5"><HardDrive size={12} />{info.platform}</span>
                   <span className="flex items-center gap-1.5"><Code2 size={12} />Ali Ajeli Lahiji</span>
                 </div>
@@ -293,38 +296,45 @@ export default function AboutPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex h-full flex-col">
             <CardHeader className="p-2.5 pb-1">
-              <CardTitle className="flex items-center gap-2 text-[13px]"><Rocket size={15} />Application updates</CardTitle>
-              <CardDescription className="mt-0 text-[10.5px] leading-snug">Updates arrive as a small differential download and install themselves.</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-sm"><Rocket size={15} />Application updates</CardTitle>
+              <CardDescription className="mt-0 text-xs leading-snug">Updates arrive as a small differential download and install themselves.</CardDescription>
             </CardHeader>
-            <CardContent className="p-2.5 pt-1">
-              <div className="rounded-lg border bg-[rgb(var(--surface)/.42)] p-2">
-                <div className="flex items-center justify-between">
-                  <span>
-                    <small className="block text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">Installed version</small>
-                    <b className="text-[13px]">v{info.version}</b>
+            <CardContent className="flex h-full flex-col p-2.5 pt-1">
+              {/* The status box reserves the height of both its lines from the
+                  start, and the "Latest release" slot is always rendered. That
+                  is what keeps the card exactly the same height before a check,
+                  after an update is found, and while it downloads. */}
+              <div className="flex min-h-[92px] flex-col rounded-lg border bg-[rgb(var(--surface)/.42)] p-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <small className="block text-xs uppercase tracking-wider text-[rgb(var(--muted))]">Installed version</small>
+                    <b className="text-sm">v{info.version}</b>
                   </span>
-                  {update && (
-                    <span className="text-right">
-                      <small className="block text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">Latest release</small>
-                      <b className={`text-[13px] ${update.hasUpdate ? 'text-[rgb(var(--primary))]' : ''}`}>v{update.latestVersion}</b>
-                    </span>
+                  <span className="min-w-0 text-right">
+                    <small className="block text-xs uppercase tracking-wider text-[rgb(var(--muted))]">Latest release</small>
+                    <b className={`text-sm ${update?.hasUpdate ? 'text-[rgb(var(--primary))]' : ''}`}>{update ? `v${update.latestVersion}` : '—'}</b>
+                  </span>
+                </div>
+                {/* One status line, always present, so nothing below it moves. */}
+                <div className="mt-2 flex min-h-[18px] items-center gap-1.5 text-2xs leading-none">
+                  {update?.hasUpdate && update.downloadSize > 0 ? (
+                    <p className="flex min-w-0 items-center gap-1.5 text-[rgb(var(--muted))]" aria-label="Update download size">
+                      <HardDrive size={12} className="shrink-0" />
+                      <span className="truncate">Download size <b className="text-[rgb(var(--text))]">{formatBytes(update.downloadSize)}</b>{update.downloadName ? ` · ${update.downloadName}` : ''}</span>
+                    </p>
+                  ) : update && !update.hasUpdate ? (
+                    <p className="flex items-center gap-1.5 status-online-text"><CheckCircle2 size={12} />You are running the latest version.</p>
+                  ) : checking ? (
+                    <p className="flex items-center gap-1.5 text-[rgb(var(--muted))]"><RefreshCw size={12} className="animate-spin" />Checking the update channel…</p>
+                  ) : (
+                    <p className="text-[rgb(var(--muted))]">Press Check for updates to compare with the published release.</p>
                   )}
                 </div>
-                {update?.hasUpdate && update.downloadSize > 0 && (
-                  <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[rgb(var(--muted))]" aria-label="Update download size">
-                    <HardDrive size={12} />
-                    Download size <b className="text-[rgb(var(--text))]">{formatBytes(update.downloadSize)}</b>
-                    {update.downloadName ? <span className="truncate opacity-70">· {update.downloadName}</span> : null}
-                  </p>
-                )}
-                {update && !update.hasUpdate && (
-                  <p className="mt-2 flex items-center gap-1.5 text-[11px] status-online-text"><CheckCircle2 size={12} />You are running the latest version.</p>
-                )}
                 {(downloading || progress > 0 || downloaded) && (
-                  <div className="mt-3" aria-label="Update download progress">
-                    <div className="mb-1 flex justify-between text-[9.5px]">
+                  <div className="mt-2" aria-label="Update download progress">
+                    <div className="mb-1 flex justify-between text-xs">
                       <span>{downloaded ? 'Update ready to install' : paused ? 'Download paused' : 'Downloading update'}</span>
                       <b>{progress}%</b>
                     </div>
@@ -332,7 +342,7 @@ export default function AboutPage() {
                       <motion.div animate={{ width: `${progress}%` }} className="h-full bg-[rgb(var(--primary))]" />
                     </div>
                     {transfer.total > 0 && (
-                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[10px] text-[rgb(var(--muted))]">
+                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs text-[rgb(var(--muted))]">
                         <span>
                           <b className="text-[rgb(var(--text))]">{formatBytes(transfer.transferred)}</b> of {formatBytes(transfer.total)}
                           {!downloaded && transfer.remaining > 0 ? <> · {formatBytes(transfer.remaining)} left</> : null}
@@ -350,8 +360,8 @@ export default function AboutPage() {
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1" role="radiogroup" aria-label="Update channel">
-                <span className="text-[9.5px] font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">Update channel</span>
-                <label className={`flex items-center gap-1.5 text-[11px] ${downloading || paused ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                <span className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">Update channel</span>
+                <label className={`flex items-center gap-1.5 text-2xs ${downloading || paused ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
                     role="radio"
@@ -362,9 +372,9 @@ export default function AboutPage() {
                     onChange={() => selectChannel('main')}
                   />
                   Main release
-                  <span className="text-[10px] text-[rgb(var(--muted))]">(stable only)</span>
+                  <span className="text-xs text-[rgb(var(--muted))]">(stable only)</span>
                 </label>
-                <label className={`flex items-center gap-1.5 text-[11px] ${downloading || paused ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                <label className={`flex items-center gap-1.5 text-2xs ${downloading || paused ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
                     role="radio"
@@ -375,21 +385,23 @@ export default function AboutPage() {
                     onChange={() => selectChannel('beta')}
                   />
                   Beta release
-                  <span className="text-[10px] text-[rgb(var(--muted))]">(new features first)</span>
+                  <span className="text-xs text-[rgb(var(--muted))]">(new features first)</span>
                 </label>
               </div>
               {update?.hasUpdate && update.isDowngrade && (
-                <p className="mt-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10.5px] leading-snug text-amber-600 dark:text-amber-400">
+                <p className="mt-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs leading-snug text-amber-600 dark:text-amber-400">
                   Switching to stable: v{update.latestVersion} will replace this beta (v{info.version}) — the version number goes down, but this is the newest main release.
                 </p>
               )}
               {update?.hasUpdate && update.latestIsPrerelease && (
-                <p className="mt-1.5 rounded-md border border-[rgb(var(--primary)/.25)] bg-[rgb(var(--primary)/.08)] px-2 py-1 text-[10.5px] leading-snug text-[rgb(var(--primary))]">
+                <p className="mt-1.5 rounded-md border border-[rgb(var(--primary)/.25)] bg-[rgb(var(--primary)/.08)] px-2 py-1 text-xs leading-snug text-[rgb(var(--primary))]">
                   v{update.latestVersion} is a beta preview — the newest main release stays on the Main channel.
                 </p>
               )}
 
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              {/* Pinned to the bottom of the card, so the rare beta/downgrade
+                  notice above it can appear without moving anything. */}
+              <div className="mt-auto flex min-h-[38px] flex-wrap items-center gap-1.5 pt-2">
                 <Button size="sm" onClick={check} disabled={checking} variant="secondary">
                   <RefreshCw size={14} className={checking ? 'animate-spin' : ''} />{checking ? 'Checking…' : 'Check for updates'}
                 </Button>
@@ -435,47 +447,62 @@ export default function AboutPage() {
                 )}
               </div>
 
-              {update?.hasUpdate && update.releaseNotes && (
-                <p className="mt-2 line-clamp-2 whitespace-pre-line text-[11px] leading-relaxed text-[rgb(var(--muted))]">{update.releaseNotes}</p>
-              )}
+              {/* Reserved height: the notes of a found update appear here
+                  without changing the card's size. Full notes: Change log. */}
+              <p className="mt-2 line-clamp-2 min-h-[30px] whitespace-pre-line text-2xs leading-relaxed text-[rgb(var(--muted))]">
+                {update?.hasUpdate && update.releaseNotes ? update.releaseNotes : ''}
+              </p>
             </CardContent>
           </Card>
         </div>
 
         <Card>
           <CardHeader className="p-2.5 pb-1">
-            <CardTitle className="text-[13px]">Production technology stack</CardTitle>
-            <CardDescription className="mt-0 text-[10.5px] leading-snug">Core runtime, interface, data protection, native Agent, and Windows build tools.</CardDescription>
+            <CardTitle className="text-sm">Production technology stack</CardTitle>
+            <CardDescription className="mt-0 text-xs leading-snug">Core runtime, interface, data protection, native Agent, and Windows build tools.</CardDescription>
           </CardHeader>
           <CardContent className="p-2.5 pt-1">
             <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
-              {technologies.map(({ name, description, brand, brandDark }, index) => (
-                <motion.div
+              {technologies.map(({ name, description, brand, brandDark, url }, index) => (
+                <motion.button
                   key={name}
+                  type="button"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * .02 }}
                   whileHover={{ y: -4, scale: 1.03 }}
                   whileTap={{ scale: .99 }}
                   style={{ '--brand': brand, '--brand-dark': brandDark }}
-                  title={description}
-                  className="tech-tile group relative min-w-0 overflow-hidden rounded-lg border bg-[rgb(var(--surface)/.38)] px-2 py-1.5"
+                  /* A real <button>: the pointer cursor, keyboard focus and the
+                     click are all native, and the click opens the project's own
+                     website in the system browser. */
+                  onClick={() => url && external(url)}
+                  title={`${description} — open ${name} in your browser`}
+                  aria-label={`${name}: ${description}. Opens ${url} in your browser`}
+                  className="tech-tile group relative min-w-0 cursor-pointer overflow-hidden rounded-lg border bg-[rgb(var(--surface)/.38)] px-2 py-1.5 text-left"
                 >
                   <span aria-hidden className="tech-tile-wash" />
-                  <b className="tech-tile-name relative block text-[10.5px] leading-snug">{name}</b>
-                  <p className="relative mt-0.5 text-[9px] leading-snug text-[rgb(var(--muted))]">{description}</p>
-                </motion.div>
+                  <b className="tech-tile-name relative block text-xs leading-snug">
+                    {name}
+                    <ExternalLink size={9} aria-hidden className="ml-1 inline-block align-baseline opacity-0 transition-opacity duration-200 group-hover:opacity-70" />
+                  </b>
+                  <p className="relative mt-0.5 text-xs leading-snug text-[rgb(var(--muted))]">{description}</p>
+                </motion.button>
               ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* Every release is recorded in lib/changelog.json, which is also what
+            the release workflows publish as the GitHub release notes. */}
+        <ChangeLogCard version={info.version} updateVersion={update?.hasUpdate ? update.latestVersion : null} updateNotes={update?.releaseNotes} onOpenExternal={external} />
 
         <div className="grid gap-2 lg:grid-cols-2">
         <Card className="p-2.5">
           <div className="flex h-full flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
               <h3 className="text-xs font-bold">Need help with branch infrastructure?</h3>
-              <p className="text-[10px] leading-snug text-[rgb(var(--muted))]">Report a reproducible issue or browse the source repository.</p>
+              <p className="text-xs leading-snug text-[rgb(var(--muted))]">Report a reproducible issue or browse the source repository.</p>
             </div>
             <div className="flex flex-wrap gap-1.5">
               <Button size="sm" variant="secondary" onClick={() => external(`${REPO}/issues/new`)}><CircleDot size={14} />Report an issue</Button>
@@ -495,15 +522,15 @@ export default function AboutPage() {
               <Mail size={15} />
             </span>
             <span className="min-w-0 flex-1">
-              <b className="block text-[11px]">Developer contact · Ali Ajeli Lahiji</b>
-              <span className="block truncate font-mono text-[10.5px] text-[rgb(var(--primary))] underline-offset-2 group-hover:underline">{DEVELOPER_EMAIL}</span>
+              <b className="block text-2xs">Developer contact · Ali Ajeli Lahiji</b>
+              <span className="block truncate font-mono text-xs text-[rgb(var(--primary))] underline-offset-2 group-hover:underline">{DEVELOPER_EMAIL}</span>
             </span>
             <ExternalLink size={14} className="shrink-0 text-[rgb(var(--muted))] transition group-hover:text-[rgb(var(--primary))]" />
           </button>
         </Card>
         </div>
 
-        <footer className="pb-0.5 text-center text-[9px] uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
+        <footer className="pb-0.5 text-center text-xs uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
 
         {/* Changelog of the available update, over a blurred page (v2.0.16). */}
         <DialogPrimitive.Root open={changelogOpen} onOpenChange={setChangelogOpen}>
@@ -531,7 +558,7 @@ export default function AboutPage() {
                       <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><ScrollText size={15} /></div>
                       <div>
                         <DialogPrimitive.Title className="text-sm font-extrabold">What's new in v{update.latestVersion}</DialogPrimitive.Title>
-                        <DialogPrimitive.Description className="text-[10px] text-[rgb(var(--muted))]">The release notes published with this update.</DialogPrimitive.Description>
+                        <DialogPrimitive.Description className="text-xs text-[rgb(var(--muted))]">The release notes published with this update.</DialogPrimitive.Description>
                       </div>
                       <DialogPrimitive.Close asChild>
                         <button
@@ -543,7 +570,7 @@ export default function AboutPage() {
                         </button>
                       </DialogPrimitive.Close>
                     </div>
-                    <div className="mt-2.5 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-xl border bg-[rgb(var(--canvas)/.6)] p-3 text-[11px] leading-relaxed">
+                    <div className="mt-2.5 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-xl border bg-[rgb(var(--canvas)/.6)] p-3 text-2xs leading-relaxed">
                       {update.releaseNotes}
                     </div>
                     <div className="mt-2.5 flex items-center justify-end border-t pt-2.5">

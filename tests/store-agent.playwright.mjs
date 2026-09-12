@@ -18,7 +18,7 @@ try {
   await page.getByRole('button', { name: 'Import Agent', exact: true }).first().click()
   await expect(page.getByRole('dialog')).toContainText('Automatic startup before Login')
   await page.getByRole('dialog').getByRole('button', { name: 'Import Agent', exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('1 successful', { timeout: 15000 })
+  await expect(page.getByRole('dialog')).toContainText('1 succeeded', { timeout: 15000 })
   await expect(page.getByRole('dialog')).toContainText('Copied and verified')
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
   await page.getByRole('button', { name: 'Import Agent', exact: true }).first().click()
@@ -27,7 +27,7 @@ try {
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
   await page.getByRole('button', { name: 'Import Agent to all', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Import Agent to all', exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('16 successful', { timeout: 45000 })
+  await expect(page.getByRole('dialog')).toContainText('16 succeeded', { timeout: 45000 })
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
   for (const width of [1366, 900, 600]) {
     await page.setViewportSize({ width, height: 900 })

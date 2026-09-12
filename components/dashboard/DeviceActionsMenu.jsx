@@ -24,7 +24,9 @@ const METHOD_ICONS = {
 const CREDENTIAL_METHODS = ['webview', 'rdp', 'winbox', 'browser']
 const METHOD_LABELS = { webview: 'Auto sign-in window', browser: 'Browser', winbox: 'Winbox', rdp: 'Remote Desktop', teamviewer: 'TeamViewer' }
 
-const menuClass = 'glass z-50 min-w-56 rounded-xl p-1.5 shadow-xl'
+// `device-actions-menu` is the hook globals.css uses to lift this menu above
+// the header; the z-50 utility alone is outranked by the header's own layer.
+const menuClass = 'device-actions-menu glass z-50 min-w-56 rounded-xl p-1.5 shadow-xl'
 const itemClass = 'flex cursor-default select-none items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold outline-none data-[highlighted]:bg-[rgb(var(--border)/.55)]'
 
 export default function DeviceActionsMenu({ device, size = 12, className = '' }) {
@@ -93,9 +95,9 @@ export default function DeviceActionsMenu({ device, size = 12, className = '' })
       <DropdownMenu.Portal>
         <DropdownMenu.Content className={menuClass} align="end" sideOffset={6} collisionPadding={10}>
           <div className="px-3 pb-2 pt-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-[rgb(var(--muted))]">Connect to</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-[rgb(var(--muted))]">Connect to</p>
             <p className="mt-0.5 max-w-48 truncate text-xs font-extrabold">{device.name || device.device_type}</p>
-            <p className="font-mono text-[9px] text-[rgb(var(--muted))]">{device.ip}{device.port ? `:${device.port}` : ''}</p>
+            <p className="font-mono text-xs text-[rgb(var(--muted))]">{device.ip}{device.port ? `:${device.port}` : ''}</p>
           </div>
 
           <DropdownMenu.Separator className="my-1 h-px bg-[rgb(var(--border))]" />
@@ -123,7 +125,7 @@ export default function DeviceActionsMenu({ device, size = 12, className = '' })
                         <DropdownMenu.Item key={credential.id} className={itemClass} onSelect={() => connect(method.id, credential.id)}>
                           <KeyRound size={13} />
                           <span className="max-w-28 truncate">{credential.name}</span>
-                          <span className="ml-auto max-w-20 truncate text-[9px] text-[rgb(var(--muted))]">{credential.username}</span>
+                          <span className="ml-auto max-w-20 truncate text-xs text-[rgb(var(--muted))]">{credential.username}</span>
                         </DropdownMenu.Item>
                       ))}
                     </DropdownMenu.SubContent>
@@ -141,13 +143,13 @@ export default function DeviceActionsMenu({ device, size = 12, className = '' })
           })}
 
           {loading && (
-            <div className="flex items-center gap-2 px-3 py-2 text-[10px] text-[rgb(var(--muted))]">
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-[rgb(var(--muted))]">
               <LoaderCircle size={12} className="animate-spin" /> Loading assigned credentials…
             </div>
           )}
 
           {!loading && loaded && credentials.length === 0 && available.length > 0 && (
-            <div className="px-3 py-1.5 text-[9px] leading-relaxed text-[rgb(var(--muted))]">
+            <div className="px-3 py-1.5 text-xs leading-relaxed text-[rgb(var(--muted))]">
               No credential is assigned to this device. Assign one in Settings → Credentials.
             </div>
           )}
@@ -157,7 +159,7 @@ export default function DeviceActionsMenu({ device, size = 12, className = '' })
           )}
 
           <DropdownMenu.Separator className="my-1 h-px bg-[rgb(var(--border))]" />
-          <div className="px-3 py-1 text-[8px] text-[rgb(var(--muted))]">Select a connection method. The action is saved in Audit Logs.</div>
+          <div className="px-3 py-1 text-2xs text-[rgb(var(--muted))]">Select a connection method. The action is saved in Audit Logs.</div>
           <DropdownMenu.Arrow className="fill-[rgb(var(--surface))]" />
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

@@ -81,7 +81,7 @@ export default function VPNSettings({ settings, onSaved }) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm"><Shield size={15} />FortiClient VPN</CardTitle>
-          <CardDescription className="text-[11px]">
+          <CardDescription className="text-2xs">
             The app only needs to know which program to launch. Signing in, the gateway profile and two-factor codes are all handled inside the FortiClient window.
           </CardDescription>
         </CardHeader>
@@ -94,7 +94,7 @@ export default function VPNSettings({ settings, onSaved }) {
             <div className="flex gap-2">
               <Input
                 aria-label="FortiClient executable path"
-                className="font-mono text-[11px]"
+                className="font-mono text-2xs"
                 placeholder={probe?.path || 'C:\\Program Files\\Fortinet\\FortiClient\\FortiClient.exe'}
                 value={path}
                 onChange={(event) => setPath(event.target.value)}
@@ -105,7 +105,7 @@ export default function VPNSettings({ settings, onSaved }) {
               </Button>
             </div>
             {auto && probe?.path && (
-              <span className="mt-1.5 block break-all font-mono text-[10px] text-[rgb(var(--muted))]">Using {probe.path}</span>
+              <span className="mt-1.5 block break-all font-mono text-xs text-[rgb(var(--muted))]">Using {probe.path}</span>
             )}
           </label>
 
@@ -124,23 +124,23 @@ export default function VPNSettings({ settings, onSaved }) {
       <div className="space-y-2.5">
         <Card className="p-3">
           {checking ? (
-            <div className="flex items-center gap-2 text-[11px] text-[rgb(var(--muted))]">
+            <div className="flex items-center gap-2 text-2xs text-[rgb(var(--muted))]">
               <Loader2 size={15} className="animate-spin" />Looking for FortiClient…
             </div>
           ) : effectivePath ? (
             <div className="flex items-start gap-2">
               <div className="rounded-lg bg-nord-14/20 p-1.5 text-[#66834e]"><CheckCircle2 size={15} /></div>
               <div className="min-w-0">
-                <b className="text-[11px]">FortiClient ready</b>
-                <p className="mt-0.5 break-all font-mono text-[9.5px] leading-relaxed text-[rgb(var(--muted))]">{effectivePath}</p>
+                <b className="text-2xs">FortiClient ready</b>
+                <p className="mt-0.5 break-all font-mono text-xs leading-relaxed text-[rgb(var(--muted))]">{effectivePath}</p>
               </div>
             </div>
           ) : (
             <div className="flex items-start gap-2">
               <div className="rounded-lg bg-nord-13/20 p-1.5 text-[#8b6e1c]"><AlertTriangle size={15} /></div>
               <div className="min-w-0">
-                <b className="text-[11px]">FortiClient not found</b>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-[rgb(var(--muted))]">
+                <b className="text-2xs">FortiClient not found</b>
+                <p className="mt-0.5 text-xs leading-relaxed text-[rgb(var(--muted))]">
                   Install the FortiClient VPN client, or use Browse to point at it.
                 </p>
                 <Button
@@ -157,7 +157,7 @@ export default function VPNSettings({ settings, onSaved }) {
           )}
         </Card>
 
-        <p className="px-1 text-[10px] leading-relaxed text-[rgb(var(--muted))]">
+        <p className="px-1 text-xs leading-relaxed text-[rgb(var(--muted))]">
           The VPN button in the header launches this program and turns green on its own as soon as a tunnel appears. Click it again to disconnect.
         </p>
       </div>

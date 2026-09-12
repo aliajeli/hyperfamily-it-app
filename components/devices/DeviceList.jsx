@@ -65,23 +65,23 @@ export default function DeviceList({ devices, branch, onEdit, onDelete, onAdd, o
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-start justify-between gap-1">
                   <div className="min-w-0">
-                    <p className="text-[7px] font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">{DEVICE_TYPE_DETAILS[device.device_type]?.label || device.device_type}</p>
-                    <h3 className="truncate text-[10px] font-black tracking-[0.02em]" title={titleFor(device)}>{titleFor(device)}</h3>
+                    <p className="text-2xs font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">{DEVICE_TYPE_DETAILS[device.device_type]?.label || device.device_type}</p>
+                    <h3 className="truncate text-xs font-black tracking-[0.02em]" title={titleFor(device)}>{titleFor(device)}</h3>
                   </div>
-                  <Badge status={device.status || 'unknown'} className="shrink-0 gap-1 px-1 py-0 text-[7px] capitalize">{device.status || 'unknown'}</Badge>
+                  <Badge status={device.status || 'unknown'} className="shrink-0 gap-1 px-1 py-0 text-2xs capitalize">{device.status || 'unknown'}</Badge>
                 </div>
-                <p className="mt-0.5 truncate font-mono text-[8px] font-bold text-[rgb(var(--primary))]">{device.ip}{device.port ? `:${device.port}` : ''}</p>
+                <p className="mt-0.5 truncate font-mono text-2xs font-bold text-[rgb(var(--primary))]">{device.ip}{device.port ? `:${device.port}` : ''}</p>
               </div>
             </div>
 
             <div className="relative mt-1 flex min-h-3.5 flex-wrap gap-1">
-              {details.map((detail) => <span key={detail} className="max-w-full truncate rounded-md bg-[rgb(var(--canvas)/.8)] px-1.5 py-0.5 text-[7px] font-semibold text-[rgb(var(--muted))]">{detail}</span>)}
-              {device.device_type === 'Switch' && <span className="rounded-md bg-nord-8/12 px-1.5 py-0.5 text-[7px] font-extrabold text-nord-10">{ports} ports</span>}
-              {!details.length && device.device_type !== 'Switch' && <span className="text-[7px] text-[rgb(var(--muted))]">No optional details</span>}
+              {details.map((detail) => <span key={detail} className="max-w-full truncate rounded-md bg-[rgb(var(--canvas)/.8)] px-1.5 py-0.5 text-2xs font-semibold text-[rgb(var(--muted))]">{detail}</span>)}
+              {device.device_type === 'Switch' && <span className="rounded-md bg-nord-8/12 px-1.5 py-0.5 text-2xs font-extrabold text-nord-10">{ports} ports</span>}
+              {!details.length && device.device_type !== 'Switch' && <span className="text-2xs text-[rgb(var(--muted))]">No optional details</span>}
             </div>
 
             <div className="relative mt-1 flex items-center justify-between border-t pt-0.5">
-              <label className="flex min-w-0 items-center gap-1.5 text-[7px] font-bold text-[rgb(var(--muted))]">
+              <label className="flex min-w-0 items-center gap-1.5 text-2xs font-bold text-[rgb(var(--muted))]">
                 <Switch
                   compact
                   checked={Boolean(device.is_dashboard_visible)}

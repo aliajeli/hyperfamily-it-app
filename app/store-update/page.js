@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { Building2, CloudUpload, FileUp, HardDriveDownload, RefreshCw, Settings2, ShoppingCart, ShieldCheck, X } from 'lucide-react'
+import { Building2, CloudUpload, FileUp, HardDriveDownload, Loader2, RefreshCw, Settings2, ShoppingCart, ShieldCheck, X } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import CheckoutCard from '@/components/store-update/CheckoutCard'
@@ -41,8 +41,11 @@ export default function StoreUpdatePage() {
   const [versions, setVersions] = useState({})
   const [file, setFile] = useState(null) // { path, name }
   const [deploying, setDeploying] = useState(false)
-  const [agentRun, setAgentRun] = useState({ open: false, running: false, targets: [], results: [], steps: {}, summary: null })
+  const [agentRun, setAgentRun] = useState({ open: false, running: false, cancelling: false, cancelled: false, runId: null, targets: [], results: [], steps: {}, summary: null })
   const agentBusyRef = useRef(false)
+  // The run the Stop button addresses; kept in a ref so the cancel call always
+  // targets the run that is actually in flight.
+  const agentRunIdRef = useRef(null)
   const [dialog, setDialog] = useState({ open: false, run: null })
   // Diagnostic list of everything installed on one checkout.
   const [inspect, setInspect] = useState({ open: false, checkout: null })
@@ -153,25 +156,67 @@ export default function StoreUpdatePage() {
     if (agentBusyRef.current || deploying || !targets.length) return
     const accepted = await confirm({
       title: all ? `Import Agent to all ${targets.length} checkout(s)?` : `Import Agent to ${targets[0].name}?`,
-      description: 'The bundled EXE will be compared using SHA-256 and copied to C:\\Agent only if missing or different. A Windows Service will be installed/started with Automatic startup before Login. Existing agents are briefly restarted. Target access must have administrator permissions.',
+      description: 'The bundled EXE will be compared using SHA-256 and copied to C:\\Agent only if missing or different. A Windows Service will be installed/started with Automatic startup before Login. Existing agents are briefly restarted. Target access must have administrator permissions. The import can be stopped at any time.',
       confirmLabel: all ? 'Import Agent to all' : 'Import Agent', destructive: false
     })
     if (!accepted || agentBusyRef.current) return
     agentBusyRef.current = true
-    setAgentRun({ open: true, running: true, targets, results: [], steps: {}, summary: null })
+    // One id per run: the Stop button and the batch share it, so a single Stop
+    // reaches the checkout in flight and every checkout still waiting.
+    const runId = `agent-${Date.now()}`
+    agentRunIdRef.current = runId
+    setAgentRun({ open: true, running: true, cancelling: false, cancelled: false, runId, targets, results: [], steps: {}, summary: null })
     try {
       const api = getApi().storeUpdate
       const summary = all
-        ? await api.importAgentAll({ checkouts: targets })
-        : await api.importAgent({ checkout: targets[0] }).then((result) => ({ total: 1, ok: result.ok ? 1 : 0, failed: result.ok ? 0 : 1, results: [result] }))
-      setAgentRun((previous) => ({ ...previous, running: false, results: summary.results, summary }))
-      if (summary.failed) toast.error(`${summary.failed} agent import(s) failed — see details`)
+        ? await api.importAgentAll({ checkouts: targets, runId })
+        : await api.importAgent({ checkout: targets[0], runId }).then((result) => ({
+          runId, total: 1, ok: result.ok ? 1 : 0, failed: result.ok && !result.cancelled ? 0 : result.cancelled ? 0 : 1,
+          cancelled: result.cancelled && !result.skipped ? 1 : 0, skipped: result.skipped ? 1 : 0,
+          cancelledByOperator: Boolean(result.cancelled), results: [result], durationMs: result.durationMs || 0
+        }))
+      setAgentRun((previous) => ({
+        ...previous, running: false, cancelling: false, cancelled: Boolean(summary.cancelledByOperator),
+        results: summary.results, summary: { ...summary, durationMs: summary.durationMs ?? summary.results?.reduce((sum, row) => sum + (row.durationMs || 0), 0) }
+      }))
+      if (summary.cancelledByOperator) toast.info('Agent import stopped', { description: 'Every stopped checkout was rolled back to its previous agent.' })
+      else if (summary.failed) toast.error(`${summary.failed} agent import(s) failed — see details`)
       else toast.success(`Agent is running on ${summary.ok} checkout(s)`)
       runSweep(targets)
     } catch (error) {
-      setAgentRun((previous) => ({ ...previous, running: false, results: targets.map((checkout) => ({ checkoutId: checkout.id, ok: false, error: error.message })) }))
+      setAgentRun((previous) => ({
+        ...previous, running: false, cancelling: false,
+        results: targets.map((checkout) => ({ checkoutId: checkout.id, ok: false, error: error.message })),
+        summary: { total: targets.length, ok: 0, failed: targets.length, cancelled: 0, skipped: 0, cancelledByOperator: false, results: [], durationMs: 0 }
+      }))
       toast.error(error.message)
-    } finally { agentBusyRef.current = false }
+    } finally { agentBusyRef.current = false; agentRunIdRef.current = null }
+  }
+
+  /**
+   * Stop button of the Import Agent dialog. The main process aborts the
+   * in-flight transfer, rolls the checkout back to its previous executable and
+   * service, and skips the checkouts that had not started yet.
+   */
+  const stopAgentImport = async () => {
+    const runId = agentRunIdRef.current
+    if (!runId || !agentRun.running || agentRun.cancelling) return
+    const accepted = await confirm({
+      title: 'Stop the agent import?',
+      description: 'The checkout in progress is rolled back to its previous agent executable and service, and the remaining checkouts are skipped. Nothing is left half-installed.',
+      confirmLabel: 'Stop import', destructive: true
+    })
+    if (!accepted) return
+    setAgentRun((previous) => ({ ...previous, cancelling: true }))
+    try {
+      const state = await getApi().storeUpdate.cancelAgentImport({ runId })
+      if (!state?.cancelled) toast.info('That import had already finished')
+      else toast.info('Stopping the import…', { description: 'The current checkout is being rolled back first.' })
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setAgentRun((previous) => (previous.running ? previous : { ...previous, cancelling: false }))
+    }
   }
 
   /* --------------------------------------------------------- file picker */
@@ -275,13 +320,13 @@ export default function StoreUpdatePage() {
               <div className="min-w-0 flex-1">
                 {file ? (
                   <>
-                    <div className="truncate text-[13px] font-bold text-[rgb(var(--text))]">{file.name}</div>
-                    <div className="truncate font-mono text-[10.5px] text-[rgb(var(--muted))]" title={file.path}>{file.path}</div>
+                    <div className="truncate text-sm font-bold text-[rgb(var(--text))]">{file.name}</div>
+                    <div className="truncate font-mono text-xs text-[rgb(var(--muted))]" title={file.path}>{file.path}</div>
                   </>
                 ) : (
                   <>
-                    <div className="text-[13px] font-bold text-[rgb(var(--text))]">No update file selected</div>
-                    <div className="text-[10.5px] text-[rgb(var(--muted))]">Destination on every checkout: <span className="font-mono">{settings?.store_update_path || '…'}</span></div>
+                    <div className="text-sm font-bold text-[rgb(var(--text))]">No update file selected</div>
+                    <div className="text-xs text-[rgb(var(--muted))]">Destination on every checkout: <span className="font-mono">{settings?.store_update_path || '…'}</span></div>
                   </>
                 )}
               </div>
@@ -313,7 +358,7 @@ export default function StoreUpdatePage() {
 
         {/* How the run proceeds — shown up front so the operator knows the plan. */}
         {settings && (
-          <p className="rounded-xl border border-[rgb(var(--border)/.55)] bg-[rgb(var(--surface)/.45)] px-3 py-2 text-[11px] leading-relaxed text-[rgb(var(--muted))]">
+          <p className="rounded-xl border border-[rgb(var(--border)/.55)] bg-[rgb(var(--surface)/.45)] px-3 py-2 text-2xs leading-relaxed text-[rgb(var(--muted))]">
             <Settings2 size={12} className="mr-1 inline-block" />
             The local Agent reads the Store Commerce version from Programs and Features. Import installs it in C:\Agent as an automatic Windows Service. Missing/stopped agents show “Agent is not running”. Update files land in <b className="font-mono">{settings.store_update_path}</b> (changeable in Settings → Store App).
             Checkouts in another domain are reached with the account from Settings → Store App → Target access.
@@ -335,8 +380,8 @@ export default function StoreUpdatePage() {
               <header className="flex items-center gap-2">
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><Building2 size={14} /></span>
                 <h2 className="text-sm font-bold text-[rgb(var(--text))]">{group.branch.name}</h2>
-                <span className="rounded-full bg-[rgb(var(--border)/.6)] px-2 py-0.5 text-[10px] font-bold text-[rgb(var(--muted))]">{group.branch.code}</span>
-                <span className="text-[10.5px] text-[rgb(var(--muted))]">{group.checkouts.length} checkout{group.checkouts.length !== 1 ? 's' : ''}</span>
+                <span className="rounded-full bg-[rgb(var(--border)/.6)] px-2 py-0.5 text-xs font-bold text-[rgb(var(--muted))]">{group.branch.code}</span>
+                <span className="text-xs text-[rgb(var(--muted))]">{group.checkouts.length} checkout{group.checkouts.length !== 1 ? 's' : ''}</span>
               </header>
               <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 <AnimatePresence initial={false}>
@@ -360,7 +405,23 @@ export default function StoreUpdatePage() {
         )}
       </div>
 
-      <AgentImportDialog run={agentRun} onClose={() => setAgentRun((previous) => ({ ...previous, open: false }))} />
+      {/* A minimized import keeps running; this pill brings the narration back. */}
+      {agentRun.running && !agentRun.open && (
+        <button
+          type="button"
+          onClick={() => setAgentRun((previous) => ({ ...previous, open: true }))}
+          className="no-drag fixed bottom-4 right-4 z-[90] flex items-center gap-2 rounded-full border border-[rgb(var(--primary)/.45)] bg-[rgb(var(--surface)/.92)] px-3.5 py-2 text-2xs font-bold text-[rgb(var(--text))] shadow-xl backdrop-blur transition hover:border-[rgb(var(--primary))]"
+        >
+          <Loader2 size={14} className="animate-spin text-[rgb(var(--primary))]" />
+          Agent import running — {agentRun.targets.length} checkout(s)
+        </button>
+      )}
+
+      <AgentImportDialog
+        run={agentRun}
+        onCancel={stopAgentImport}
+        onClose={() => setAgentRun((previous) => ({ ...previous, open: false }))}
+      />
 
       <InstalledProgramsDialog
         open={inspect.open}

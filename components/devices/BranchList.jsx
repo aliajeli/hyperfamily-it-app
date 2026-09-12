@@ -7,7 +7,7 @@ import { Button } from '@/components/ui'
 export default function BranchList({ branches, selectedBranchId, deviceCounts = {}, onSelect, onEdit, onDelete }) {
   if (!branches.length) {
     return (
-      <div className="flex min-w-0 flex-1 items-center rounded-xl border border-dashed px-3 py-2 text-[10px] text-[rgb(var(--muted))]">
+      <div className="flex min-w-0 flex-1 items-center rounded-xl border border-dashed px-3 py-2 text-xs text-[rgb(var(--muted))]">
         A branch must be created before equipment can be added. Use the labeled Add branch button above.
       </div>
     )
@@ -33,8 +33,8 @@ export default function BranchList({ branches, selectedBranchId, deviceCounts = 
                   {selected ? <Check size={12} /> : <Building2 size={12} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[9px] font-black tracking-[0.035em]">{branch.name}</span>
-                  <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[7px] font-semibold text-[rgb(var(--muted))]">
+                  <span className="block truncate text-xs font-black tracking-[0.035em]">{branch.name}</span>
+                  <span className="mt-0.5 flex min-w-0 items-center gap-1 text-2xs font-semibold text-[rgb(var(--muted))]">
                     <span className="font-mono font-bold">{branch.code}</span>
                     {branch.warehouse_code && <><span>·</span><span className="flex min-w-0 items-center gap-0.5 truncate"><Warehouse size={7} />{branch.warehouse_code}</span></>}
                     <span>·</span><span>{deviceCounts[branch.id] || 0}</span>

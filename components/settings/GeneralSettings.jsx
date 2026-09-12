@@ -94,7 +94,7 @@ export default function GeneralSettings({ settings, onSaved }) {
             <div className="rounded-lg bg-nord-15/15 p-2 text-nord-15"><UserRoundCog size={16} /></div>
             <div>
               <CardTitle className="text-sm">Administrator account</CardTitle>
-              <CardDescription className="mt-0.5 text-[11px] leading-snug">Change the login username, password, or both. Your current password is always required.</CardDescription>
+              <CardDescription className="mt-0.5 text-2xs leading-snug">Change the login username, password, or both. Your current password is always required.</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -127,8 +127,8 @@ export default function GeneralSettings({ settings, onSaved }) {
             <div className="rounded-xl border bg-[rgb(var(--canvas)/.55)] p-2.5">
               <div className="mb-1.5 flex items-center gap-1.5">
                 <KeyRound size={13} className="text-[rgb(var(--primary))]" />
-                <b className="text-[10.5px]">Credential recovery PIN</b>
-                <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[8.5px] font-extrabold uppercase ${pinSet ? 'bg-nord-14/20 text-[#66834e]' : 'bg-nord-13/20 text-[#8b6e1c]'}`}>
+                <b className="text-xs">Credential recovery PIN</b>
+                <span className={`ml-auto rounded-full px-1.5 py-0.5 text-xs font-extrabold uppercase ${pinSet ? 'bg-nord-14/20 text-[#66834e]' : 'bg-nord-13/20 text-[#8b6e1c]'}`}>
                   {pinSet ? 'PIN set' : 'Not set'}
                 </span>
               </div>
@@ -142,12 +142,12 @@ export default function GeneralSettings({ settings, onSaved }) {
                   <Input inputMode="numeric" autoComplete="off" maxLength={8} value={account.confirmRecoveryPin} onChange={(event) => setAccount({ ...account, confirmRecoveryPin: event.target.value.replace(/\D/g, '') })} />
                 </label>
               </div>
-              <p className="mt-1.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">
+              <p className="mt-1.5 text-xs leading-snug text-[rgb(var(--muted))]">
                 {pinSet ? 'A PIN is already set — fill both fields to replace it. It gates the Recover credentials option on the login screen; 5 wrong attempts lock recovery for 5 minutes.' : 'Setting a PIN enables the Recover credentials option on the login screen. Keep it somewhere safe.'}
               </p>
             </div>
 
-            <p className="text-[9.5px] leading-snug text-[rgb(var(--muted))]">The username is required at the next login. Leave the password blank to keep the current one; a longer passphrase is recommended.</p>
+            <p className="text-xs leading-snug text-[rgb(var(--muted))]">The username is required at the next login. Leave the password blank to keep the current one; a longer passphrase is recommended.</p>
             <Button disabled={busy === 'account'}>{busy === 'account' ? 'Updating account…' : 'Update account'}</Button>
           </form>
         </CardContent>
@@ -159,12 +159,12 @@ export default function GeneralSettings({ settings, onSaved }) {
             <div className="rounded-lg bg-nord-8/15 p-2 text-nord-10"><Activity size={16} /></div>
             <div>
               <CardTitle className="text-sm">Real-time monitoring</CardTitle>
-              <CardDescription className="mt-0.5 text-[11px] leading-snug">Balance freshness with traffic across monitored networks.</CardDescription>
+              <CardDescription className="mt-0.5 text-2xs leading-snug">Balance freshness with traffic across monitored networks.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-3 pt-1.5">
-          <div className="mb-2.5 flex gap-2 rounded-lg border border-nord-14/35 bg-nord-14/10 p-2 text-[10.5px] leading-snug">
+          <div className="mb-2.5 flex gap-2 rounded-lg border border-nord-14/35 bg-nord-14/10 p-2 text-xs leading-snug">
             <ShieldCheck className="status-online-text mt-0.5 shrink-0" size={14} />
             <p><b>Healthy threshold:</b> Ping responses up to and including 300 ms are classified as online. Higher responses show a warning.</p>
           </div>
@@ -173,12 +173,12 @@ export default function GeneralSettings({ settings, onSaved }) {
               <label className="min-w-0">
                 <Label>Ping interval (seconds)</Label>
                 <Input type="number" min={1} max={60} value={ping.ping_interval} onChange={(event) => setPing({ ...ping, ping_interval: event.target.value })} />
-                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">1–60 seconds. Default: 3.</p>
+                <p className="mt-0.5 text-xs leading-snug text-[rgb(var(--muted))]">1–60 seconds. Default: 3.</p>
               </label>
               <label className="min-w-0">
                 <Label>Chart history points</Label>
                 <Input type="number" min={10} max={100} value={ping.ping_history_count} onChange={(event) => setPing({ ...ping, ping_history_count: event.target.value })} />
-                <p className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">10–100 responses. Default: 30.</p>
+                <p className="mt-0.5 text-xs leading-snug text-[rgb(var(--muted))]">10–100 responses. Default: 30.</p>
               </label>
             </div>
             <Button disabled={busy === 'ping'}>{busy === 'ping' ? 'Saving…' : 'Save monitoring settings'}</Button>

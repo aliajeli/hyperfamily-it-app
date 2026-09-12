@@ -163,7 +163,7 @@ export function CardContent({ className, ...props }) { return <div className={cn
 
 export function Badge({ status, className, children, ...props }) {
   const styles = { online: 'bg-nord-14/20 text-[#628148]', warning: 'bg-nord-13/25 text-[#806823]', offline: 'bg-nord-11/20 text-nord-11', unknown: 'bg-nord-3/15 text-[rgb(var(--muted))]' }
-  return <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold', styles[status] || styles.unknown, className)} {...props}>{status && <span className={cn('status-dot h-1.5 w-1.5', status === 'online' && 'bg-nord-14', status === 'warning' && 'bg-nord-13', status === 'offline' && 'bg-nord-11', status === 'unknown' && 'bg-nord-3')} />}{children}</span>
+  return <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-2xs font-bold', styles[status] || styles.unknown, className)} {...props}>{status && <span className={cn('status-dot h-1.5 w-1.5', status === 'online' && 'bg-nord-14', status === 'warning' && 'bg-nord-13', status === 'offline' && 'bg-nord-11', status === 'unknown' && 'bg-nord-3')} />}{children}</span>
 }
 
 export function Dialog({ open, onOpenChange, trigger, title, description, children, className }) {
@@ -196,7 +196,7 @@ export function Tabs({ value, onValueChange, tabs, children, className, listClas
           <TabsPrimitive.Trigger
             key={tab.value}
             value={tab.value}
-            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-semibold text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))] data-[state=active]:bg-[rgb(var(--primary))] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-[rgb(var(--primary)/.28)]"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1 text-2xs font-semibold text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))] data-[state=active]:bg-[rgb(var(--primary))] data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-[rgb(var(--primary)/.28)]"
           >
             {tab.icon}{tab.label}
           </TabsPrimitive.Trigger>

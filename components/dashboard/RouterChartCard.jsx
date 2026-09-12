@@ -26,7 +26,7 @@ export default function RouterChartCard({ branch, gateway, expanded = false }) {
 
   if (!gateway) {
     return (
-      <div className={`${expanded ? 'h-44' : 'h-28'} grid place-items-center rounded-2xl border border-dashed text-[9px] font-semibold text-[rgb(var(--muted))]`}>
+      <div className={`${expanded ? 'h-44' : 'h-28'} grid place-items-center rounded-2xl border border-dashed text-xs font-semibold text-[rgb(var(--muted))]`}>
         <div className="text-center">
           <Radio className="mx-auto mb-2 opacity-55" size={20} />
           No Router configured
@@ -52,19 +52,19 @@ export default function RouterChartCard({ branch, gateway, expanded = false }) {
             <Router size={expanded ? 19 : 16} />
           </motion.div>
           <div className="min-w-0 flex-1">
-            <p className="text-[8px] font-extrabold uppercase tracking-[0.18em] text-[rgb(var(--muted))]">Router</p>
-            <p className={`${expanded ? 'text-sm' : 'text-[11px]'} truncate font-extrabold tracking-[0.025em]`} title={gateway.name}>{gateway.name}</p>
+            <p className="text-2xs font-extrabold uppercase tracking-[0.18em] text-[rgb(var(--muted))]">Router</p>
+            <p className={`${expanded ? 'text-sm' : 'text-2xs'} truncate font-extrabold tracking-[0.025em]`} title={gateway.name}>{gateway.name}</p>
           </div>
           <div className="text-right">
             <DeviceStatusBadge status={gatewayStatus} compact={!expanded} />
-            <p className={`${expanded ? 'text-xs' : 'text-[10px]'} mt-1 font-extrabold tabular-nums`}>{gatewayPing == null ? 'No reply' : `${gatewayPing} ms`}</p>
+            <p className={`${expanded ? 'text-xs' : 'text-xs'} mt-1 font-extrabold tabular-nums`}>{gatewayPing == null ? 'No reply' : `${gatewayPing} ms`}</p>
           </div>
         </div>
 
         <div className={`${expanded ? 'mt-3 px-2' : 'mt-1.5 px-1'} overflow-visible rounded-xl bg-[rgb(var(--surface)/.58)] ring-1 ring-[rgb(var(--border)/.35)]`}>
           <PingChart history={gateway.history} compact={!expanded} />
         </div>
-        <p className={`${expanded ? 'mt-3 text-[10px]' : 'mt-1.5 text-[8px]'} flex items-center justify-center gap-1 font-bold text-[rgb(var(--primary))] transition-all group-hover:gap-2`}>
+        <p className={`${expanded ? 'mt-3 text-xs' : 'mt-1.5 text-2xs'} flex items-center justify-center gap-1 font-bold text-[rgb(var(--primary))] transition-all group-hover:gap-2`}>
           <Maximize2 size={expanded ? 11 : 9} /> Select chart for detailed view
         </p>
       </button>

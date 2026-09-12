@@ -15,7 +15,7 @@
  * Run: node tests/typing-after-delete.playwright.mjs   (server on :3000)
  */
 
-import { chromium } from '/tmp/node_modules/playwright/index.mjs'
+import { chromium } from '@playwright/test'
 
 const BASE = 'http://127.0.0.1:3000'
 const SESSION = JSON.stringify({ state: { user: { username: 'Admin', role: 'admin', display_name: 'Admin' } }, version: 0 })

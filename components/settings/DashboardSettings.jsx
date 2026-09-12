@@ -63,7 +63,7 @@ function Choice({ selected, icon: Icon, title, description, onClick }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-extrabold tracking-[0.025em]">{title}</p>
-          <p className="mt-0.5 text-[9.5px] leading-[1.35] text-[rgb(var(--muted))]">{description}</p>
+          <p className="mt-0.5 text-xs leading-[1.35] text-[rgb(var(--muted))]">{description}</p>
         </div>
         <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-all duration-300 ${selected ? 'scale-100 border-[rgb(var(--primary))] bg-[rgb(var(--primary))] text-white' : 'scale-90 text-transparent'}`}>
           <Check size={12} strokeWidth={3} />
@@ -105,7 +105,7 @@ export default function DashboardSettings({ settings, onSaved }) {
           </div>
           <div>
             <CardTitle className="text-sm">Dashboard branch experience</CardTitle>
-            <CardDescription className="mt-0.5 text-[11px] leading-snug">
+            <CardDescription className="mt-0.5 text-2xs leading-snug">
               Choose when branch cards become compact and how their complete equipment view opens. Changes apply to the Dashboard page.
             </CardDescription>
           </div>

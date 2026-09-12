@@ -71,9 +71,9 @@ function GatewayDetails() {
         <div className="flex min-w-0 items-center gap-3">
           <Button variant="secondary" size="icon" onClick={() => navigation.push('/dashboard')} aria-label="Back to Dashboard"><ArrowLeft size={17} /></Button>
           <div className="min-w-0">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">{branch.name} · {branch.code}</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[rgb(var(--muted))]">{branch.name} · {branch.code}</p>
             <h1 className="truncate text-2xl font-extrabold tracking-tight">Router connection details</h1>
-            <p className="mt-0.5 font-mono text-[11px] text-[rgb(var(--muted))]">{gateway.name} · {gateway.ip_address || gateway.ip}</p>
+            <p className="mt-0.5 font-mono text-2xs text-[rgb(var(--muted))]">{gateway.name} · {gateway.ip_address || gateway.ip}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 self-start rounded-xl border bg-[rgb(var(--surface)/.72)] p-2 shadow-sm sm:self-auto">
@@ -89,7 +89,7 @@ function GatewayDetails() {
             <Card key={metric.title} className="flex items-center gap-3 p-4">
               <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${metric.tone}`}><Icon size={18} /></div>
               <div className="min-w-0">
-                <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">{metric.title}</p>
+                <p className="truncate text-xs font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">{metric.title}</p>
                 <p className="mt-0.5 truncate text-xl font-black tabular-nums">{metric.value}</p>
               </div>
             </Card>
@@ -103,7 +103,7 @@ function GatewayDetails() {
             <h2 className="font-extrabold">Detailed Router ping history</h2>
             <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">Every response through 300 ms is healthy and shown in the green range. Responses above 300 ms are warnings.</p>
           </div>
-          <div className="flex flex-wrap gap-2 text-[10px] font-bold tabular-nums text-[rgb(var(--muted))]">
+          <div className="flex flex-wrap gap-2 text-xs font-bold tabular-nums text-[rgb(var(--muted))]">
             <span className="rounded-lg bg-[rgb(var(--canvas))] px-2.5 py-1.5">Min {metrics.minimum == null ? '—' : `${metrics.minimum} ms`}</span>
             <span className="rounded-lg bg-[rgb(var(--canvas))] px-2.5 py-1.5">Max {metrics.maximum == null ? '—' : `${metrics.maximum} ms`}</span>
             <span className="status-online-text rounded-lg bg-nord-14/14 px-2.5 py-1.5">Healthy ≤ 300 ms</span>
@@ -122,7 +122,7 @@ function GatewayDetails() {
         {gateway.history?.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] text-left text-xs">
-              <thead className="bg-[rgb(var(--canvas)/.7)] text-[9px] font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">
+              <thead className="bg-[rgb(var(--canvas)/.7)] text-xs font-extrabold uppercase tracking-[0.12em] text-[rgb(var(--muted))]">
                 <tr><th className="px-5 py-3">Time</th><th className="px-5 py-3">Response</th><th className="px-5 py-3">Classification</th><th className="px-5 py-3">Recorded status</th></tr>
               </thead>
               <tbody className="divide-y">
@@ -135,7 +135,7 @@ function GatewayDetails() {
                       <td className="px-5 py-3 font-medium">{formatTimestamp(probe.checked_at || probe.timestamp)}</td>
                       <td className="px-5 py-3 font-mono font-bold tabular-nums">{replied ? `${responseTime} ms` : 'No reply'}</td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-extrabold uppercase tracking-wider ${healthy ? 'status-online-text border-nord-14/40 bg-nord-14/15' : replied ? 'status-warning-text border-nord-13/50 bg-nord-13/18' : 'border-nord-11/40 bg-nord-11/12 text-nord-11'}`}>
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-extrabold uppercase tracking-wider ${healthy ? 'status-online-text border-nord-14/40 bg-nord-14/15' : replied ? 'status-warning-text border-nord-13/50 bg-nord-13/18' : 'border-nord-11/40 bg-nord-11/12 text-nord-11'}`}>
                           {healthy ? <ShieldCheck size={10} /> : <WifiOff size={10} />}{healthy ? 'Healthy' : replied ? 'Warning' : 'Offline'}
                         </span>
                       </td>

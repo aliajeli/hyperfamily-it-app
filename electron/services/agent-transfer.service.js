@@ -8,6 +8,20 @@ const TRANSFER_IDLE_MS = 120000
 const TRANSFER_MAX_MS = 30 * 60 * 1000
 const TRANSFER_BUFFER_BYTES = 1024 * 1024
 
+/** A transfer stopped by the operator. Distinct from a timeout so the caller can
+ * report "cancelled" instead of blaming the branch connection. */
+const CANCELLED_CODE = 'AGENT_IMPORT_CANCELLED'
+
+function cancelledError(label = 'Agent import') {
+  return Object.assign(new Error(`${label} was stopped by the operator`), {
+    code: CANCELLED_CODE, cancelled: true, phase: label
+  })
+}
+
+function isCancelled(error) {
+  return Boolean(error) && (error.code === CANCELLED_CODE || error.cancelled === true)
+}
+
 function formatProgress({ bytes, totalBytes, elapsedMs, bytesPerSecond }) {
   const mb = (value) => (value / 1000000).toFixed(1)
   const count = totalBytes > 0 ? `${mb(bytes)} / ${mb(totalBytes)} MB (${Math.min(100, Math.floor(bytes * 100 / totalBytes))}%)` : `${mb(bytes)} MB`
@@ -16,7 +30,13 @@ function formatProgress({ bytes, totalBytes, elapsedMs, bytesPerSecond }) {
 
 /** Idle deadline follows completed I/O, not elapsed transfer time. The separate
  * hard ceiling still bounds trickle traffic. Await pipeline's abort/close before
- * letting the importer remove staging or release its cross-workstation lock. */
+ * letting the importer remove staging or release its cross-workstation lock.
+ *
+ * `options.signal` (an external AbortSignal) stops the transfer on demand — that
+ * is how the Stop button in the Import Agent dialog reaches an in-flight SMB
+ * copy. It is treated exactly like the internal deadlines: the pipeline is
+ * aborted, the streams are drained, and only then does the caller run its
+ * rollback, so no staging file or lock is left behind. */
 async function runTransfer(task, options = {}) {
   const idleTimeoutMs = options.idleTimeoutMs ?? TRANSFER_IDLE_MS
   const maxDurationMs = options.maxDurationMs ?? TRANSFER_MAX_MS
@@ -41,9 +61,21 @@ async function runTransfer(task, options = {}) {
     })
     controller.abort()
   }
+  /** Operator stop: same abort path, but reported as a cancellation. */
+  const stop = () => {
+    if (failure) return
+    failure = Object.assign(cancelledError(label), statistics())
+    controller.abort()
+  }
   const resetIdle = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => expire(true), idleTimeoutMs) }
   const advance = (count) => {
     if (count > 0 && !failure) { bytes += count; resetIdle() }
+  }
+  const external = options.signal
+  const onExternalAbort = () => stop()
+  if (external) {
+    if (external.aborted) stop()
+    else external.addEventListener('abort', onExternalAbort, { once: true })
   }
   resetIdle()
   const maximumTimer = setTimeout(() => expire(false), maxDurationMs)
@@ -66,6 +98,7 @@ async function runTransfer(task, options = {}) {
     clearTimeout(idleTimer)
     clearTimeout(maximumTimer)
     clearInterval(reportTimer)
+    external?.removeEventListener?.('abort', onExternalAbort)
   }
 }
 
@@ -96,4 +129,7 @@ async function copyFile(source, destination, options = {}) {
   }, { label: `Copying agent to ${destination}`, ...options })
 }
 
-module.exports = { hashFile, copyFile, runTransfer, formatProgress, TRANSFER_IDLE_MS, TRANSFER_MAX_MS, TRANSFER_BUFFER_BYTES }
+module.exports = {
+  hashFile, copyFile, runTransfer, formatProgress, cancelledError, isCancelled, CANCELLED_CODE,
+  TRANSFER_IDLE_MS, TRANSFER_MAX_MS, TRANSFER_BUFFER_BYTES
+}

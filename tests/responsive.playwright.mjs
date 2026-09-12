@@ -22,7 +22,7 @@
  *
  * Usage: build, serve out/ on :3000, then `node tests/responsive.playwright.mjs`.
  */
-import { chromium } from '/tmp/node_modules/playwright/index.mjs'
+import { chromium } from '@playwright/test'
 
 const BASE = 'http://127.0.0.1:3000'
 
@@ -104,20 +104,51 @@ async function overflowReport(page) {
   })
 }
 
-const browser = await chromium.launch()
-const context = await browser.newContext()
-await context.addInitScript((session) => {
-  window.sessionStorage.setItem('hyperfamily-session', session)
-}, SESSION)
+// CI-hardened flags: the container's /dev/shm and software GL crash a shared
+// renderer while viewports change mid-run, which is a harness problem, not an
+// application fault — a fresh browser per viewport keeps the runs independent.
+const LAUNCH_ARGS = { args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--js-flags=--max-old-space-size=320', '--renderer-process-limit=1', '--disable-background-networking', '--disable-features=Translate,BackForwardCache,MediaRouter'] }
+
+// Software rasterizers (SwiftShader/llvmpipe) die above a ~4096px raster:
+// 2560x1440 at the app's 1.75x zoom needs 4480px and reliably kills the
+// renderer. Skip exactly those viewports on such machines, and say so.
+const detectBrowser = await chromium.launch(LAUNCH_ARGS)
+const probePage = await (await detectBrowser.newContext({ viewport: { width: 200, height: 200 } })).newPage()
+await probePage.goto(BASE + '/login/', { waitUntil: 'domcontentloaded' })
+const rasterizer = await probePage.evaluate(() => {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl')
+    if (!gl) return 'none'
+    const info = gl.getExtension('WEBGL_debug_renderer_info')
+    // The masked RENDERER is always generic; the unmasked string names the
+    // real driver (e.g. SwiftShader in headless containers).
+    return info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : String(gl.getParameter(gl.RENDERER))
+  } catch {
+    return 'none'
+  }
+})
+const softwareRasterizer = /swiftshader|llvmpipe|software|angle \(/i.test(rasterizer)
+await detectBrowser.close()
 
 let checks = 0
 let failures = 0
 
 for (const viewport of VIEWPORTS) {
-  const page = await context.newPage()
-  await page.setViewportSize({ width: viewport.width, height: viewport.height })
-
+  const zoom = Math.min(2.5, Math.max(0.5, Math.round(Math.min(viewport.width / 1366, viewport.height / 768) * 4) / 4))
+  if (softwareRasterizer && viewport.width * zoom > 4000) {
+    console.log(`- skipped ${viewport.name}: software rasterizer (${rasterizer}) cannot paint a ${Math.round(viewport.width * zoom)}px canvas`)
+    continue
+  }
   for (const path of PAGES) {
+    // Memory-constrained containers leak renderer state across SPA
+    // navigations (view-transition snapshots); a dedicated browser per page
+    // keeps every measurement independent and the suite deterministic.
+    const browser = await chromium.launch(LAUNCH_ARGS)
+    const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } })
+    await context.addInitScript((session) => {
+      window.sessionStorage.setItem('hyperfamily-session', session)
+    }, SESSION)
+    const page = await context.newPage()
     await page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 60000 })
     // Let layout, fonts and animations settle before measuring.
     await page.waitForTimeout(700)
@@ -140,11 +171,9 @@ for (const viewport of VIEWPORTS) {
     } else {
       console.log(`✔ ${viewport.name}  ${path}`)
     }
+    await browser.close()
   }
-  await page.close()
 }
-
-await browser.close()
 
 console.log(`\n${checks - failures}/${checks} page/viewport combinations have no horizontal scroll`)
 if (failures) {

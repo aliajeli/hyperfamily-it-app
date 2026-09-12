@@ -102,7 +102,7 @@ export default function StoreAppSettings({ settings, onSaved }) {
             <div className="rounded-lg bg-nord-14/15 p-2 text-nord-14"><Store size={16} /></div>
             <div>
               <CardTitle className="text-sm">Deploy destination</CardTitle>
-              <CardDescription className="mt-0.5 text-[11px] leading-snug">
+              <CardDescription className="mt-0.5 text-2xs leading-snug">
                 Choose where update files are deployed on each checkout through its Windows admin share. Select the installed product on the Update Store App page.
               </CardDescription>
             </div>
@@ -113,8 +113,8 @@ export default function StoreAppSettings({ settings, onSaved }) {
             <div className="grid gap-2.5">
               <div className="min-w-0">
                 <Label htmlFor="deploy-destination">Deploy destination folder</Label>
-                <Input id="deploy-destination" aria-describedby="deploy-destination-help" disabled={Boolean(busy)} className="font-mono text-[12px]" dir="ltr" value={store.store_update_path} onChange={(event) => setStore({ ...store, store_update_path: event.target.value })} placeholder="C:\Store Commerce\Updates" />
-                <p id="deploy-destination-help" className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Use a local folder on the checkout, not a folder on this workstation. Existing files receive a dated backup before replacement.</p>
+                <Input id="deploy-destination" aria-describedby="deploy-destination-help" disabled={Boolean(busy)} className="font-mono text-xs" dir="ltr" value={store.store_update_path} onChange={(event) => setStore({ ...store, store_update_path: event.target.value })} placeholder="C:\Store Commerce\Updates" />
+                <p id="deploy-destination-help" className="mt-0.5 text-xs leading-snug text-[rgb(var(--muted))]">Use a local folder on the checkout, not a folder on this workstation. Existing files receive a dated backup before replacement.</p>
               </div>
             </div>
             <Button disabled={Boolean(busy)}>{busy === 'store' ? 'Saving…' : 'Save deploy destination'}</Button>
@@ -128,7 +128,7 @@ export default function StoreAppSettings({ settings, onSaved }) {
             <div className="rounded-lg bg-nord-13/15 p-2 text-nord-13"><Network size={16} /></div>
             <div>
               <CardTitle className="text-sm">Target access — administrator account on the checkouts</CardTitle>
-              <CardDescription className="mt-0.5 text-[11px] leading-snug">
+              <CardDescription className="mt-0.5 text-2xs leading-snug">
                 Use an account with local administrator rights on the checkouts, including machines in another domain. Credentials are stored encrypted at rest and used for Windows authentication when accessing admin shares and managing the Agent service.
               </CardDescription>
             </div>
@@ -140,17 +140,17 @@ export default function StoreAppSettings({ settings, onSaved }) {
               <div className="min-w-0">
                 <Label htmlFor="target-domain">Target domain</Label>
                 <Input id="target-domain" aria-describedby="target-domain-help" disabled={Boolean(busy)} dir="ltr" value={target.target_domain} onChange={(event) => setTarget({ ...target, target_domain: event.target.value })} placeholder="okcs" />
-                <p id="target-domain-help" className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">The domain of the checkouts, not the one this PC is joined to.</p>
+                <p id="target-domain-help" className="mt-0.5 text-xs leading-snug text-[rgb(var(--muted))]">The domain of the checkouts, not the one this PC is joined to.</p>
               </div>
               <div className="min-w-0">
                 <Label htmlFor="target-username">Username</Label>
                 <Input id="target-username" aria-describedby="target-username-help" disabled={Boolean(busy)} dir="ltr" autoComplete="off" value={target.target_admin_user} onChange={(event) => setTarget({ ...target, target_admin_user: event.target.value })} placeholder="administrator" />
-                <p id="target-username-help" className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">Use domain\username, user@domain, or a username with the target domain above.</p>
+                <p id="target-username-help" className="mt-0.5 text-xs leading-snug text-[rgb(var(--muted))]">Use domain\username, user@domain, or a username with the target domain above.</p>
               </div>
               <div className="min-w-0">
                 <Label htmlFor="target-password">Password</Label>
                 <Input id="target-password" aria-describedby="target-password-help" disabled={Boolean(busy)} type="password" dir="ltr" autoComplete="new-password" value={target.target_admin_password} onChange={(event) => setTarget({ ...target, target_admin_password: event.target.value })} placeholder={passwordStored ? 'Stored — leave empty to keep it' : 'Password'} />
-                <p id="target-password-help" className="mt-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">{passwordStored ? 'A password is stored; typing here replaces it.' : 'Required before the first sweep.'}</p>
+                <p id="target-password-help" className="mt-0.5 text-xs leading-snug text-[rgb(var(--muted))]">{passwordStored ? 'A password is stored; typing here replaces it.' : 'Required before the first sweep.'}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-end gap-2.5">

@@ -149,6 +149,93 @@ test('batch is serial and continues after an offline target fails', async (t) =>
   assert.deepEqual(result.results.map((row) => row.checkoutId), [1, 2, 3])
 })
 
+/* --------------------------------------------------------------------------
+ * Cancellation (the Stop button of the Import Agent dialog).
+ *
+ * Stopping an import must be a first-class outcome, not a failure that looks
+ * like a broken link: the run reports `cancelled`, the checkout is rolled back
+ * to its previous executable and service, and the temporary files are gone.
+ * The trigger is the heartbeat poll's own delay, so no test depends on a
+ * wall-clock race.
+ * ------------------------------------------------------------------------ */
+
+test('stopping a run rolls the checkout back and reports a cancellation', async (t) => {
+  const f = fixture(t)
+  fs.mkdirSync(f.target('CO-01'), { recursive: true })
+  fs.writeFileSync(f.target('CO-01', AGENT_EXE), 'old-agent')
+  f.setState('Running')
+  // The service starts but its first inventory is stale, which is what forces
+  // the heartbeat wait to poll — the deterministic point where Stop is pressed.
+  const start = f.control.start
+  f.control.start = async (host) => {
+    await start(host)
+    const stale = { ...snapshot(), generatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString() }
+    fs.writeFileSync(f.target(host, 'data/inventory.json'), JSON.stringify(stale))
+  }
+  f.service.delay = (ms, _value, options) => {
+    f.service.cancel('run-1')
+    // An abort fires its event only once, so an already-aborted signal has to
+    // be rejected directly — exactly like the service's own abortablePause.
+    if (options?.signal?.aborted) return Promise.reject(new Error('aborted'))
+    return new Promise((_resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timer')), ms)
+      options?.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted')) }, { once: true })
+    })
+  }
+  const result = await f.service.importOne(checkout, { runId: 'run-1' })
+  assert.equal(result.ok, false)
+  assert.equal(result.cancelled, true)
+  assert.equal(result.code, 'AGENT_IMPORT_CANCELLED')
+  assert.match(result.error, /stopped by the operator/i)
+  // The replaced binary is restored and the previous service is started again.
+  // The service already existed, so it is reconfigured ('config'), not created,
+  // and rollback must NOT remove it — it only restarts what was running.
+  assert.equal(fs.readFileSync(f.target('CO-01', AGENT_EXE), 'utf8'), 'old-agent')
+  assert.deepEqual(f.calls, ['stop', 'config', 'start', 'stop', 'start'])
+  assert.ok(result.steps.some((entry) => entry.step === 'rollback'), 'the rollback must be part of the reported steps')
+  assert.ok(result.steps.some((entry) => entry.step === 'cancelled' || entry.step === 'failed'), 'the run must end with an explicit outcome step')
+  assert.equal(fs.existsSync(f.target('CO-01', 'import.lock')), false, 'the import lock must be released')
+  assert.ok(!fs.readdirSync(f.target('CO-01')).some((name) => name.endsWith('.new') || name.endsWith('.previous')), 'no staging or backup file may survive')
+  assert.deepEqual(f.service.activeRuns(), [], 'a settled run must be released')
+})
+
+test('stopping a batch skips the checkouts that had not started yet', async (t) => {
+  const f = fixture(t)
+  const start = f.control.start
+  f.control.start = async (host) => {
+    await start(host)
+    const stale = { ...snapshot(), generatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString() }
+    fs.writeFileSync(f.target(host, 'data/inventory.json'), JSON.stringify(stale))
+  }
+  f.service.delay = (ms, _value, options) => {
+    f.service.cancel('batch-1')
+    if (options?.signal?.aborted) return Promise.reject(new Error('aborted'))
+    return new Promise((_resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timer')), ms)
+      options?.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted')) }, { once: true })
+    })
+  }
+  const summary = await f.service.importAll([checkout, { id: 2, name: 'Checkout 2', hostname: 'CO-02' }], { runId: 'batch-1' })
+  assert.equal(summary.total, 2)
+  assert.equal(summary.ok, 0)
+  assert.equal(summary.cancelled, 1, 'the checkout in flight is reported as stopped')
+  assert.equal(summary.skipped, 1, 'the checkout that had not started is reported as skipped')
+  assert.equal(summary.cancelledByOperator, true)
+  assert.deepEqual(summary.results.map((row) => row.checkoutId), [1, 2])
+  assert.equal(summary.results[0].cancelled, true)
+  assert.notEqual(summary.results[0].skipped, true, 'the checkout in flight was rolled back, not skipped')
+  assert.equal(summary.results[1].skipped, true)
+  assert.equal(summary.results[1].cancelled, true)
+})
+
+test('cancelling an unknown or finished run is a safe no-op', async (t) => {
+  const f = fixture(t)
+  assert.deepEqual(f.service.cancel('never-existed'), { cancelled: false, active: false })
+  const result = await f.service.importOne(checkout, { runId: 'finished-1' })
+  assert.equal(result.ok, true, result.error)
+  assert.deepEqual(f.service.cancel('finished-1'), { cancelled: false, active: false }, 'a settled run is no longer cancellable')
+})
+
 test('same-target concurrent imports and existing cross-workstation locks are rejected', async (t) => {
   const f = fixture(t)
   let release
@@ -228,6 +315,9 @@ for (const phase of ['compare-hash', 'verify-copy', 'verify-running']) {
       'verify-copy': 'Verifying staged agent SHA-256',
       'verify-running': 'Verifying running agent SHA-256'
     }
+    // The dialog renders a fixed pipeline, so several transfers now report
+    // under one step key (compare / copy / heartbeat) instead of one key each.
+    const pipelineStep = { 'compare-hash': 'compare', 'verify-copy': 'copy', 'verify-running': 'heartbeat' }[phase]
     f.service.hash = (file, options = {}) => hashFile(file, options.label?.startsWith(labels[phase]) ? {
       ...options, idleTimeoutMs: 40, maxDurationMs: 1000,
       createReadStream: () => new Readable({ read() {} })
@@ -237,7 +327,8 @@ for (const phase of ['compare-hash', 'verify-copy', 'verify-running']) {
     assert.equal(result.code, 'AGENT_TRANSFER_IDLE_TIMEOUT')
     assert.match(result.error, /CO-01/)
     assert.ok(result.error.includes(labels[phase]))
-    assert.ok(events.some((entry) => entry.step === phase))
+    assert.ok(events.some((entry) => entry.step === pipelineStep), `no ${pipelineStep} step was reported`)
+    assert.ok(events.some((entry) => entry.step === pipelineStep && entry.status === 'running'), 'the stalled phase must be visible as running')
     assert.equal(fs.readFileSync(f.target('CO-01', AGENT_EXE), 'utf8'), 'old-agent')
     assert.equal(fs.existsSync(f.target('CO-01', 'import.lock')), false)
     assert.ok(!fs.readdirSync(f.target('CO-01')).some((name) => name.endsWith('.new')))

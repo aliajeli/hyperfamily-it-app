@@ -91,7 +91,7 @@ export default function ConnectionsSettings({ settings, onSaved }) {
     <Card>
       <CardHeader className="pb-1.5">
         <CardTitle className="flex items-center gap-2 text-sm"><PlugZap size={15} />Connection method per device type</CardTitle>
-        <CardDescription className="text-[10.5px]">
+        <CardDescription className="text-xs">
           Click a device card to choose how it is reached. Several methods can stay enabled at once; the starred one is the default.
         </CardDescription>
       </CardHeader>
@@ -116,13 +116,13 @@ export default function ConnectionsSettings({ settings, onSaved }) {
                 className="group relative rounded-xl border bg-[rgb(var(--surface)/.45)] p-2 text-left transition-all duration-200 hover:border-[rgb(var(--primary)/.55)] hover:bg-[rgb(var(--surface)/.8)] hover:shadow-md hover:shadow-black/5"
               >
                 <div className="flex items-center gap-1.5">
-                  <b className="min-w-0 flex-1 truncate text-[11px]">{DEVICE_TYPE_DETAILS[type]?.label || type}</b>
-                  <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-full bg-[rgb(var(--primary)/.12)] px-1 text-[9px] font-extrabold text-[rgb(var(--primary))]">
+                  <b className="min-w-0 flex-1 truncate text-2xs">{DEVICE_TYPE_DETAILS[type]?.label || type}</b>
+                  <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-full bg-[rgb(var(--primary)/.12)] px-1 text-xs font-extrabold text-[rgb(var(--primary))]">
                     {methods.length}
                   </span>
                   <ChevronRight size={12} className="shrink-0 text-[rgb(var(--muted))] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[rgb(var(--primary))]" />
                 </div>
-                <p className="mt-0.5 truncate text-[9.5px] text-[rgb(var(--muted))]">
+                <p className="mt-0.5 truncate text-xs text-[rgb(var(--muted))]">
                   Default: {defaultLabel}
                 </p>
               </motion.button>
@@ -162,9 +162,9 @@ export default function ConnectionsSettings({ settings, onSaved }) {
                     <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><PlugZap size={15} /></div>
                     <div className="min-w-0">
                       <DialogPrimitive.Title className="text-sm font-extrabold">{openDetail.label || openType}</DialogPrimitive.Title>
-                      <DialogPrimitive.Description className="truncate text-[10px] text-[rgb(var(--muted))]">{openDetail.description}</DialogPrimitive.Description>
+                      <DialogPrimitive.Description className="truncate text-xs text-[rgb(var(--muted))]">{openDetail.description}</DialogPrimitive.Description>
                     </div>
-                    <span className="ml-auto shrink-0 rounded-full bg-[rgb(var(--border)/.5)] px-2 py-0.5 text-[9.5px] font-bold text-[rgb(var(--muted))]">
+                    <span className="ml-auto shrink-0 rounded-full bg-[rgb(var(--border)/.5)] px-2 py-0.5 text-xs font-bold text-[rgb(var(--muted))]">
                       {openList.length} enabled
                     </span>
                   </div>
@@ -195,7 +195,7 @@ export default function ConnectionsSettings({ settings, onSaved }) {
                               }
                               onClick={() => (enabled ? makeDefault(openType, methodId) : toggle(openType, methodId))}
                               className={cn(
-                                'relative flex h-7 items-center gap-1 overflow-hidden rounded-md border px-2 text-[10.5px] font-semibold transition-colors duration-200',
+                                'relative flex h-7 items-center gap-1 overflow-hidden rounded-md border px-2 text-xs font-semibold transition-colors duration-200',
                                 isDefault
                                   ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary)/.14)] text-[rgb(var(--primary))] shadow-sm'
                                   : enabled
@@ -268,7 +268,7 @@ export default function ConnectionsSettings({ settings, onSaved }) {
                     </AnimatePresence>
                   </div>
 
-                  <p className="mt-2 px-0.5 text-[9.5px] leading-snug text-[rgb(var(--muted))]">
+                  <p className="mt-2 px-0.5 text-xs leading-snug text-[rgb(var(--muted))]">
                     The starred method is used when a device is opened without picking one; the rest appear as alternatives in the device menu.
                   </p>
 

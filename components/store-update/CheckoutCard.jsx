@@ -25,7 +25,7 @@ function VersionPill({ version }) {
   const state = version?.state || 'checking'
   if (state === 'checking') {
     return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--primary)/.12)] px-2.5 py-1 text-[11px] font-bold text-[rgb(var(--primary))]">
+      <span className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--primary)/.12)] px-2.5 py-1 text-2xs font-bold text-[rgb(var(--primary))]">
         Checking
         <CheckingDots />
       </span>
@@ -47,10 +47,10 @@ function VersionPill({ version }) {
       version.icmp === false ? 'Ping is filtered on this host; reached over SMB' : null
     ].filter(Boolean).join('\n')
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-nord-14/20 px-2.5 py-1 font-mono text-[11px] font-bold text-[#5c7a46]" title={hint}>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-nord-14/20 px-2.5 py-1 font-mono text-2xs font-bold text-[#5c7a46]" title={hint}>
         <span className="h-1.5 w-1.5 rounded-full bg-nord-14" />
         v{version.version}
-        {version.stale && <span className="font-sans text-[9px] font-bold text-[#8b6e1c]" title={provenance}>~</span>}
+        {version.stale && <span className="font-sans text-xs font-bold text-[#8b6e1c]" title={provenance}>~</span>}
       </span>
     )
   }
@@ -63,7 +63,7 @@ function VersionPill({ version }) {
   }
   const look = looks[state] || looks.error
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold', look.className)} title={version?.error || version?.detail || undefined}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-2xs font-bold', look.className)} title={version?.error || version?.detail || undefined}>
       <span className={cn('h-1.5 w-1.5 rounded-full', look.dot)} />
       {look.label}
     </span>
@@ -89,9 +89,9 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
           <MonitorSmartphone size={16} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-bold text-[rgb(var(--text))]" title={checkout.name}>{checkout.name}</div>
+          <div className="truncate text-sm font-bold text-[rgb(var(--text))]" title={checkout.name}>{checkout.name}</div>
           {/* The IP is what the app connects to, so it is what we display. */}
-          <div className="truncate font-mono text-[10.5px] text-[rgb(var(--muted))]" title={[checkout.hostname, checkout.ip].filter(Boolean).join(' · ')}>{checkout.ip || checkout.hostname || 'no address'}</div>
+          <div className="truncate font-mono text-xs text-[rgb(var(--muted))]" title={[checkout.hostname, checkout.ip].filter(Boolean).join(' · ')}>{checkout.ip || checkout.hostname || 'no address'}</div>
         </div>
         {onInspect && (
           <button
@@ -119,7 +119,7 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
         <VersionPill version={version} />
         <button type="button" onClick={() => onImportAgent(checkout)} disabled={anyDeployRunning}
-          className="inline-flex items-center gap-1 rounded-lg bg-[rgb(var(--primary)/.12)] px-2 py-1 text-[10.5px] font-bold text-[rgb(var(--primary))] disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg bg-[rgb(var(--primary)/.12)] px-2 py-1 text-xs font-bold text-[rgb(var(--primary))] disabled:opacity-40"
           title="Compare SHA-256, import the agent and configure automatic startup">
           <ShieldCheck size={12} />{agentBusy ? 'Importing…' : 'Import Agent'}
         </button>
@@ -127,7 +127,7 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
           type="button"
           onClick={() => onDeploy(checkout)}
           disabled={anyDeployRunning}
-          className="inline-flex items-center gap-1 rounded-lg bg-[rgb(var(--primary)/.12)] px-2 py-1 text-[10.5px] font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.22)] disabled:opacity-40"
+          className="inline-flex items-center gap-1 rounded-lg bg-[rgb(var(--primary)/.12)] px-2 py-1 text-xs font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.22)] disabled:opacity-40"
           title="Deploy the selected file to this checkout"
         >
           <CloudUpload size={12} />

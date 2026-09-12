@@ -106,9 +106,9 @@ export default function AssignmentsSettings() {
   const unassignedCount = rows.filter((row) => row.source === 'none').length
 
   const statusCell = (row) => {
-    if (row.source === 'device') return <span className="rounded bg-[rgb(var(--primary)/.16)] px-1.5 py-0.5 text-[9.5px] font-bold text-[rgb(var(--primary))]">Set for this device</span>
-    if (row.source === 'type') return <span className="rounded bg-[rgb(var(--border)/.6)] px-1.5 py-0.5 text-[9.5px] font-medium text-[rgb(var(--muted))]">From {row.device_type} default</span>
-    return <span className="rounded bg-nord-11/15 px-1.5 py-0.5 text-[9.5px] font-bold text-nord-11">No credential</span>
+    if (row.source === 'device') return <span className="rounded bg-[rgb(var(--primary)/.16)] px-1.5 py-0.5 text-xs font-bold text-[rgb(var(--primary))]">Set for this device</span>
+    if (row.source === 'type') return <span className="rounded bg-[rgb(var(--border)/.6)] px-1.5 py-0.5 text-xs font-medium text-[rgb(var(--muted))]">From {row.device_type} default</span>
+    return <span className="rounded bg-nord-11/15 px-1.5 py-0.5 text-xs font-bold text-nord-11">No credential</span>
   }
 
   if (!loading && !credentials.length) {
@@ -130,7 +130,7 @@ export default function AssignmentsSettings() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm"><Layers size={15} />Default per device type</CardTitle>
-          <CardDescription className="text-[11px]">
+          <CardDescription className="text-2xs">
             Pick one credential per type and every device of that type uses it automatically. Changes save instantly.
           </CardDescription>
         </CardHeader>
@@ -141,13 +141,13 @@ export default function AssignmentsSettings() {
               return (
                 <div key={type} className="rounded-lg border p-1.5">
                   <div className="flex items-center justify-between gap-1">
-                    <b className="truncate text-[10px]">{type}</b>
+                    <b className="truncate text-xs">{type}</b>
                     {busyKey === key && <Loader2 size={11} className="shrink-0 animate-spin text-[rgb(var(--muted))]" />}
                     {savedKey === key && <Check size={12} className="shrink-0 text-nord-14" />}
                   </div>
                   <Select
                     aria-label={`Default credential for ${type}`}
-                    className="mt-1 h-7 w-full text-[10.5px]"
+                    className="mt-1 h-7 w-full text-xs"
                     value={typeDefaults[type] ?? ''}
                     onChange={(event) => assignType(type, event.target.value)}
                   >
@@ -166,7 +166,7 @@ export default function AssignmentsSettings() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm"><MonitorSmartphone size={15} />Per-device credential</CardTitle>
-          <CardDescription className="text-[11px]">
+          <CardDescription className="text-2xs">
             Only for exceptions — a device set here overrides its type default.
             {unassignedCount > 0 && <> <b className="text-nord-11">{unassignedCount} device{unassignedCount === 1 ? '' : 's'} still have no credential.</b></>}
           </CardDescription>
@@ -175,26 +175,26 @@ export default function AssignmentsSettings() {
           <div className="flex flex-wrap items-center gap-1.5">
             <div className="relative">
               <Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))]" />
-              <Input className="h-7 w-48 pl-7 text-[11px]" placeholder="Search devices" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <Input className="h-7 w-48 pl-7 text-2xs" placeholder="Search devices" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
-            <Select aria-label="Filter by branch" className="h-7 w-36 text-[11px]" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+            <Select aria-label="Filter by branch" className="h-7 w-36 text-2xs" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
               <option value="all">All branches</option>
               {branches.map((branch) => <option key={branch.id} value={String(branch.id)}>{branch.name}</option>)}
             </Select>
-            <Select aria-label="Filter by device type" className="h-7 w-32 text-[11px]" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <Select aria-label="Filter by device type" className="h-7 w-32 text-2xs" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="all">All types</option>
               {DEVICE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
             </Select>
-            <span className="ml-auto text-[10.5px] text-[rgb(var(--muted))]">{visibleRows.length} shown</span>
+            <span className="ml-auto text-xs text-[rgb(var(--muted))]">{visibleRows.length} shown</span>
           </div>
 
           <div className="mt-2 max-h-[15rem] overflow-y-auto rounded-lg border">
             {loading ? (
-              <p className="p-5 text-center text-[11px] text-[rgb(var(--muted))]">Loading devices…</p>
+              <p className="p-5 text-center text-2xs text-[rgb(var(--muted))]">Loading devices…</p>
             ) : visibleRows.length ? (
-              <table className="w-full text-left text-[11px]">
+              <table className="w-full text-left text-2xs">
                 <thead className="sticky top-0 z-10 bg-[rgb(var(--surface))]">
-                  <tr className="border-b text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">
+                  <tr className="border-b text-xs uppercase tracking-wider text-[rgb(var(--muted))]">
                     <th className="py-1.5 pl-2.5">Device</th>
                     <th className="py-1.5">Type</th>
                     <th className="py-1.5">Branch</th>
@@ -209,7 +209,7 @@ export default function AssignmentsSettings() {
                       <tr key={row.device_id} className="border-b transition last:border-0 hover:bg-[rgb(var(--border)/.25)]">
                         <td className="py-1 pl-2.5">
                           <div className="font-semibold">{row.device_name}</div>
-                          <div className="font-mono text-[9.5px] text-[rgb(var(--muted))]">{row.ip}</div>
+                          <div className="font-mono text-xs text-[rgb(var(--muted))]">{row.ip}</div>
                         </td>
                         <td className="py-1 text-[rgb(var(--muted))]">{row.device_type}</td>
                         <td className="py-1 text-[rgb(var(--muted))]">{row.branch_name}</td>
@@ -218,7 +218,7 @@ export default function AssignmentsSettings() {
                           <div className="flex items-center gap-1.5">
                             <Select
                               aria-label={`Credential for ${row.device_name} (${row.ip})`}
-                              className="h-7 w-44 text-[11px]"
+                              className="h-7 w-44 text-2xs"
                               value={row.credential_id ?? ''}
                               onChange={(event) => assignDevice(row, event.target.value)}
                             >
@@ -239,7 +239,7 @@ export default function AssignmentsSettings() {
                 </tbody>
               </table>
             ) : (
-              <p className="p-5 text-center text-[11px] text-[rgb(var(--muted))]">No devices match these filters.</p>
+              <p className="p-5 text-center text-2xs text-[rgb(var(--muted))]">No devices match these filters.</p>
             )}
           </div>
         </CardContent>

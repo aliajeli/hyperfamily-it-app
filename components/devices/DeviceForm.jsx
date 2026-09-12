@@ -148,8 +148,8 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
         ) : (
           <Input id={inputId} placeholder={meta.placeholder} type={meta.type} min={meta.min} max={meta.max} autoComplete="off" aria-required={name === 'name' || name === 'ip'} {...register(name)} />
         )}
-        {meta.hint && <p className="mt-1 text-[10px] leading-relaxed text-[rgb(var(--muted))]">{meta.hint}</p>}
-        {errors[name] && <p className="mt-1 text-[11px] font-semibold text-nord-11">{errors[name].message}</p>}
+        {meta.hint && <p className="mt-1 text-xs leading-relaxed text-[rgb(var(--muted))]">{meta.hint}</p>}
+        {errors[name] && <p className="mt-1 text-2xs font-semibold text-nord-11">{errors[name].message}</p>}
       </div>
     )
   }
@@ -169,12 +169,12 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
 
       <div className="flex flex-col gap-2 rounded-xl border bg-[rgb(var(--canvas)/.55)] p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[9px] font-extrabold uppercase tracking-[0.15em] text-[rgb(var(--muted))]">Selected branch</p>
-          <p className="mt-1 truncate text-sm font-black">{branch?.name || 'Unknown branch'} <span className="font-mono text-[10px] text-[rgb(var(--muted))]">· {branch?.code}</span></p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-[rgb(var(--muted))]">Selected branch</p>
+          <p className="mt-1 truncate text-sm font-black">{branch?.name || 'Unknown branch'} <span className="font-mono text-xs text-[rgb(var(--muted))]">· {branch?.code}</span></p>
         </div>
         <div className="rounded-xl border border-[rgb(var(--primary)/.2)] bg-[rgb(var(--primary)/.09)] px-3 py-2 text-right">
-          <p className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-[rgb(var(--primary))]">{typeDetail?.label || type}</p>
-          <p className="mt-0.5 text-[8px] text-[rgb(var(--muted))]">Only relevant fields are shown</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[rgb(var(--primary))]">{typeDetail?.label || type}</p>
+          <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">Only relevant fields are shown</p>
         </div>
       </div>
 
@@ -185,7 +185,7 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="flex items-center gap-2 text-sm font-black"><Network size={16} className="text-[rgb(var(--primary))]" /> Managed switch ports</h3>
-              <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Define up to {MAX_SWITCH_PORTS} unique physical port numbers from 1 through {MAX_SWITCH_PORTS}.</p>
+              <p className="mt-1 text-xs text-[rgb(var(--muted))]">Define up to {MAX_SWITCH_PORTS} unique physical port numbers from 1 through {MAX_SWITCH_PORTS}.</p>
             </div>
             <Button type="button" variant="secondary" size="sm" onClick={addSwitchPort} disabled={switchPorts.length >= MAX_SWITCH_PORTS}><Plus size={14} />Add port ({switchPorts.length}/{MAX_SWITCH_PORTS})</Button>
           </div>
@@ -193,12 +193,12 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
           <div className="mt-3 space-y-2">
             {switchPorts.map((port, index) => (
               <div key={port.id} className="relative rounded-xl border bg-[rgb(var(--surface)/.72)] p-2.5 pr-10 shadow-sm">
-                <span className="absolute right-3 top-3 grid h-6 min-w-6 place-items-center rounded-lg bg-[rgb(var(--primary)/.1)] px-1.5 text-[9px] font-black text-[rgb(var(--primary))]">#{index + 1}</span>
+                <span className="absolute right-3 top-3 grid h-6 min-w-6 place-items-center rounded-lg bg-[rgb(var(--primary)/.1)] px-1.5 text-xs font-black text-[rgb(var(--primary))]">#{index + 1}</span>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <div><Label htmlFor={`switch-port-${index}-number`}>Port Number</Label><Input id={`switch-port-${index}-number`} type="number" min="1" max={MAX_SWITCH_PORTS} aria-required="true" {...register(`switch_ports.${index}.port_number`)} />{errors.switch_ports?.[index]?.port_number && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].port_number.message}</p>}</div>
+                  <div><Label htmlFor={`switch-port-${index}-number`}>Port Number</Label><Input id={`switch-port-${index}-number`} type="number" min="1" max={MAX_SWITCH_PORTS} aria-required="true" {...register(`switch_ports.${index}.port_number`)} />{errors.switch_ports?.[index]?.port_number && <p className="mt-1 text-xs font-semibold text-nord-11">{errors.switch_ports[index].port_number.message}</p>}</div>
                   <div><Label htmlFor={`switch-port-${index}-vlan`}>VLAN</Label><Input id={`switch-port-${index}-vlan`} placeholder="10 / Trunk" {...register(`switch_ports.${index}.vlan`)} /></div>
                   <div><Label htmlFor={`switch-port-${index}-status`}>Status</Label><Select id={`switch-port-${index}-status`} {...register(`switch_ports.${index}.status`)}><option value="up">Up</option><option value="down">Down</option><option value="disabled">Disabled</option></Select></div>
-                  <div><Label htmlFor={`switch-port-${index}-ip`}>IP</Label><Input id={`switch-port-${index}-ip`} placeholder="Optional" {...register(`switch_ports.${index}.ip`)} />{errors.switch_ports?.[index]?.ip && <p className="mt-1 text-[10px] font-semibold text-nord-11">{errors.switch_ports[index].ip.message}</p>}</div>
+                  <div><Label htmlFor={`switch-port-${index}-ip`}>IP</Label><Input id={`switch-port-${index}-ip`} placeholder="Optional" {...register(`switch_ports.${index}.ip`)} />{errors.switch_ports?.[index]?.ip && <p className="mt-1 text-xs font-semibold text-nord-11">{errors.switch_ports[index].ip.message}</p>}</div>
                   <div><Label htmlFor={`switch-port-${index}-details`}>Details</Label><Input id={`switch-port-${index}-details`} placeholder="Uplink / camera" {...register(`switch_ports.${index}.details`)} /></div>
                 </div>
                 <button type="button" onClick={() => remove(index)} className="absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-nord-11/12 hover:text-nord-11" aria-label={`Remove switch port ${index + 1}`}><Trash2 size={14} /></button>
@@ -212,13 +212,13 @@ export default function DeviceForm({ value, branch, deviceType, onSubmit, onBack
       <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border bg-[rgb(var(--surface)/.7)] p-3 transition hover:border-[rgb(var(--primary)/.35)] hover:shadow-sm">
         <span className="flex min-w-0 items-center gap-3">
           <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${visible ? 'bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]' : 'bg-[rgb(var(--border)/.55)] text-[rgb(var(--muted))]'}`}>{visible ? <Eye size={18} /> : <EyeOff size={18} />}</span>
-          <span><b className="block text-sm">Show on Dashboard</b><small className="mt-0.5 block text-[10px] text-[rgb(var(--muted))]">Monitor this device and include it in the selected branch&apos;s Dashboard view.</small></span>
+          <span><b className="block text-sm">Show on Dashboard</b><small className="mt-0.5 block text-xs text-[rgb(var(--muted))]">Monitor this device and include it in the selected branch&apos;s Dashboard view.</small></span>
         </span>
         <Switch checked={visible} onCheckedChange={(checked) => setValue('is_dashboard_visible', checked, { shouldDirty: true })} />
       </label>
 
       {Object.keys(errors).length > 0 && (
-        <div role="alert" className="rounded-xl border border-nord-11/35 bg-nord-11/10 px-3 py-2 text-[11px] font-semibold text-nord-11">
+        <div role="alert" className="rounded-xl border border-nord-11/35 bg-nord-11/10 px-3 py-2 text-2xs font-semibold text-nord-11">
           Some fields need attention. Review the highlighted inputs and try saving again.
         </div>
       )}

@@ -80,15 +80,15 @@ export default function InventoryPage() {
         <div className="grid gap-2 sm:grid-cols-3">
           <Card className="flex items-center gap-3 p-3">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-nord-8/15 text-nord-10"><Boxes size={17} /></div>
-            <div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Total assets</p><b className="text-lg">{devices.length}</b></div>
+            <div><p className="text-xs uppercase tracking-wider text-[rgb(var(--muted))]">Total assets</p><b className="text-lg">{devices.length}</b></div>
           </Card>
           <Card className="flex items-center gap-3 p-3">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-nord-14/15 text-[#66834e]"><SlidersHorizontal size={17} /></div>
-            <div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Filtered results</p><b className="text-lg">{filtered.length}</b></div>
+            <div><p className="text-xs uppercase tracking-wider text-[rgb(var(--muted))]">Filtered results</p><b className="text-lg">{filtered.length}</b></div>
           </Card>
           <Card className="flex items-center gap-3 p-3">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-nord-15/15 text-nord-15"><Wifi size={17} /></div>
-            <div><p className="text-[10px] uppercase tracking-wider text-[rgb(var(--muted))]">Online in view</p><b className="text-lg">{onlineCount}</b></div>
+            <div><p className="text-xs uppercase tracking-wider text-[rgb(var(--muted))]">Online in view</p><b className="text-lg">{onlineCount}</b></div>
           </Card>
         </div>
 

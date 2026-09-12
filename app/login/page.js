@@ -73,7 +73,7 @@ function DeveloperCredit({ onComplete, reduceMotion }) {
     <motion.div
       initial={{ opacity: 0, y: 7 }}
       animate={{ opacity: text ? 1 : 0, y: text ? 0 : 7 }}
-      className="mt-3 flex h-6 items-center justify-center font-mono text-[12px] font-medium tracking-[0.04em] text-[rgb(var(--muted))]"
+      className="mt-3 flex h-6 items-center justify-center font-mono text-xs font-medium tracking-[0.04em] text-[rgb(var(--muted))]"
       aria-label={FINAL_CREDIT}
     >
       <span aria-hidden="true">
@@ -294,7 +294,7 @@ function RecoveryDialog({ open, onOpenChange }) {
                   <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><KeyRound size={15} /></div>
                   <div>
                     <DialogPrimitive.Title className="text-sm font-extrabold">Recover credentials</DialogPrimitive.Title>
-                    <DialogPrimitive.Description className="text-[10px] text-[rgb(var(--muted))]">
+                    <DialogPrimitive.Description className="text-xs text-[rgb(var(--muted))]">
                       Enter the recovery PIN to see the stored login.
                     </DialogPrimitive.Description>
                   </div>
@@ -310,25 +310,25 @@ function RecoveryDialog({ open, onOpenChange }) {
                     {[['Username', result.username, 'user'], ['Password', result.password || 'not recorded', 'pass']].map(([label, value, key]) => (
                       <div key={key} className="flex items-center gap-2 rounded-xl border bg-[rgb(var(--canvas)/.6)] p-2.5">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[9px] font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">{label}</p>
-                          <p className="truncate font-mono text-[12px]" title={value}>{value}</p>
+                          <p className="text-xs font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">{label}</p>
+                          <p className="truncate font-mono text-xs" title={value}>{value}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => copy(value, key)}
-                          className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-[rgb(var(--primary)/.12)] px-2 text-[10px] font-extrabold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.22)]"
+                          className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-[rgb(var(--primary)/.12)] px-2 text-xs font-extrabold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.22)]"
                         >
                           {copied === key ? <Check size={11} /> : <Copy size={11} />}
                           {copied === key ? 'Copied' : 'Copy'}
                         </button>
                       </div>
                     ))}
-                    <p className="text-[9.5px] leading-snug text-[rgb(var(--muted))]">
+                    <p className="text-xs leading-snug text-[rgb(var(--muted))]">
                       Keep these safe — anyone with them can open the application.
                     </p>
                   </div>
                 ) : status && !status.pinSet ? (
-                  <p className="mt-3 rounded-xl border bg-nord-13/10 p-2.5 text-[11px] leading-relaxed text-[#8b6e1c]">
+                  <p className="mt-3 rounded-xl border bg-nord-13/10 p-2.5 text-2xs leading-relaxed text-[#8b6e1c]">
                     No recovery PIN has been set yet. Sign in normally and set one in <b>Settings → General</b> to enable recovery.
                   </p>
                 ) : (
@@ -344,8 +344,8 @@ function RecoveryDialog({ open, onOpenChange }) {
                       value={pin}
                       onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
                     />
-                    {message && <p className={`text-[10.5px] leading-snug ${locked ? 'text-nord-11' : 'text-[rgb(var(--muted))]'}`}>{message}{locked && retryAfter ? ` Try again in ${Math.floor(retryAfter / 60)}:${String(retryAfter % 60).padStart(2, '0')}.` : ''}</p>}
-                    {remainingAttempts !== null && !locked && <p className="text-[9.5px] text-[rgb(var(--muted))]">{remainingAttempts} attempt{remainingAttempts === 1 ? '' : 's'} remaining before a 5-minute lock.</p>}
+                    {message && <p className={`text-xs leading-snug ${locked ? 'text-nord-11' : 'text-[rgb(var(--muted))]'}`}>{message}{locked && retryAfter ? ` Try again in ${Math.floor(retryAfter / 60)}:${String(retryAfter % 60).padStart(2, '0')}.` : ''}</p>}
+                    {remainingAttempts !== null && !locked && <p className="text-xs text-[rgb(var(--muted))]">{remainingAttempts} attempt{remainingAttempts === 1 ? '' : 's'} remaining before a 5-minute lock.</p>}
                     <Button disabled={locked || busy || pin.length < 4} className="w-full">
                       {busy ? 'Checking…' : 'Reveal credentials'}
                     </Button>
@@ -607,7 +607,7 @@ export default function LoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.65 }}
-              className="mt-6 flex items-center justify-center gap-2 border-t pt-5 text-[10px] font-semibold uppercase tracking-wider text-[rgb(var(--muted))]"
+              className="mt-6 flex items-center justify-center gap-2 border-t pt-5 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]"
             >
               <ShieldCheck size={14} className="text-nord-14" />
               Local encrypted workspace • Windows 10/11
@@ -616,7 +616,7 @@ export default function LoginPage() {
         </AnimatePresence>
       </motion.div>
 
-      <p className="relative z-10 mt-auto pt-3 text-center text-[10px] uppercase tracking-[.2em] text-[rgb(var(--muted))]">
+      <p className="relative z-10 mt-auto pt-3 text-center text-xs uppercase tracking-[.2em] text-[rgb(var(--muted))]">
         HyperFamily Stores • IT Operations
       </p>
 
@@ -626,7 +626,7 @@ export default function LoginPage() {
         type="button"
         onClick={() => setRecoverOpen(true)}
         aria-label="Recover credentials"
-        className="fixed bottom-3 right-3 z-50 flex items-center gap-1.5 rounded-full border bg-[rgb(var(--surface)/.72)] px-3 py-1.5 text-[10px] font-bold text-[rgb(var(--muted))] shadow-sm backdrop-blur transition hover:border-[rgb(var(--primary)/.5)] hover:text-[rgb(var(--primary))]"
+        className="fixed bottom-3 right-3 z-50 flex items-center gap-1.5 rounded-full border bg-[rgb(var(--surface)/.72)] px-3 py-1.5 text-xs font-bold text-[rgb(var(--muted))] shadow-sm backdrop-blur transition hover:border-[rgb(var(--primary)/.5)] hover:text-[rgb(var(--primary))]"
       >
         <KeyRound size={12} />
         Recover credentials

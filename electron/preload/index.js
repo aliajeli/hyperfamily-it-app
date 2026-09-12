@@ -91,6 +91,8 @@ contextBridge.exposeInMainWorld('hyperfamily', {
   storeUpdate: {
     importAgent: (payload) => invoke('store-update:import-agent', payload),
     importAgentAll: (payload) => invoke('store-update:import-agent-all', payload),
+    // Stop button of the Import Agent dialog: aborts the run and rolls back.
+    cancelAgentImport: (payload) => invoke('store-update:cancel-agent-import', payload),
     onAgentStep: (callback) => subscribe('store-update:agent-step', callback),
     version: (payload) => invoke('store-update:version', payload),
     versions: (payload) => invoke('store-update:versions', payload),

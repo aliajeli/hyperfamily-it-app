@@ -47,7 +47,9 @@ export default function AppProviders({ children }) {
     if (typeof window === 'undefined' || window.hyperfamily) return undefined
     const apply = () => {
       const scale = Math.min(window.innerWidth / 1366, window.innerHeight / 768)
-      document.documentElement.style.zoom = String(Math.min(2.5, Math.max(0.6, scale)))
+      // Quarter steps, exactly like the desktop shell: a fractional factor puts
+      // every 8–13 px label on a partial device pixel and the text reads soft.
+      document.documentElement.style.zoom = String(Math.min(2.5, Math.max(0.5, Math.round(scale * 4) / 4)))
     }
     apply()
     window.addEventListener('resize', apply)

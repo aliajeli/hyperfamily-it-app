@@ -5,6 +5,7 @@
     "package": "next",
     "brand": "#000000",
     "brandDark": "#8FBCBB",
+    "url": "https://nextjs.org",
     "showMajor": true
   },
   {
@@ -13,6 +14,7 @@
     "package": "react",
     "brand": "#087EA4",
     "brandDark": "#61DAFB",
+    "url": "https://react.dev",
     "showMajor": true
   },
   {
@@ -21,6 +23,7 @@
     "package": "electron",
     "brand": "#2B2E3A",
     "brandDark": "#9FEAF9",
+    "url": "https://www.electronjs.org",
     "showMajor": true
   },
   {
@@ -29,6 +32,7 @@
     "package": null,
     "brand": "#417E38",
     "brandDark": "#A3BE8C",
+    "url": "https://nodejs.org",
     "showMajor": false
   },
   {
@@ -37,6 +41,7 @@
     "package": "tailwindcss",
     "brand": "#0891B2",
     "brandDark": "#7DD3FC",
+    "url": "https://tailwindcss.com",
     "showMajor": false
   },
   {
@@ -45,6 +50,7 @@
     "package": "@radix-ui/react-dialog",
     "brand": "#111827",
     "brandDark": "#A3AEC2",
+    "url": "https://www.radix-ui.com",
     "showMajor": false
   },
   {
@@ -53,6 +59,7 @@
     "package": "framer-motion",
     "brand": "#BB4B96",
     "brandDark": "#E879C4",
+    "url": "https://www.framer.com/motion",
     "showMajor": true
   },
   {
@@ -61,6 +68,7 @@
     "package": "zustand",
     "brand": "#7A5233",
     "brandDark": "#C79A6B",
+    "url": "https://zustand.docs.pmnd.rs",
     "showMajor": false
   },
   {
@@ -69,6 +77,7 @@
     "package": "recharts",
     "brand": "#138C94",
     "brandDark": "#5FD8E0",
+    "url": "https://recharts.org",
     "showMajor": false
   },
   {
@@ -77,6 +86,7 @@
     "package": "react-hook-form",
     "brand": "#BE4569",
     "brandDark": "#F89AB5",
+    "url": "https://react-hook-form.com",
     "showMajor": false
   },
   {
@@ -85,6 +95,7 @@
     "package": "lucide-react",
     "brand": "#C74646",
     "brandDark": "#FCA5A5",
+    "url": "https://lucide.dev",
     "showMajor": false
   },
   {
@@ -93,6 +104,7 @@
     "package": "sonner",
     "brand": "#374151",
     "brandDark": "#CBD5E1",
+    "url": "https://sonner.emilkowal.ski",
     "showMajor": false
   },
   {
@@ -101,6 +113,7 @@
     "package": "better-sqlite3-multiple-ciphers",
     "brand": "#0F80CC",
     "brandDark": "#6FC3F7",
+    "url": "https://www.zetetic.net/sqlcipher",
     "showMajor": false
   },
   {
@@ -109,6 +122,7 @@
     "package": null,
     "brand": "#0078D4",
     "brandDark": "#69B7F0",
+    "url": "https://learn.microsoft.com/windows/win32/api/dpapi",
     "showMajor": false
   },
   {
@@ -117,6 +131,7 @@
     "package": null,
     "brand": "#537D50",
     "brandDark": "#A3BE8C",
+    "url": "https://nodejs.org/api/crypto.html",
     "showMajor": false
   },
   {
@@ -125,6 +140,7 @@
     "package": "bcryptjs",
     "brand": "#967224",
     "brandDark": "#EBCB8B",
+    "url": "https://github.com/dcodeIO/bcrypt.js",
     "showMajor": false
   },
   {
@@ -133,6 +149,7 @@
     "package": "ssh2",
     "brand": "#4C8B2B",
     "brandDark": "#A3BE8C",
+    "url": "https://github.com/mscdex/ssh2",
     "showMajor": false
   },
   {
@@ -141,6 +158,7 @@
     "package": "exceljs",
     "brand": "#1D6F42",
     "brandDark": "#6FCF97",
+    "url": "https://github.com/exceljs/exceljs",
     "showMajor": false
   },
   {
@@ -149,6 +167,7 @@
     "package": null,
     "brand": "#00599C",
     "brandDark": "#74B4E8",
+    "url": "https://learn.microsoft.com/windows/win32",
     "showMajor": false
   },
   {
@@ -157,6 +176,7 @@
     "package": null,
     "brand": "#0078D4",
     "brandDark": "#69B7F0",
+    "url": "https://learn.microsoft.com/windows/win32/services/service-control-manager",
     "showMajor": false
   },
   {
@@ -165,6 +185,7 @@
     "package": null,
     "brand": "#537D50",
     "brandDark": "#A3BE8C",
+    "url": "https://csrc.nist.gov/pubs/fips/180-4/final",
     "showMajor": false
   },
   {
@@ -173,6 +194,7 @@
     "package": "electron-updater",
     "brand": "#7159A5",
     "brandDark": "#BCA1E6",
+    "url": "https://www.electron.build/auto-update",
     "showMajor": false
   },
   {
@@ -181,6 +203,7 @@
     "package": "electron-builder",
     "brand": "#7159A5",
     "brandDark": "#BCA1E6",
+    "url": "https://www.electron.build",
     "showMajor": false
   },
   {
@@ -189,6 +212,7 @@
     "package": null,
     "brand": "#386C91",
     "brandDark": "#86B9DD",
+    "url": "https://cmake.org",
     "showMajor": false
   }
 ]
