@@ -30,11 +30,11 @@ function StepRow({ entry, progress }) {
     <div className="min-w-0">
       <div className="flex items-center gap-2">
         <span className="grid h-5 w-5 shrink-0 place-items-center"><StepIcon status={entry.status} /></span>
-        <span className={cn('w-[132px] shrink-0 text-[11.5px] font-bold', entry.status === 'failed' ? 'text-nord-11' : entry.status === 'running' ? 'text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]')}>
+        <span className={cn('w-[132px] shrink-0 text-2xs font-bold', entry.status === 'failed' ? 'text-nord-11' : entry.status === 'running' ? 'text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]')}>
           {STEP_LABELS[entry.step] || entry.step}
         </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-[rgb(var(--muted))]" title={entry.detail}>{entry.detail}</span>
-        {percent != null && <span className="shrink-0 font-mono text-[10.5px] font-bold text-[rgb(var(--primary))]">{percent}%</span>}
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-[rgb(var(--muted))]" title={entry.detail}>{entry.detail}</span>
+        {percent != null && <span className="shrink-0 font-mono text-xs font-bold text-[rgb(var(--primary))]">{percent}%</span>}
       </div>
       {percent != null && (
         <div className="ml-7 mt-1 h-1.5 overflow-hidden rounded-full bg-[rgb(var(--border)/.7)]">
@@ -107,11 +107,11 @@ export default function DeployDialog({ open, onOpenChange, run, running, onClose
                     : state === 'done' ? <CheckCircle2 size={15} className="text-nord-14" />
                     : state === 'failed' ? <XCircle size={15} className="text-nord-11" />
                     : <CircleDashed size={15} className="text-[rgb(var(--muted))]" />}
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[rgb(var(--text))]">{checkout.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-[rgb(var(--text))]">{checkout.name}</span>
                   {/* The IP is the address the deployment actually uses. */}
-                  <span className="truncate font-mono text-[10px] text-[rgb(var(--muted))]" title={[checkout.hostname, checkout.ip].filter(Boolean).join(' · ')}>{checkout.ip || checkout.hostname}</span>
-                  {result && !result.ok && <span className="shrink-0 rounded-full bg-nord-11/15 px-2 py-0.5 text-[10px] font-bold text-nord-11" title={result.error}>{result.error || 'Failed'}</span>}
-                  {result?.ok && <span className="shrink-0 rounded-full bg-nord-14/20 px-2 py-0.5 text-[10px] font-bold text-[#5c7a46]">{formatBytes(result.bytes)} · {formatDuration(result.durationMs)}</span>}
+                  <span className="truncate font-mono text-xs text-[rgb(var(--muted))]" title={[checkout.hostname, checkout.ip].filter(Boolean).join(' · ')}>{checkout.ip || checkout.hostname}</span>
+                  {result && !result.ok && <span className="shrink-0 rounded-full bg-nord-11/15 px-2 py-0.5 text-xs font-bold text-nord-11" title={result.error}>{result.error || 'Failed'}</span>}
+                  {result?.ok && <span className="shrink-0 rounded-full bg-nord-14/20 px-2 py-0.5 text-xs font-bold text-[#5c7a46]">{formatBytes(result.bytes)} · {formatDuration(result.durationMs)}</span>}
                 </header>
                 {steps.length > 0 && (
                   <div className="mt-2 space-y-1 border-t border-[rgb(var(--border)/.45)] pt-2">
@@ -126,7 +126,7 @@ export default function DeployDialog({ open, onOpenChange, run, running, onClose
         </div>
 
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-[rgb(var(--muted))]">
+          <p className="text-2xs text-[rgb(var(--muted))]">
             {running
               ? <span className="inline-flex items-center gap-1.5"><CloudUpload size={12} /> Machines are updated strictly one after another — keep the app open.</span>
               : 'Backups keep the Jalali date prefix (e.g. 14050617-file) and are never overwritten.'}

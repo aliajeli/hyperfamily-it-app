@@ -35,10 +35,10 @@ export default function DeviceTypePicker({ branch, onSelect, unavailableTypes = 
     <div>
       <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border bg-[rgb(var(--canvas)/.55)] px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-[8px] font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">Add equipment to</p>
-          <p className="truncate text-xs font-black">{branch.name} <span className="font-mono text-[9px] text-[rgb(var(--muted))]">· {branch.code}</span></p>
+          <p className="text-2xs font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">Add equipment to</p>
+          <p className="truncate text-xs font-black">{branch.name} <span className="font-mono text-xs text-[rgb(var(--muted))]">· {branch.code}</span></p>
         </div>
-        <span className="shrink-0 rounded-full border bg-[rgb(var(--surface)/.72)] px-2.5 py-1 text-[8px] font-extrabold text-[rgb(var(--muted))]">Choose one type</span>
+        <span className="shrink-0 rounded-full border bg-[rgb(var(--surface)/.72)] px-2.5 py-1 text-2xs font-extrabold text-[rgb(var(--muted))]">Choose one type</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -62,8 +62,8 @@ export default function DeviceTypePicker({ branch, onSelect, unavailableTypes = 
               <span aria-hidden="true" className="absolute -right-8 -top-10 h-20 w-20 rounded-full bg-[rgb(var(--primary)/.07)] blur-2xl transition-transform duration-500 group-hover:scale-150" />
               <span className={`relative grid h-8 w-8 place-items-center rounded-xl ${tones[type]}`}>{unavailable ? <LockKeyhole size={14} /> : <Icon size={15} />}</span>
               <span className="relative mt-2 block text-xs font-black tracking-[0.02em]">{detail.label}</span>
-              <span className="relative mt-0.5 block text-[8px] leading-3 text-[rgb(var(--muted))]">{unavailable ? 'One Router is already defined for this branch.' : detail.description}</span>
-              <span className="relative mt-1.5 inline-flex text-[8px] font-extrabold uppercase tracking-[0.1em] text-[rgb(var(--primary))]">{unavailable ? 'Unavailable' : 'Select →'}</span>
+              <span className="relative mt-0.5 block text-2xs leading-3 text-[rgb(var(--muted))]">{unavailable ? 'One Router is already defined for this branch.' : detail.description}</span>
+              <span className="relative mt-1.5 inline-flex text-2xs font-extrabold uppercase tracking-[0.1em] text-[rgb(var(--primary))]">{unavailable ? 'Unavailable' : 'Select →'}</span>
             </motion.button>
           )
         })}

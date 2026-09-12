@@ -12,7 +12,7 @@
  * Usage: build, serve out/ on :3000, then
  *   node tests/connection-methods.playwright.mjs
  */
-import { chromium } from '/tmp/node_modules/playwright/index.mjs'
+import { chromium } from '@playwright/test'
 const S = JSON.stringify({state:{user:{username:'Admin',role:'admin',display_name:'Admin'}},version:0})
 const b = await chromium.launch(); const c = await b.newContext({viewport:{width:1366,height:768}})
 await c.addInitScript(s=>window.sessionStorage.setItem('hyperfamily-session',s), S)

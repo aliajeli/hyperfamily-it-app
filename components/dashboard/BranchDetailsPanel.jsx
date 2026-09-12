@@ -57,9 +57,9 @@ export default function BranchDetailsPanel({ branch, devices, view = 'modal', on
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <DialogPrimitive.Title className="truncate text-lg font-black tracking-[0.035em] sm:text-xl">{branch.name}</DialogPrimitive.Title>
-                    <span className="rounded-lg bg-[rgb(var(--border)/.55)] px-2 py-1 font-mono text-[9px] font-extrabold tracking-wider">{branch.code}</span>
+                    <span className="rounded-lg bg-[rgb(var(--border)/.55)] px-2 py-1 font-mono text-xs font-extrabold tracking-wider">{branch.code}</span>
                   </div>
-                  <DialogPrimitive.Description className="mt-1 flex items-center gap-1.5 text-[10px] font-semibold text-[rgb(var(--muted))]">
+                  <DialogPrimitive.Description className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-[rgb(var(--muted))]">
                     <Activity size={11} /> All devices selected for Dashboard monitoring
                   </DialogPrimitive.Description>
                 </div>
@@ -71,7 +71,7 @@ export default function BranchDetailsPanel({ branch, devices, view = 'modal', on
                     <Icon size={14} className="shrink-0" />
                     <span className="min-w-0">
                       <span className="block text-sm font-black leading-none tabular-nums">{summary[key]}</span>
-                      <span className="mt-0.5 block truncate text-[7px] font-extrabold uppercase tracking-[0.13em]">{label}</span>
+                      <span className="mt-0.5 block truncate text-2xs font-extrabold uppercase tracking-[0.13em]">{label}</span>
                     </span>
                   </motion.div>
                 ))}
@@ -94,9 +94,9 @@ export default function BranchDetailsPanel({ branch, devices, view = 'modal', on
                   <div className="mb-2.5 flex items-center justify-between px-0.5">
                     <div>
                       <h3 className="flex items-center gap-2 text-xs font-black tracking-[0.04em]"><Building2 size={14} className="text-[rgb(var(--primary))]" /> Monitored equipment</h3>
-                      <p className="mt-0.5 text-[9px] text-[rgb(var(--muted))]">Visibility is controlled by each device&apos;s Dashboard setting.</p>
+                      <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">Visibility is controlled by each device&apos;s Dashboard setting.</p>
                     </div>
-                    <span className="rounded-full border bg-[rgb(var(--surface)/.7)] px-2.5 py-1 text-[9px] font-black tabular-nums">{equipment.length}</span>
+                    <span className="rounded-full border bg-[rgb(var(--surface)/.7)] px-2.5 py-1 text-xs font-black tabular-nums">{equipment.length}</span>
                   </div>
 
                   {equipment.length ? (
@@ -108,7 +108,7 @@ export default function BranchDetailsPanel({ branch, devices, view = 'modal', on
                       ))}
                     </div>
                   ) : (
-                    <div className="grid h-24 place-items-center rounded-2xl border border-dashed text-center text-[10px] text-[rgb(var(--muted))]">
+                    <div className="grid h-24 place-items-center rounded-2xl border border-dashed text-center text-xs text-[rgb(var(--muted))]">
                       No additional Dashboard devices for this branch
                     </div>
                   )}

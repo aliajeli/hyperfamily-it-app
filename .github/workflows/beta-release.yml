@@ -38,6 +38,13 @@ jobs:
             *) echo "::error::package.json version '$version' is not a pre-release; refusing to publish it from Beta"; exit 1 ;;
           esac
 
+      # The release notes are the changelog entry for this version, rendered by
+      # the same script the app's About page reads. Failing here means a beta
+      # can never be published without a changelog the operator can read.
+      - name: Require a changelog entry for this version
+        shell: bash
+        run: node scripts/release-notes.js "${{ steps.meta.outputs.version }}" > /dev/null
+
       # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
       - run: npm run build:agent
       - name: Test the real Windows Agent service
@@ -66,9 +73,10 @@ jobs:
             echo "removing pre-existing release $id for $tag"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${id}"
           done
+          node scripts/release-notes.js "${{ steps.meta.outputs.version }}" > release-notes.md
           gh release create "$tag" \
             --title "$tag" \
-            --notes "HyperFamily Branch Monitor ${{ steps.meta.outputs.version }} (beta build from ${GITHUB_SHA})" \
+            --notes-file release-notes.md \
             --target "${GITHUB_SHA}" \
             --prerelease
         env:

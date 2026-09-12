@@ -80,11 +80,18 @@ function createWindow() {
   // smaller ones simply smaller. (getContentSize is DPI-aware, so Windows
   // display scaling is compensated automatically.) The browser preview
   // mirrors this with a CSS zoom in AppProviders.
+  //
+  // The factor is snapped to quarter steps instead of hundredths. An arbitrary
+  // factor such as 1.12 — which is what a maximised 1920×1080 window at 125 %
+  // Windows scaling produced — puts every glyph on a fractional device pixel,
+  // and the interface is dominated by 8–13 px labels, so the whole screen read
+  // as slightly out of focus. Quarter steps keep the same uniform behaviour
+  // while giving the text rasteriser positions it can actually resolve.
   const applyViewportScale = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return
     const [width, height] = mainWindow.getContentSize()
     const scale = Math.min(width / 1366, height / 768)
-    const zoom = Math.min(2.5, Math.max(0.6, Math.round(scale * 100) / 100))
+    const zoom = Math.min(2.5, Math.max(0.5, Math.round(scale * 4) / 4))
     if (Math.abs(mainWindow.webContents.getZoomFactor() - zoom) > 0.015) mainWindow.webContents.setZoomFactor(zoom)
   }
   mainWindow.on('resize', applyViewportScale)

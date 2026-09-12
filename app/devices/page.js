@@ -220,11 +220,11 @@ function DevicesPageInner() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1700px] space-y-3 text-[13px]">
+      <div className="mx-auto max-w-[1700px] space-y-3 text-base-ui">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <h1 className="text-xl font-black tracking-tight">Branches &amp; Devices</h1>
-            <p className="mt-0.5 text-[11px] text-[rgb(var(--muted))]">Manage branch and equipment records, then connect to any device straight from the list.</p>
+            <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">Manage branch and equipment records, then connect to any device straight from the list.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</Button>
@@ -256,7 +256,7 @@ function DevicesPageInner() {
               <div className="flex min-w-0 items-center gap-2.5">
                 <div className="flex shrink-0 items-center gap-2 border-r pr-2.5">
                   <span className="grid h-8 w-8 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><Building2 size={14} /></span>
-                  <span><b className="block text-[11px]">Branches</b><small className="block text-[8px] text-[rgb(var(--muted))]">{branches.length} locations</small></span>
+                  <span><b className="block text-2xs">Branches</b><small className="block text-2xs text-[rgb(var(--muted))]">{branches.length} locations</small></span>
                 </div>
                 <BranchList
                   branches={branches}
@@ -278,10 +278,10 @@ function DevicesPageInner() {
                       <div className="min-w-0">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <h2 className="truncate text-xs font-black tracking-[0.025em]">{selectedBranch.name}</h2>
-                          <span className="rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-[8px] font-bold">{selectedBranch.code}</span>
-                          <span className="flex items-center gap-1 rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-[8px] font-bold"><Warehouse size={8} />{selectedBranch.warehouse_code || 'Warehouse code not set'}</span>
+                          <span className="rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-2xs font-bold">{selectedBranch.code}</span>
+                          <span className="flex items-center gap-1 rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-2xs font-bold"><Warehouse size={8} />{selectedBranch.warehouse_code || 'Warehouse code not set'}</span>
                         </div>
-                        <p className="mt-0.5 truncate text-[8px] text-[rgb(var(--muted))]">{branchDevices.length} devices · {monitoredCount} on Dashboard · {selectedBranch.link1 || 'No primary link'}{selectedBranch.manager_name ? ` · ${selectedBranch.manager_name}` : ''}</p>
+                        <p className="mt-0.5 truncate text-2xs text-[rgb(var(--muted))]">{branchDevices.length} devices · {monitoredCount} on Dashboard · {selectedBranch.link1 || 'No primary link'}{selectedBranch.manager_name ? ` · ${selectedBranch.manager_name}` : ''}</p>
                       </div>
                     </div>
                     <Button size="sm" onClick={openAddDevice}><Plus size={14} />Add device</Button>

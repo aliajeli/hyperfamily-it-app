@@ -27,7 +27,7 @@ export default function BranchForm({ value, onSubmit, saving }) {
   }, [value, reset])
   const field = (name, label, placeholder, props = {}) => {
     const inputId = `branch-${name}`
-    return <div><Label htmlFor={inputId}>{label}</Label><Input id={inputId} placeholder={placeholder} aria-required={['name', 'code', 'warehouse_code'].includes(name)} {...register(name)} {...props} />{errors[name] && <p className="mt-1 text-[11px] text-nord-11">{errors[name].message}</p>}</div>
+    return <div><Label htmlFor={inputId}>{label}</Label><Input id={inputId} placeholder={placeholder} aria-required={['name', 'code', 'warehouse_code'].includes(name)} {...register(name)} {...props} />{errors[name] && <p className="mt-1 text-2xs text-nord-11">{errors[name].message}</p>}</div>
   }
   return <form onSubmit={handleSubmit(onSubmit)} className="branch-directory-form space-y-4">
     <div className="grid gap-4 sm:grid-cols-3">{field('name', 'Name', 'Central Berlin')}{field('code', 'Code', 'BER-01')}{field('warehouse_code', 'Warehouse Code', 'WH-BER-01')}</div>

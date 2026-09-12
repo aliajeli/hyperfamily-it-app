@@ -84,7 +84,7 @@ export default function CredentialsSettings() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm"><Plus size={15} />Add credential</CardTitle>
-          <CardDescription className="text-[11px]">Passwords are encrypted with Windows DPAPI before SQLite storage.</CardDescription>
+          <CardDescription className="text-2xs">Passwords are encrypted with Windows DPAPI before SQLite storage.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={add} className="space-y-2">
@@ -99,16 +99,16 @@ export default function CredentialsSettings() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Saved credentials</CardTitle>
-          <CardDescription className="text-[11px]">
+          <CardDescription className="text-2xs">
             Revealed passwords hide again after 15 seconds. Assign them to equipment in the <b>Assignments</b> tab.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {credentials.length ? (
             <div className="max-h-[22rem] overflow-y-auto">
-              <table className="w-full text-left text-[11px]">
+              <table className="w-full text-left text-2xs">
                 <thead className="sticky top-0 z-10 bg-[rgb(var(--surface))]">
-                  <tr className="border-b text-[9.5px] uppercase tracking-wider text-[rgb(var(--muted))]">
+                  <tr className="border-b text-xs uppercase tracking-wider text-[rgb(var(--muted))]">
                     <th className="py-1.5">Name</th>
                     <th className="py-1.5">Username</th>
                     <th className="py-1.5">Password</th>
@@ -125,7 +125,7 @@ export default function CredentialsSettings() {
                         <td className="py-1.5 font-bold">{credential.name}</td>
                         <td className="py-1.5 font-mono">{credential.username}</td>
                         <td className="py-1.5 font-mono">{revealed[credential.id] || '••••••••'}</td>
-                        <td className="py-1.5 text-[10.5px] text-[rgb(var(--muted))]">
+                        <td className="py-1.5 text-xs text-[rgb(var(--muted))]">
                           {deviceCount || typeCount
                             ? [deviceCount ? `${deviceCount} device${deviceCount === 1 ? '' : 's'}` : null,
                                typeCount ? `${typeCount} type default${typeCount === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')

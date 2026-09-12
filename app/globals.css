@@ -107,8 +107,17 @@
 /* ---------------------------------------------------------------------------
    Typography groups. lib/typography.js writes --font-<group> (a font stack)
    and --font-<group>-scale (a multiplier) onto <html>; both have neutral
-   defaults so an untouched install renders exactly as before. The whole-app
-   scale is applied as the root font size, so rem-based spacing grows with it.
+   defaults so an untouched install renders exactly as before.
+
+   Two mechanisms consume them, and together they cover every piece of text:
+     1. tailwind.config.js emits every named size token as
+        `calc(<px> * var(--font-<group>-scale))`, so text-xs / text-2xs /
+        text-sm / text-base / text-lg / text-xl / text-2xl / text-3xl all follow
+        the group the operator chose;
+     2. the block below scales the few fixed pixel sizes that are still written
+        as arbitrary utilities, so nothing in the interface is left behind.
+   The root font size stays at 16px on purpose: only TYPE scales, never the
+   rem-based spacing, so growing the text cannot break the layout.
    --------------------------------------------------------------------------- */
 :root {
   --font-header: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -151,6 +160,10 @@ body {
   font-family: var(--font-text);
   font-size: calc(1rem * var(--font-text-scale));
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  /* The interface is dominated by 8–13px labels; hinting them keeps the small
+     sizes crisp instead of smearing them at fractional window zoom. */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Typeface per group. Wrapped in :where() so the specificity is zero and any
@@ -232,7 +245,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     box-shadow: 0 20px 60px rgb(46 52 64 / .09);
   }
   .panel { @apply glass rounded-2xl; }
-  /* The per-group size multipliers are applied here, in the components layer,
+    /* Nothing in the interface is sized with a fixed pixel utility any more: the
+     348 occurrences of text-[7px] … text-[13px] were mapped onto the scaled
+     tokens in tailwind.config.js (7–8px → 2xs, 8.5–12px → xs, 13px → sm), so
+     the Fonts panel reaches every label, caption and value. If a new fixed
+     pixel size is ever introduced, add it to SCALED_FONT_SIZE there rather
+     than writing text-[Npx] — an arbitrary size is invisible to the panel. */
+
+/* The per-group size multipliers are applied here, in the components layer,
      so a Tailwind text-* utility on the same element still overrides them. */
   .page-title { @apply text-2xl font-bold tracking-tight md:text-3xl; font-size: calc(1.5rem * var(--font-header-scale)); }
   .app-header-title { font-size: calc(1rem * var(--font-header-scale)); }
@@ -488,7 +508,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
      screen — so they sit just above it, and still below dialogs. */
   --z-fullscreen: 70;
   --z-panel: 90;
-  --z-modal: 100;
+  /* Anything modal must clear the header AND the panels hanging off it. The
+     branch equipment view used to sit at z-50, i.e. BELOW the header's 60, so
+     the "Operations overview" title bar painted across the top of it. */
+  --z-popover: 110;
+  --z-modal: 120;
 }
 
 /* The header outranks every page-level element, so a panel hanging off it is
@@ -510,6 +534,28 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* A fullscreen surface (the terminal) escapes the main column's layer. */
 .surface-fullscreen { z-index: var(--z-fullscreen); }
+
+/* ---------------------------------------------------------------- modal layer
+   Dialogs are portalled to <body> with a Tailwind `z-50`, which the header (60)
+   outranks — the header then painted over the top of the branch equipment view
+   and every other dialog. Rather than editing thirty call sites, the modal
+   classes themselves are pinned to the scale.
+
+   These are deliberately NOT scoped under `.app-shell`: Radix renders its
+   portal as a direct child of <body>, i.e. as a SIBLING of the shell, so a
+   descendant selector would never match. The class names are the application's
+   own, and a single class (0,1,0) written after the utilities still beats the
+   `z-50` they carry, which can therefore stay in the markup harmlessly. */
+.dialog-overlay,
+.dashboard-dialog-overlay,
+.dialog-content,
+.dashboard-branch-modal,
+.dashboard-branch-side { z-index: var(--z-modal); }
+/* Menus and popovers anchored inside a dialog must stay above its content. */
+.select-content,
+.device-actions-menu,
+.global-search-overlay { z-index: var(--z-popover); }
+
 
 /* Cards animate with transform/shadow only. Denying them a positive z-index
    keeps a hovered card from creating a layer that competes with the header,

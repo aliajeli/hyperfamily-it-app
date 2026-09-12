@@ -27,9 +27,9 @@ function ChartTooltip({ active, payload }) {
 
   return (
     <div className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 shadow-xl">
-      <p className="text-[10px] font-bold">{formatTime(point.timestamp)}</p>
+      <p className="text-xs font-bold">{formatTime(point.timestamp)}</p>
       <p className={`mt-0.5 text-xs font-extrabold ${healthy ? 'status-online-text' : 'status-warning-text'}`}>{ping}</p>
-      <p className="mt-0.5 text-[9px] text-[rgb(var(--muted))]">Healthy threshold: 300 ms</p>
+      <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">Healthy threshold: 300 ms</p>
     </div>
   )
 }

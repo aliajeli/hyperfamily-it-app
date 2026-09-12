@@ -187,6 +187,8 @@ Do not double-click the standalone Agent expecting a setup wizard. Use the deskt
 
 Agent hash/copy operations use a **120-second no-progress timeout** and a **30-minute maximum duration per protected transfer operation**. Progress resets the idle timeout; these are not guarantees for total multi-checkout completion time.
 
+The same rules apply when connecting **from outside the store over VPN**: the agent heartbeat/inventory read runs under a 45-second *no-data* deadline (progress keeps it alive) with a 5-minute ceiling, the post-import WAIT for the first agent heartbeat allows up to 5 minutes, and remote service-control calls allow 45-120 seconds per operation instead of LAN-sized values. A busy/slow tunnel therefore slows the steps down instead of failing them.
+
 The first replacement of an older bundled-runtime Agent may still need to read/hash the old approximately 75 MB file. Later native-Agent transfers and comparisons are much smaller. Do not remove integrity checks or disable endpoint protection to work around a slow or blocked operation.
 
 ### Deploy an application update
@@ -413,6 +415,8 @@ The release workflow uses its repository `GITHUB_TOKEN`. Configure `CSC_LINK` an
 | `Agent is not running` | Confirm the service exists/is running; use Import Agent on one checkout and inspect the summary. Double-clicking the EXE is not service installation. |
 | Access denied / rejected credentials | Check Settings → Store App → Target access, target administrator rights, domain/user syntax, Windows remote UAC policy and admin-share/SCM firewall rules. |
 | Agent transfer times out | Inspect the reported hash/copy/verification phase and progress. Check WAN throughput and endpoint scanning. Initial legacy-Agent hashing can be slow. |
+| Import ends waiting for the agent heartbeat | Typical on a slow VPN before 3.1.2-beta.1 — the wait now allows several minutes and streams the inventory under a no-data deadline. If it still fails, check C:\Agent\data permissions, the checkout clock and that the service stays Running. |
+| Agent shows as not seen over VPN | The inspection read shares the WAN-aware limits now; also confirm TCP 445 stays open through the tunnel and the account has admin-share access. |
 | Product/version missing | Check the selected product on Update Store App, machine-wide Programs and Features entries, Agent freshness and any inventory error. |
 | Wrong deployment destination | Update Settings → Store App; the path is interpreted on each checkout. Saving it should not change product selection. |
 | Native module ABI error | Run `npx electron-builder install-app-deps`; use Electron for its native integration tests. |

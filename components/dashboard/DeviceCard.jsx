@@ -57,11 +57,11 @@ export default function DeviceCard({ device, label }) {
         </motion.div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-extrabold leading-4 tracking-[0.035em]" title={device.name}>{label || device.name}</p>
-          <p className="truncate font-mono text-[8px] leading-3 tracking-[0.025em] text-[rgb(var(--muted))]" title={address}>{address}</p>
+          <p className="truncate text-2xs font-extrabold leading-4 tracking-[0.035em]" title={device.name}>{label || device.name}</p>
+          <p className="truncate font-mono text-2xs leading-3 tracking-[0.025em] text-[rgb(var(--muted))]" title={address}>{address}</p>
           <div className="mt-1 flex min-w-0 items-center gap-1.5">
             <DeviceStatusBadge status={state} compact />
-            <span className="truncate text-[8px] font-bold tabular-nums text-[rgb(var(--muted))]">{ping}</span>
+            <span className="truncate text-2xs font-bold tabular-nums text-[rgb(var(--muted))]">{ping}</span>
           </div>
         </div>
 

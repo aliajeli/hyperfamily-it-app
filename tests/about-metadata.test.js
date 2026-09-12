@@ -20,6 +20,9 @@ test('About credits have unique, complete metadata and valid dependency referenc
     names.add(entry.name)
     assert.match(entry.brand, /^#[0-9A-Fa-f]{6}$/)
     assert.match(entry.brandDark, /^#[0-9A-Fa-f]{6}$/)
+    // Every tile is a link to the technology's own site, so a missing or
+    // non-HTTPS address would either dead-end the click or open it in-app.
+    assert.match(String(entry.url), /^https:\/\/[^\s]+$/, `${entry.name} needs an https home page`)
     if (entry.package) assert.ok(pkg.dependencies[entry.package] || pkg.devDependencies[entry.package], `unknown package ${entry.package}`)
     if (entry.showMajor) assert.match(pkg.dependencies[entry.package] || pkg.devDependencies[entry.package], /\d+/)
   }

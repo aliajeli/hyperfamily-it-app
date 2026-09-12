@@ -125,7 +125,7 @@ export default function ThemeSettings({ settings, onSaved }) {
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-lg px-2 py-0.5 text-[11px] font-bold transition',
+        'rounded-lg px-2 py-0.5 text-2xs font-bold transition',
         active
           ? 'bg-[rgb(var(--primary))] text-white shadow-sm'
           : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.5)] hover:text-[rgb(var(--text))]'
@@ -139,8 +139,8 @@ export default function ThemeSettings({ settings, onSaved }) {
         <div className="flex items-center gap-2">
           <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><Palette size={15} /></div>
           <div>
-            <h2 className="text-[13px] font-extrabold">Appearance</h2>
-            <p className="text-[10.5px] text-[rgb(var(--muted))]">{THEMES.length} palettes plus your own custom theme. Applied instantly.</p>
+            <h2 className="text-sm font-extrabold">Appearance</h2>
+            <p className="text-xs text-[rgb(var(--muted))]">{THEMES.length} palettes plus your own custom theme. Applied instantly.</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -207,7 +207,7 @@ export default function ThemeSettings({ settings, onSaved }) {
                 <span className="rounded-[4px]" style={{ background: `rgb(${theme.accent})` }} />
               </span>
               <span className="flex items-center gap-0.5 px-0.5 pb-0.5 pt-1">
-                <b className="min-w-0 flex-1 truncate text-[9px]" title={theme.name}>{theme.name}</b>
+                <b className="min-w-0 flex-1 truncate text-xs" title={theme.name}>{theme.name}</b>
                 <span className="shrink-0 text-[rgb(var(--muted))]" title={`${theme.family} · ${theme.mode}`}>
                   {theme.mode === 'dark' ? <Moon size={7} /> : <Sun size={7} />}
                 </span>
@@ -249,14 +249,14 @@ export default function ThemeSettings({ settings, onSaved }) {
                     <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><Wand2 size={15} /></div>
                     <div>
                       <DialogPrimitive.Title className="text-sm font-extrabold">Custom theme</DialogPrimitive.Title>
-                      <DialogPrimitive.Description className="text-[10px] text-[rgb(var(--muted))]">
+                      <DialogPrimitive.Description className="text-xs text-[rgb(var(--muted))]">
                         Every change previews live behind this window.
                       </DialogPrimitive.Description>
                     </div>
                     {isCustomActive && !dirty && (
-                      <span className="flex items-center gap-1 rounded-full bg-nord-14/20 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-[#66834e]"><Check size={9} strokeWidth={3} />Active</span>
+                      <span className="flex items-center gap-1 rounded-full bg-nord-14/20 px-1.5 py-0.5 text-xs font-extrabold uppercase text-[#66834e]"><Check size={9} strokeWidth={3} />Active</span>
                     )}
-                    {dirty && <span className="rounded-full bg-nord-13/25 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-[#8b6e1c]">Unsaved</span>}
+                    {dirty && <span className="rounded-full bg-nord-13/25 px-1.5 py-0.5 text-xs font-extrabold uppercase text-[#8b6e1c]">Unsaved</span>}
                     <DialogPrimitive.Close asChild>
                       <button
                         type="button"
@@ -282,8 +282,8 @@ export default function ThemeSettings({ settings, onSaved }) {
                             className="h-8 w-8 shrink-0 cursor-pointer rounded-md border bg-transparent p-0"
                           />
                           <span className="min-w-0">
-                            <b className="block truncate text-[10.5px] leading-tight">{detail.label}</b>
-                            <span className="block font-mono text-[9px] uppercase text-[rgb(var(--muted))]">{hex}</span>
+                            <b className="block truncate text-xs leading-tight">{detail.label}</b>
+                            <span className="block font-mono text-xs uppercase text-[rgb(var(--muted))]">{hex}</span>
                           </span>
                         </label>
                       )
@@ -291,7 +291,7 @@ export default function ThemeSettings({ settings, onSaved }) {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t pt-2.5">
-                    <p className="mr-auto text-[9.5px] leading-snug text-[rgb(var(--muted))]">
+                    <p className="mr-auto text-xs leading-snug text-[rgb(var(--muted))]">
                       Reset seeds this palette from the currently active theme.
                     </p>
                     <Button

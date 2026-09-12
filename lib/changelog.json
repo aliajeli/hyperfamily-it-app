@@ -1,0 +1,234 @@
+{
+  "entries": [
+    {
+      "version": "3.1.3",
+      "date": "2026-09-12",
+      "channel": "main",
+      "title": "In-app changelog, cancellable agent import, readable typography",
+      "changes": {
+        "added": [
+          "About now has a Change log card: the release notes of the installed version, plus every previous version in one scrollable history.",
+          "The changelog of a pending update is shown in About as well, even when the published GitHub notes are only a placeholder.",
+          "Import Agent can now be stopped at any moment; the target checkout is rolled back to the previous executable and service state.",
+          "Every technology tile in About → Production technology stack opens that technology's official website in the browser.",
+          "GitHub releases are published with the release notes taken from lib/changelog.json, so the in-app changelog and the release page always agree."
+        ],
+        "improved": [
+          "The Import Agent dialog was rebuilt to match the Deploy dialog: colour-coded pipeline steps, per-checkout state, byte progress and a closing summary.",
+          "The two About cards — product overview and Application updates — are now the same height on every screen size.",
+          "The Application updates card keeps a fixed height: checking for, downloading and installing an update no longer makes it grow.",
+          "Interface text now really follows the Fonts panel — the Text, Info and Monospace sizes are applied across the whole interface, not only to page titles.",
+          "Readability: the smallest labels were raised by roughly one step, fractional window zoom is snapped to quarter steps, and font smoothing is enabled, so text stops looking soft on high-resolution displays.",
+          "Dialogs, menus and the branch equipment view are lifted above the fixed header through one authoritative z-order scale."
+        ],
+        "fixed": [
+          "Settings → Fonts: a changed size or typeface no longer jumps back to the previous value after Save.",
+          "Dashboard: opening a branch's equipment view no longer shows the Operations overview header on top of it."
+        ]
+      }
+    },
+    {
+      "version": "3.1.2-beta.2",
+      "date": "2026-09-12",
+      "channel": "beta",
+      "title": "In-app changelog, cancellable agent import, readable typography",
+      "changes": {
+        "added": [
+          "About now has a Change log card: the release notes of the installed version, plus every previous version in one scrollable history.",
+          "The changelog of a pending update is shown in About as well, even when the published GitHub notes are only a placeholder.",
+          "Import Agent can now be stopped at any moment; the target checkout is rolled back to the previous executable and service state.",
+          "Every technology tile in About → Production technology stack opens that technology's official website in the browser.",
+          "GitHub releases are published with the release notes taken from lib/changelog.json, so the in-app changelog and the release page always agree."
+        ],
+        "improved": [
+          "The Import Agent dialog was rebuilt to match the Deploy dialog: colour-coded pipeline steps, per-checkout state, byte progress and a closing summary.",
+          "The two About cards — product overview and Application updates — are now the same height on every screen size.",
+          "The Application updates card keeps a fixed height: checking for, downloading and installing an update no longer makes it grow.",
+          "Interface text now really follows the Fonts panel — the Text, Info and Monospace sizes are applied across the whole interface, not only to page titles.",
+          "Readability: the smallest labels were raised by roughly one step, fractional window zoom is snapped to quarter steps, and font smoothing is enabled, so text stops looking soft on high-resolution displays.",
+          "Dialogs, menus and the branch equipment view are lifted above the fixed header through one authoritative z-order scale."
+        ],
+        "fixed": [
+          "Settings → Fonts: a changed size or typeface no longer jumps back to the previous value after Save.",
+          "Dashboard: opening a branch's equipment view no longer shows the Operations overview header on top of it."
+        ]
+      }
+    },
+    {
+      "version": "3.1.2-beta.1",
+      "date": "2026-09-11",
+      "channel": "beta",
+      "title": "Agent visibility over slow WAN/VPN links",
+      "changes": {
+        "improved": [
+          "Agent imports and heartbeats now follow I/O progress instead of a fixed clock, so a slow but working branch link is no longer treated as a dead one.",
+          "Import Agent reports the phase it is in and the bytes transferred, with a clear explanation when a link really has stalled.",
+          "A long final SHA-256 verification re-checks that the agent is still alive before the import is declared successful."
+        ],
+        "fixed": [
+          "A freshly installed agent is no longer reported as missing while its first inventory is still being written over a slow connection."
+        ]
+      }
+    },
+    {
+      "version": "3.1.1-beta.0",
+      "date": "2026-09-11",
+      "channel": "beta",
+      "title": "Opening the 3.1.1 beta cycle",
+      "changes": {
+        "improved": [
+          "The Beta branch is reopened for the next round of agent and deployment fixes on top of the stable 3.1.0 release."
+        ]
+      }
+    },
+    {
+      "version": "3.1.0",
+      "date": "2026-09-11",
+      "channel": "main",
+      "title": "Smaller installer, selectable update channel, integrated recovery",
+      "changes": {
+        "added": [
+          "About → Application updates: a Main / Beta channel switch, stored per installation.",
+          "Credential recovery is part of the desktop application itself (HyperFamily-Branch-Monitor.exe --recovery); no separate recovery executable is shipped any more."
+        ],
+        "improved": [
+          "The installer shrank from roughly 300 MB to roughly 100 MB: only the runtime packages the desktop shell needs are packaged, locale packs are trimmed and NSIS uses maximum compression.",
+          "A beta installation that switches back to the Main channel is offered the newest stable release even when its number is lower — clearly labelled as an intentional downgrade."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.10",
+      "date": "2026-09-10",
+      "channel": "beta",
+      "title": "Installer size and the update channel switch",
+      "changes": {
+        "added": [
+          "Selectable update channel (Main stable only, or Beta including prereleases) with a stable fallback for beta installations."
+        ],
+        "improved": [
+          "Runtime dependencies were pruned, credential recovery was folded into the application and unused Chromium locales were removed."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.9",
+      "date": "2026-09-09",
+      "channel": "beta",
+      "title": "Store App settings reorganised, About refreshed",
+      "changes": {
+        "improved": [
+          "Settings → Store App groups the deployment path, the registered product name and the target access account together.",
+          "The About page was refreshed with the technology credits and the developer contact."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.8",
+      "date": "2026-09-09",
+      "channel": "beta",
+      "title": "Native Win32 agent replaces the bundled .NET agent",
+      "changes": {
+        "improved": [
+          "The checkout agent is now a small native Win32 Windows service (C++17) instead of a bundled .NET runtime, which removes hundreds of megabytes from the installer."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.7",
+      "date": "2026-09-09",
+      "channel": "beta",
+      "title": "WAN-tolerant agent transfers",
+      "changes": {
+        "improved": [
+          "Agent file operations tolerate slow but progressing WAN transfers and report their phase and byte progress."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.6",
+      "date": "2026-09-09",
+      "channel": "beta",
+      "title": "Verified Windows inventory agent",
+      "changes": {
+        "added": [
+          "A verified Windows inventory agent and an Import Agent action for every checkout.",
+          "Store Commerce versions are read from Programs and Features by the agent on the checkout itself."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.5",
+      "date": "2026-09-08",
+      "channel": "beta",
+      "title": "Versions read through WMI",
+      "changes": {
+        "fixed": [
+          "Installed program versions are read via WMI, which works on checkouts where Remote Registry is disabled."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.4",
+      "date": "2026-09-08",
+      "channel": "beta",
+      "title": "Reach branches by IP, no stuck steps",
+      "changes": {
+        "improved": [
+          "Checkouts can be reached by IP as well as by hostname, and the real product name is found even when it differs from the default."
+        ],
+        "fixed": [
+          "Deployment steps no longer stay stuck when a checkout drops out mid-run."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.3",
+      "date": "2026-09-08",
+      "channel": "beta",
+      "title": "No ICMP gating, Remote Registry fallback",
+      "changes": {
+        "improved": [
+          "Reachability no longer depends on ICMP, so firewalled checkouts are still serviced, and a fallback is used when Remote Registry is turned off."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.2",
+      "date": "2026-09-08",
+      "channel": "beta",
+      "title": "Control Panel versions and cross-domain access",
+      "changes": {
+        "added": [
+          "A target access account for checkouts that live in another domain."
+        ],
+        "fixed": [
+          "The interface no longer freezes while a checkout is being queried."
+        ]
+      }
+    },
+    {
+      "version": "3.0.1-beta.1",
+      "date": "2026-09-07",
+      "channel": "beta",
+      "title": "First automated beta pre-release",
+      "changes": {
+        "added": [
+          "An automated Beta workflow publishes a pre-release installer on every push to the Beta branch."
+        ]
+      }
+    },
+    {
+      "version": "3.0.0",
+      "date": "2026-09-09",
+      "channel": "main",
+      "title": "Update Store App: versions and verified deployments",
+      "changes": {
+        "added": [
+          "Update Store App: the Store Commerce version of every checkout, with verified file deployment and Jalali-dated backups.",
+          "Uniform viewport scaling so the interface looks the same on every monitor."
+        ]
+      }
+    }
+  ]
+}

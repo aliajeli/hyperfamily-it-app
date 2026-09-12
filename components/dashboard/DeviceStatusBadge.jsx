@@ -28,7 +28,7 @@ export default function DeviceStatusBadge({ status = 'unknown', compact = false 
   const Icon = current.icon
 
   return (
-    <span className={`inline-flex shrink-0 items-center rounded-full border font-extrabold uppercase tracking-[0.08em] ${compact ? 'gap-1 px-1.5 py-0.5 text-[7px]' : 'gap-1.5 px-2 py-1 text-[8px]'} ${current.className}`}>
+    <span className={`inline-flex shrink-0 items-center rounded-full border font-extrabold uppercase tracking-[0.08em] ${compact ? 'gap-1 px-1.5 py-0.5 text-2xs' : 'gap-1.5 px-2 py-1 text-2xs'} ${current.className}`}>
       <Icon size={compact ? 9 : 11} strokeWidth={2.4} />
       {current.label}
     </span>

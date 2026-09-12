@@ -29,14 +29,14 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }) {
       <div className={cn('flex h-14 items-center gap-2.5 overflow-hidden border-b px-4', collapsed && 'justify-center px-2.5')}>
         <motion.div whileHover={{ rotate: -5, scale: 1.06 }} transition={{ type: 'spring', stiffness: 350 }}><BrandMark className="h-9 w-9 shrink-0" symbol /></motion.div>
         <AnimatePresence initial={false}>
-          {!collapsed && <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} className="min-w-0"><div className="truncate font-extrabold tracking-[0.025em]">HyperFamily</div><div className="truncate text-[10px] font-bold uppercase tracking-[.18em] text-[rgb(var(--muted))]">Branch Monitor</div></motion.div>}
+          {!collapsed && <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} className="min-w-0"><div className="truncate font-extrabold tracking-[0.025em]">HyperFamily</div><div className="truncate text-xs font-bold uppercase tracking-[.18em] text-[rgb(var(--muted))]">Branch Monitor</div></motion.div>}
         </AnimatePresence>
       </div>
       <nav className="flex-1 space-y-1 p-2.5 pt-4">
         {navItems.map((item, index) => {
           const active = pathname.startsWith(item.href)
           return <motion.div key={item.href} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.045 }} whileHover={{ x: collapsed ? 0 : 3 }}>
-            <Link href={item.href} title={collapsed ? item.label : undefined} className={cn('group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl px-3 text-[13px] font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))] hover:shadow-sm', active && 'text-[rgb(var(--primary))]')}>
+            <Link href={item.href} title={collapsed ? item.label : undefined} className={cn('group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl px-3 text-sm font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))] hover:shadow-sm', active && 'text-[rgb(var(--primary))]')}>
               {/* The active page sits on a gradient pill with a soft glow and a
                   spring-animated indicator bar — a modern highlight instead of
                   a plain background wash (v2.0.16). */}

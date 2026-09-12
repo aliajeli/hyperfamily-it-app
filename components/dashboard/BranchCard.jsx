@@ -31,10 +31,10 @@ export default function BranchCard({ branch, devices, compact = false, onOpenDet
           <div className="min-w-0 flex-1">
             <button type="button" onClick={onOpenDetails} className="branch-title-button interactive-sheen group/title flex max-w-full items-center gap-1.5 rounded-lg p-[2px] text-left" aria-label={`Open all monitored equipment for ${branch.name}`}>
               <h2 className="truncate text-xs font-extrabold tracking-[0.04em]" title={branch.name}>{branch.name}</h2>
-              <span className="shrink-0 rounded-md bg-[rgb(var(--border)/.55)] px-1.5 py-0.5 font-mono text-[7px] font-bold tracking-wider">{branch.code}</span>
+              <span className="shrink-0 rounded-md bg-[rgb(var(--border)/.55)] px-1.5 py-0.5 font-mono text-2xs font-bold tracking-wider">{branch.code}</span>
               <ChevronRight size={12} className="shrink-0 text-[rgb(var(--primary))] transition-transform duration-300 group-hover/title:translate-x-1" />
             </button>
-            <p className="mt-0.5 flex items-center gap-1 text-[8px] font-semibold text-[rgb(var(--muted))]">
+            <p className="mt-0.5 flex items-center gap-1 text-2xs font-semibold text-[rgb(var(--muted))]">
               <Activity size={9} className="text-[rgb(var(--primary))]" /> {online}/{visible.length} monitored devices online
             </p>
           </div>
@@ -47,8 +47,8 @@ export default function BranchCard({ branch, devices, compact = false, onOpenDet
         {!compact && (
           <>
             <div className="flex items-center justify-between px-0.5">
-              <p className="text-[8px] font-extrabold uppercase tracking-[0.17em] text-[rgb(var(--muted))]">Monitored equipment</p>
-              <span className="text-[8px] font-semibold tabular-nums text-[rgb(var(--muted))]">{displayDevices.length}</span>
+              <p className="text-2xs font-extrabold uppercase tracking-[0.17em] text-[rgb(var(--muted))]">Monitored equipment</p>
+              <span className="text-2xs font-semibold tabular-nums text-[rgb(var(--muted))]">{displayDevices.length}</span>
             </div>
 
             {displayDevices.length ? (
@@ -56,7 +56,7 @@ export default function BranchCard({ branch, devices, compact = false, onOpenDet
                 {displayDevices.map((device) => <DeviceCard key={device.id} device={device} label={displayLabel(device)} />)}
               </div>
             ) : (
-              <div className="grid h-14 place-items-center rounded-xl border border-dashed text-center text-[9px] text-[rgb(var(--muted))]">
+              <div className="grid h-14 place-items-center rounded-xl border border-dashed text-center text-xs text-[rgb(var(--muted))]">
                 No Dashboard devices for this branch
               </div>
             )}

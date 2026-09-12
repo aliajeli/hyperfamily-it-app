@@ -20,6 +20,12 @@ jobs:
         shell: bash
         run: |
           node -e "const v=require('./package.json').version; if (!/^\d+\.\d+\.\d+$/.test(v) || process.env.GITHUB_REF_NAME !== 'v'+v) throw new Error('Stable tag must match package.json version')"
+      # The release notes come from lib/changelog.json — the same file the
+      # in-app Change log reads — so the release page and About always agree.
+      - name: Require a changelog entry for this version
+        shell: bash
+        run: node scripts/release-notes.js "${GITHUB_REF_NAME#v}" > /dev/null
+
       # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
       - run: npm run build:agent
       - name: Test the real Windows Agent service
@@ -52,9 +58,10 @@ jobs:
           if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
             release_flags+=(--prerelease --latest=false)
           fi
+          node scripts/release-notes.js "${GITHUB_REF_NAME#v}" > release-notes.md
           gh release create "${GITHUB_REF_NAME}" "${release_flags[@]}" \
             --title "${GITHUB_REF_NAME#v}" \
-            --notes "HyperFamily Branch Monitor ${GITHUB_REF_NAME#v}" \
+            --notes-file release-notes.md \
             --target "${GITHUB_SHA}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

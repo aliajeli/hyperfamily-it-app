@@ -94,7 +94,7 @@ export default function NotificationCenter() {
           <Bell size={17} />
         </motion.span>
         {totalCount > 0 ? (
-          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="notification-count absolute -right-1.5 -top-1.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-nord-11 px-1 text-[8px] font-black leading-none text-white shadow-md ring-2 ring-[rgb(var(--canvas))]">
+          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="notification-count absolute -right-1.5 -top-1.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-nord-11 px-1 text-2xs font-black leading-none text-white shadow-md ring-2 ring-[rgb(var(--canvas))]">
             {totalCount > 99 ? '99+' : totalCount}
           </motion.span>
         ) : (
@@ -117,7 +117,7 @@ export default function NotificationCenter() {
             <header className="relative flex items-start justify-between border-b px-4 py-3.5">
               <div>
                 <h2 className="flex items-center gap-2 text-sm font-black tracking-[0.025em]"><Bell size={15} className="text-[rgb(var(--primary))]" /> Network notifications</h2>
-                <p className="mt-1 text-[9px] font-semibold text-[rgb(var(--muted))]">
+                <p className="mt-1 text-xs font-semibold text-[rgb(var(--muted))]">
                   {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : 'Connecting to monitor…'}
                 </p>
               </div>
@@ -129,7 +129,7 @@ export default function NotificationCenter() {
                 {summaryMeta.map(({ key, label, icon: Icon, className }, index) => (
                   <motion.div key={key} initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + index * 0.035 }} className={`min-w-0 rounded-xl border p-2 ${className}`}>
                     <div className="flex items-center justify-between gap-1"><Icon size={12} /><span className="text-sm font-black tabular-nums">{generatedAt ? model.stats[key] : '—'}</span></div>
-                    <p className="mt-1 truncate text-[7px] font-extrabold uppercase tracking-[0.1em]">{label}</p>
+                    <p className="mt-1 truncate text-2xs font-extrabold uppercase tracking-[0.1em]">{label}</p>
                   </motion.div>
                 ))}
               </div>
@@ -145,11 +145,11 @@ export default function NotificationCenter() {
                       <Rocket size={14} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[0.03em]">
+                      <p className="flex items-center gap-1.5 text-xs font-extrabold tracking-[0.03em]">
                         Update available
-                        <span className="rounded-full bg-[rgb(var(--primary)/.16)] px-1.5 py-0.5 text-[8px] font-black text-[rgb(var(--primary))]">v{updateInfo.latestVersion}</span>
+                        <span className="rounded-full bg-[rgb(var(--primary)/.16)] px-1.5 py-0.5 text-2xs font-black text-[rgb(var(--primary))]">v{updateInfo.latestVersion}</span>
                       </p>
-                      <p className="truncate text-[8.5px] font-semibold text-[rgb(var(--muted))]">
+                      <p className="truncate text-xs font-semibold text-[rgb(var(--muted))]">
                         You are on v{updateInfo.currentVersion} — a newer release is ready to download.
                       </p>
                     </div>
@@ -166,10 +166,10 @@ export default function NotificationCenter() {
 
                   {updateInfo.releaseNotes && (
                     <div className="mt-2 rounded-lg border bg-[rgb(var(--surface)/.7)] p-2">
-                      <p className="flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">
+                      <p className="flex items-center gap-1 text-2xs font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]">
                         <ScrollText size={9} /> Changelog
                       </p>
-                      <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-[9px] leading-relaxed text-[rgb(var(--muted))]">
+                      <p className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-[rgb(var(--muted))]">
                         {updateInfo.releaseNotes}
                       </p>
                     </div>
@@ -179,7 +179,7 @@ export default function NotificationCenter() {
                     <button
                       type="button"
                       onClick={() => { setOpen(false); router.push('/about') }}
-                      className="flex h-7 items-center gap-1.5 rounded-lg bg-[rgb(var(--primary))] px-2.5 text-[9.5px] font-extrabold text-white shadow-sm transition hover:brightness-110"
+                      className="flex h-7 items-center gap-1.5 rounded-lg bg-[rgb(var(--primary))] px-2.5 text-xs font-extrabold text-white shadow-sm transition hover:brightness-110"
                     >
                       <Rocket size={11} /> Open About to update
                     </button>
@@ -187,7 +187,7 @@ export default function NotificationCenter() {
                       <button
                         type="button"
                         onClick={() => { setOpen(false); window.open(updateInfo.downloadUrl, '_blank', 'noopener,noreferrer') }}
-                        className="flex h-7 items-center gap-1.5 rounded-lg border bg-[rgb(var(--surface)/.7)] px-2.5 text-[9.5px] font-extrabold text-[rgb(var(--text))] transition hover:bg-[rgb(var(--surface))]"
+                        className="flex h-7 items-center gap-1.5 rounded-lg border bg-[rgb(var(--surface)/.7)] px-2.5 text-xs font-extrabold text-[rgb(var(--text))] transition hover:bg-[rgb(var(--surface))]"
                       >
                         GitHub release
                       </button>
@@ -197,8 +197,8 @@ export default function NotificationCenter() {
               )}
 
               <div className="mb-2 mt-4 flex items-center justify-between px-0.5">
-                <p className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]"><Activity size={11} /> Active alerts</p>
-                <span className="text-[9px] font-black tabular-nums text-[rgb(var(--muted))]">{alertCount}</span>
+                <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-[rgb(var(--muted))]"><Activity size={11} /> Active alerts</p>
+                <span className="text-xs font-black tabular-nums text-[rgb(var(--muted))]">{alertCount}</span>
               </div>
 
               {alertCount ? (
@@ -210,13 +210,13 @@ export default function NotificationCenter() {
                       <motion.article key={device.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index, 8) * 0.035 }} className="group flex min-w-0 items-center gap-2.5 rounded-xl border bg-[rgb(var(--surface)/.82)] p-2.5 transition-all hover:-translate-y-0.5 hover:bg-[rgb(var(--surface))] hover:shadow-md">
                         <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-[10px] ${device.status === 'offline' ? 'bg-nord-11/12 text-nord-11' : 'bg-nord-13/15 status-warning-text'}`}><Icon size={14} /></div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[10px] font-extrabold tracking-[0.03em]" title={device.name}>{device.name}</p>
-                          <p className="truncate text-[8px] font-semibold text-[rgb(var(--muted))]">{device.branch?.name || 'Unknown branch'} · {device.ip_address || device.ip}</p>
-                          <p className="mt-0.5 flex items-center gap-1 text-[7px] text-[rgb(var(--muted))]"><Clock3 size={8} /> Last check {latestCheck(device)}</p>
+                          <p className="truncate text-xs font-extrabold tracking-[0.03em]" title={device.name}>{device.name}</p>
+                          <p className="truncate text-2xs font-semibold text-[rgb(var(--muted))]">{device.branch?.name || 'Unknown branch'} · {device.ip_address || device.ip}</p>
+                          <p className="mt-0.5 flex items-center gap-1 text-2xs text-[rgb(var(--muted))]"><Clock3 size={8} /> Last check {latestCheck(device)}</p>
                         </div>
                         <div className="shrink-0 text-right">
                           <DeviceStatusBadge status={device.status} compact />
-                          <p className="mt-1 text-[8px] font-black tabular-nums text-[rgb(var(--muted))]">{Number.isFinite(ping) ? `${ping} ms` : 'No reply'}</p>
+                          <p className="mt-1 text-2xs font-black tabular-nums text-[rgb(var(--muted))]">{Number.isFinite(ping) ? `${ping} ms` : 'No reply'}</p>
                         </div>
                       </motion.article>
                     )
@@ -227,7 +227,7 @@ export default function NotificationCenter() {
                   <div>
                     <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.2, repeat: Infinity }} className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-nord-14/16 status-online-text"><CheckCircle2 size={20} /></motion.div>
                     <p className="mt-2 text-xs font-black">All monitored devices are healthy</p>
-                    <p className="mt-1 text-[9px] text-[rgb(var(--muted))]">No active Offline or Warning notifications.</p>
+                    <p className="mt-1 text-xs text-[rgb(var(--muted))]">No active Offline or Warning notifications.</p>
                   </div>
                 </motion.div>
               )}

@@ -26,16 +26,16 @@ export default function DashboardPage() {
 
   return (
     <AppShell compact>
-      <div className="mx-auto max-w-[1920px] space-y-3 text-[13px]">
+      <div className="mx-auto max-w-[1920px] space-y-3 text-base-ui">
         <div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <motion.h1 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="mr-1 text-xl font-extrabold tracking-[0.015em]">Network at a glance</motion.h1>
-            <div className="ml-auto flex items-center gap-1.5 text-[9px] font-semibold text-[rgb(var(--muted))]">
+            <div className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-[rgb(var(--muted))]">
               <Clock3 size={11} className={generatedAt ? 'text-[rgb(var(--primary))]' : 'animate-spin'} />
               {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : 'Connecting to monitor…'}
             </div>
           </div>
-          <p className="mt-1 text-[10px] text-[rgb(var(--muted))]">Live health and Router latency across every store. Select a branch title to see all monitored equipment.</p>
+          <p className="mt-1 text-xs text-[rgb(var(--muted))]">Live health and Router latency across every store. Select a branch title to see all monitored equipment.</p>
         </div>
 
         {!generatedAt ? (
@@ -76,7 +76,7 @@ export default function DashboardPage() {
                 >
                   <ChevronLeft size={14} />
                 </motion.button>
-                <span className="min-w-20 text-center text-[9px] font-semibold text-[rgb(var(--muted))]">Page {currentPage} of {pageCount}</span>
+                <span className="min-w-20 text-center text-xs font-semibold text-[rgb(var(--muted))]">Page {currentPage} of {pageCount}</span>
                 <motion.button
                   type="button"
                   whileHover={{ x: 2, scale: 1.06 }}

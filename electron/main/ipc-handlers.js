@@ -172,16 +172,35 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   // Update Store App: Store Commerce version sweeps and file deployments.
   // `secure` is required because these run on machines reachable over SMB.
   ipcMain.handle('store-update:import-agent', secure(async (event, payload) => {
-    const result = await storeUpdateService.agent.importOne(payload?.checkout || {})
-    database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : result.error)
+    const result = await storeUpdateService.agent.importOne(payload?.checkout || {}, { runId: payload?.runId })
+    database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : (result.cancelled ? 'Stopped by the operator; the previous agent was restored' : result.error))
     return result
   }))
   ipcMain.handle('store-update:import-agent-all', secure(async (event, payload) => {
     const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
     if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be imported in one run')
-    const summary = await storeUpdateService.agent.importAll(checkouts)
-    for (const result of summary.results) database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : result.error)
+    const summary = await storeUpdateService.agent.importAll(checkouts, { runId: payload?.runId })
+    for (const result of summary.results) {
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'AGENT_IMPORT',
+        result.name || result.host || 'checkout',
+        result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : (result.cancelled ? (result.skipped ? 'Skipped after the operator stopped the batch' : 'Stopped by the operator; the previous agent was restored') : result.error)
+      )
+    }
     return summary
+  }))
+  /**
+   * Stop button of the Import Agent dialog. Cancelling is always safe: the
+   * importer aborts the in-flight transfer, rolls the checkout back and reports
+   * the run as cancelled. Stopping a run that already settled is a no-op.
+   */
+  ipcMain.handle('store-update:cancel-agent-import', secure(async (event, payload) => {
+    const state = storeUpdateService.agent.cancel(payload?.runId)
+    if (state.cancelled) {
+      database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT_CANCEL', String(payload?.runId || '—'), 'Operator stopped a running agent import')
+    }
+    return state
   }))
   ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {})))
   // Diagnostic: the full Programs and Features list of one checkout, so the

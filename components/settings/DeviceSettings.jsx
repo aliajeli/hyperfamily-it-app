@@ -49,8 +49,8 @@ export default function DeviceSettings({ settings, onSaved }) {
   }
 
   const Detected = ({ value }) => value
-    ? <span className="mt-1 flex items-center gap-1.5 text-[10px] text-[#66834e]"><CheckCircle2 size={12} />Detected at {value}</span>
-    : <span className="mt-1 flex items-center gap-1.5 text-[10px] text-[#8b6e1c]"><AlertTriangle size={12} />Not found in the default install locations</span>
+    ? <span className="mt-1 flex items-center gap-1.5 text-xs text-[#66834e]"><CheckCircle2 size={12} />Detected at {value}</span>
+    : <span className="mt-1 flex items-center gap-1.5 text-xs text-[#8b6e1c]"><AlertTriangle size={12} />Not found in the default install locations</span>
 
   return (
     <div className="space-y-3">
@@ -58,7 +58,7 @@ export default function DeviceSettings({ settings, onSaved }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm"><MonitorCog size={15} />TeamViewer</CardTitle>
-            <CardDescription className="text-[11px]">Executable, default password, and LAN connection behaviour.</CardDescription>
+            <CardDescription className="text-2xs">Executable, default password, and LAN connection behaviour.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2.5">
             <label>
@@ -76,7 +76,7 @@ export default function DeviceSettings({ settings, onSaved }) {
             <label className="flex items-center justify-between gap-3 rounded-xl border p-2.5">
               <span>
                 <b className="text-xs">LAN connections</b>
-                <span className="mt-0.5 block text-[10px] leading-relaxed text-[rgb(var(--muted))]">Reach devices by IP instead of a TeamViewer ID. Enable “Incoming LAN connections” on the target too.</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-[rgb(var(--muted))]">Reach devices by IP instead of a TeamViewer ID. Enable “Incoming LAN connections” on the target too.</span>
               </span>
               <Switch checked={Boolean(form.teamviewer_lan_mode)} onCheckedChange={(value) => setForm({ ...form, teamviewer_lan_mode: value })} />
             </label>
@@ -86,7 +86,7 @@ export default function DeviceSettings({ settings, onSaved }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm"><Router size={15} />MikroTik Winbox</CardTitle>
-            <CardDescription className="text-[11px]">Winbox sessions open with the device IP, this port, and the credential assigned to the device.</CardDescription>
+            <CardDescription className="text-2xs">Winbox sessions open with the device IP, this port, and the credential assigned to the device.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2.5">
             <label>
@@ -100,7 +100,7 @@ export default function DeviceSettings({ settings, onSaved }) {
             <label>
               <Label>Default connection port</Label>
               <Input type="number" min={1} max={65535} value={form.winbox_port} onChange={(e) => setForm({ ...form, winbox_port: e.target.value })} />
-              <span className="mt-1 block text-[10px] text-[rgb(var(--muted))]">A port set on an individual device overrides this value.</span>
+              <span className="mt-1 block text-xs text-[rgb(var(--muted))]">A port set on an individual device overrides this value.</span>
             </label>
           </CardContent>
         </Card>
@@ -108,7 +108,7 @@ export default function DeviceSettings({ settings, onSaved }) {
 
       <div className="flex items-center gap-3">
         <Button onClick={save} disabled={saving}><Save size={15} />{saving ? 'Saving…' : 'Save device tool settings'}</Button>
-        <p className="text-[11px] text-[rgb(var(--muted))]">Connection methods per device type live in the <b>Connections</b> tab, and credential assignment in <b>Assignments</b>.</p>
+        <p className="text-2xs text-[rgb(var(--muted))]">Connection methods per device type live in the <b>Connections</b> tab, and credential assignment in <b>Assignments</b>.</p>
       </div>
     </div>
   )

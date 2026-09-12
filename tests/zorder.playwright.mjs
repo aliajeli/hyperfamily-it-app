@@ -7,7 +7,7 @@
  * the open panel, while the interface is put into the states that used to
  * break it (hovered branch cards, hovered device cards, scrolled content).
  */
-import { chromium } from '/tmp/node_modules/playwright/index.mjs'
+import { chromium } from '@playwright/test'
 
 const BASE = 'http://localhost:3000'
 const SESSION = '{"state":{"user":{"username":"Admin","role":"admin","display_name":"Admin"}},"version":0}'

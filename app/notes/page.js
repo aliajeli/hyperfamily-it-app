@@ -267,9 +267,9 @@ export default function NotesPage() {
           </span>
           <div>
             <h1 className="text-lg font-extrabold tracking-tight">Notes</h1>
-            <p className="text-[11px] text-[rgb(var(--muted))]">Runbooks, VLAN plans and anything else worth keeping</p>
+            <p className="text-2xs text-[rgb(var(--muted))]">Runbooks, VLAN plans and anything else worth keeping</p>
           </div>
-          <span className="hidden rounded-full border bg-[rgb(var(--surface)/.6)] px-2 py-0.5 text-[10px] font-bold text-[rgb(var(--muted))] sm:inline">
+          <span className="hidden rounded-full border bg-[rgb(var(--surface)/.6)] px-2 py-0.5 text-xs font-bold text-[rgb(var(--muted))] sm:inline">
             {loading ? '…' : `${notes.length} note${notes.length === 1 ? '' : 's'}`}
           </span>
           <Button className="ml-auto" size="sm" onClick={startNew}><Plus size={14} /> New note</Button>
@@ -279,7 +279,7 @@ export default function NotesPage() {
           <aside className="flex min-h-0 flex-col gap-2 rounded-2xl border bg-[rgb(var(--surface))] p-3">
             <div className="relative">
               <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[rgb(var(--muted))]" />
-              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search notes or #tags" className="pl-8 text-[12px]" aria-label="Search notes" />
+              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search notes or #tags" className="pl-8 text-xs" aria-label="Search notes" />
             </div>
 
             <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-0.5">
@@ -350,14 +350,14 @@ export default function NotesPage() {
                               const Icon = level.icon
                               return (
                                 <span
-                                  className="flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5 text-[8.5px] font-extrabold uppercase"
+                                  className="flex shrink-0 items-center gap-0.5 rounded-full px-1 py-0.5 text-xs font-extrabold uppercase"
                                   style={{ color: level.tone, background: 'rgb(var(--surface)/.85)' }}
                                 >
                                   <Icon size={9} /> {level.short}
                                 </span>
                               )
                             })()}
-                            <span className="min-w-0 flex-1 truncate text-[12px] font-extrabold">{note.name}</span>
+                            <span className="min-w-0 flex-1 truncate text-xs font-extrabold">{note.name}</span>
                             <span
                               role="button"
                               tabIndex={0}
@@ -369,7 +369,7 @@ export default function NotesPage() {
                               <Trash2 size={12} />
                             </span>
                           </div>
-                          <p className="mt-0.5 truncate text-[10px] text-[rgb(var(--muted))]">{preview(note.body)}</p>
+                          <p className="mt-0.5 truncate text-xs text-[rgb(var(--muted))]">{preview(note.body)}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             {tags.slice(0, 3).map((tag) => (
                               <span
@@ -380,13 +380,13 @@ export default function NotesPage() {
                                 title={`Filter by ${displayTag(tag)}`}
                                 onClick={(event) => { event.stopPropagation(); setQuery(tag) }}
                                 onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); setQuery(tag) } }}
-                                className="rounded-full bg-[rgb(var(--primary)/.1)] px-1.5 py-0.5 text-[8.5px] font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.2)]"
+                                className="rounded-full bg-[rgb(var(--primary)/.1)] px-1.5 py-0.5 text-xs font-bold text-[rgb(var(--primary))] transition hover:bg-[rgb(var(--primary)/.2)]"
                               >
                                 {displayTag(tag)}
                               </span>
                             ))}
-                            {tags.length > 3 && <span className="text-[8.5px] font-bold text-[rgb(var(--muted))]">+{tags.length - 3}</span>}
-                            <span className="ml-auto flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
+                            {tags.length > 3 && <span className="text-xs font-bold text-[rgb(var(--muted))]">+{tags.length - 3}</span>}
+                            <span className="ml-auto flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[rgb(var(--muted))]">
                               <span className="h-1 w-1 rounded-full bg-[rgb(var(--border))]" />
                               {when(note.updated_at)}
                             </span>
@@ -403,8 +403,8 @@ export default function NotesPage() {
                   <span className="grid h-12 w-12 place-items-center rounded-full bg-[rgb(var(--border)/.4)] text-[rgb(var(--muted))]">
                     <NotebookPen size={20} />
                   </span>
-                  <p className="text-[11px] font-bold">{notes.length ? 'No note matches that search' : 'No notes yet'}</p>
-                  <p className="text-[10px] text-[rgb(var(--muted))]">{notes.length ? 'Try a different keyword.' : 'Create the first one to start keeping track.'}</p>
+                  <p className="text-2xs font-bold">{notes.length ? 'No note matches that search' : 'No notes yet'}</p>
+                  <p className="text-xs text-[rgb(var(--muted))]">{notes.length ? 'Try a different keyword.' : 'Create the first one to start keeping track.'}</p>
                 </div>
               )}
             </div>
@@ -490,7 +490,7 @@ export default function NotesPage() {
                   {(draft.tags || []).map((tag) => (
                     <span
                       key={tag}
-                      className="flex items-center gap-0.5 rounded-full bg-[rgb(var(--primary)/.12)] pl-1.5 pr-0.5 text-[9px] font-bold text-[rgb(var(--primary))]"
+                      className="flex items-center gap-0.5 rounded-full bg-[rgb(var(--primary)/.12)] pl-1.5 pr-0.5 text-xs font-bold text-[rgb(var(--primary))]"
                     >
                       <button
                         type="button"
@@ -518,7 +518,7 @@ export default function NotesPage() {
                       onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addTag() } }}
                       placeholder="Add #tag"
                       aria-label="New tag"
-                      className="w-16 bg-transparent text-[9px] font-bold text-[rgb(var(--text))] outline-none placeholder:text-[rgb(var(--muted)/.7)]"
+                      className="w-16 bg-transparent text-xs font-bold text-[rgb(var(--text))] outline-none placeholder:text-[rgb(var(--muted)/.7)]"
                     />
                     <button
                       type="button"
@@ -545,7 +545,7 @@ export default function NotesPage() {
                         aria-label={`${level.label} priority`}
                         onClick={() => setDraft({ ...draft, priority: level.id })}
                         className={cn(
-                          'flex items-center gap-1 rounded-lg border px-2 py-1 text-[10.5px] font-bold transition-all duration-200',
+                          'flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-bold transition-all duration-200',
                           active ? 'border-current' : 'border-transparent text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.45)]'
                         )}
                         style={active ? { color: level.tone, background: 'rgb(var(--surface))' } : undefined}
@@ -562,10 +562,10 @@ export default function NotesPage() {
                 onChange={(event) => setDraft({ ...draft, body: event.target.value })}
                 placeholder="Write anything — steps, IP plans, #tags, passwords you rotate, reminders…"
                 aria-label="Note body"
-                className="min-h-0 flex-1 resize-none font-mono text-[12px] leading-relaxed"
+                className="min-h-0 flex-1 resize-none font-mono text-xs leading-relaxed"
               />
 
-              <div className="flex items-center gap-2 px-1 text-[10px] text-[rgb(var(--muted))]">
+              <div className="flex items-center gap-2 px-1 text-xs text-[rgb(var(--muted))]">
                 <span className="rounded-full bg-[rgb(var(--border)/.4)] px-2 py-0.5 font-semibold">{(draft.body || '').length} characters</span>
                 {draft.updated_at && <span className="hidden sm:inline">Updated {when(draft.updated_at)}</span>}
                 <span
@@ -615,7 +615,7 @@ export default function NotesPage() {
                 className="dialog-content fixed z-[80] rounded-xl border bg-[rgb(var(--surface))] p-2 shadow-2xl"
                 style={{ left, top, width }}
               >
-                <p className="px-1 text-[9px] font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">Colour</p>
+                <p className="px-1 text-xs font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">Colour</p>
                 <div className="mt-1 flex items-center gap-1.5 px-1">
                   {NOTE_COLORS.map((entry) => {
                     const active = (target.color || 'default') === entry.id
@@ -640,7 +640,7 @@ export default function NotesPage() {
 
                 <div className="my-1.5 h-px bg-[rgb(var(--border)/.7)]" />
 
-                <p className="px-1 text-[9px] font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">Priority</p>
+                <p className="px-1 text-xs font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">Priority</p>
                 <div className="mt-1 grid gap-0.5 px-0.5">
                   {PRIORITIES.map((level) => {
                     const Icon = level.icon
@@ -652,7 +652,7 @@ export default function NotesPage() {
                         aria-label={`Set ${level.label} priority`}
                         onClick={() => { setMenu(null); quickUpdate(target, { priority: level.id }, 'Priority updated') }}
                         className={cn(
-                          'flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[10.5px] font-bold transition',
+                          'flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-xs font-bold transition',
                           active ? 'bg-[rgb(var(--border)/.4)]' : 'hover:bg-[rgb(var(--border)/.4)]'
                         )}
                       >
