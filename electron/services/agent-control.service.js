@@ -67,22 +67,24 @@ try {
 
   async secureDirectories(host) {
     const root = `\\\\${normalizeHost(host)}\\C$\\Agent`
-    // Only Administrators/SYSTEM can replace binaries. LocalService can READ
-    // the executable and MODIFY data, but cannot replace the executable.
+    // The service runs as LocalSystem, so only SYSTEM (S-1-5-18) and local
+    // Administrators (S-1-5-32-544) need access. LocalService is deliberately
+    // NOT granted anything: it must never be able to plant command files that
+    // the SYSTEM-level agent would then execute.
     const script = `
 $ErrorActionPreference = 'Stop'
 $root = ${psLiteral(root)}
-foreach ($entry in @(@{ Path = $root; AgentRights = 'ReadAndExecute' }, @{ Path = "$root\\data"; AgentRights = 'Modify' })) {
-  $item = Get-Item -LiteralPath $entry.Path -Force
+foreach ($path in @($root, "$root\\data")) {
+  $item = Get-Item -LiteralPath $path -Force
   if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Agent directory must not be a reparse point' }
   $acl = New-Object System.Security.AccessControl.DirectorySecurity
   $acl.SetAccessRuleProtection($true, $false)
-  foreach ($grant in @(@{ Sid='S-1-5-18'; Rights='FullControl' }, @{ Sid='S-1-5-32-544'; Rights='FullControl' }, @{ Sid='S-1-5-19'; Rights=$entry.AgentRights })) {
-    $sid = New-Object System.Security.Principal.SecurityIdentifier($grant.Sid)
-    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, $grant.Rights, 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+  foreach ($sidText in @('S-1-5-18', 'S-1-5-32-544')) {
+    $sid = New-Object System.Security.Principal.SecurityIdentifier($sidText)
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
     $acl.AddAccessRule($rule)
   }
-  (New-Object System.IO.DirectoryInfo($entry.Path)).SetAccessControl($acl)
+  (New-Object System.IO.DirectoryInfo($path)).SetAccessControl($acl)
 }
 # Reset the executable's own ACL as well if it already existed with explicit
 # grants. It must inherit only the now-protected parent directory's rules.
@@ -114,11 +116,14 @@ if (Test-Path -LiteralPath $exe) {
   }
 
   async configure(host, exists) {
+    // LocalSystem is required: the agent closes Store Commerce processes that
+    // belong to other sessions and runs the Store Commerce installer, which
+    // writes to C:\Program Files. LocalService can do neither.
     await this.sc(host, [exists ? 'config' : 'create', SERVICE_NAME,
       'binPath=', `"${AGENT_PATH}"`, 'start=', 'auto', 'type=', 'own',
-      'obj=', 'NT AUTHORITY\\LocalService', 'password=', '',
+      'obj=', 'LocalSystem',
       'DisplayName=', 'HyperFamily Store Inventory Agent'])
-    await this.sc(host, ['description', SERVICE_NAME, 'Read-only local software inventory for HyperFamily Branch Monitor.'])
+    await this.sc(host, ['description', SERVICE_NAME, 'Store Commerce update agent for HyperFamily Branch Monitor: inventory, Store Commerce close and installer execution.'])
     await this.sc(host, ['failure', SERVICE_NAME, 'reset=', '86400', 'actions=', 'restart/5000/restart/15000/restart/60000'])
   }
 

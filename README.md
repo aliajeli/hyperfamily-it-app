@@ -149,7 +149,7 @@ The desktop app orchestrates operations from the management workstation. Each ch
 | --- | --- |
 | Executable | `C:\Agent\HyperFamilyStoreAgent.exe` |
 | Service name | `HyperFamilyStoreAgent` |
-| Service account | `NT AUTHORITY\LocalService` |
+| Service account | `LocalSystem` |
 | Startup | Automatic; no interactive login or Startup-folder shortcut required |
 | Inventory source | Machine-wide Programs and Features registry entries, both 64-bit and 32-bit views |
 | Heartbeat | Approximately every 15 seconds; includes process/instance identity and sequence |
@@ -376,7 +376,7 @@ npm run test:agent
 Remove-Item Env:HF_AGENT_WINDOWS_TEST
 ```
 
-These tests create temporary registry fixtures and a real service at `C:\Agent`. They verify Unicode inventory, both registry views, binary version/flags, LocalService/Automatic configuration, heartbeat advancement, hash-skip re-import and stopped-service detection. They refuse a pre-existing Agent installation. GitHub's ephemeral Windows runners perform this opt-in automatically.
+These tests create temporary registry fixtures and a real service at `C:\Agent`. They verify Unicode inventory, both registry views, binary version/flags, LocalSystem/Automatic configuration, heartbeat advancement, hash-skip re-import and stopped-service detection. They refuse a pre-existing Agent installation. GitHub's ephemeral Windows runners perform this opt-in automatically.
 
 ### Optional browser checks
 
