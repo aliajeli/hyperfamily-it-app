@@ -195,8 +195,8 @@ class StoreUpdateService {
         // carry the raw Programs and Features list, so match that here.
         const extensionEntry = inventory.extensionVersion ? null : pickHyperCommerceExtension(inventory.programs)
         const extension = inventory.extensionVersion
-          ? { version: inventory.extensionVersion, source: inventory.extensionSource || 'control-panel' }
-          : extensionEntry ? { version: extensionEntry.version || 'unknown', source: 'control-panel' } : null
+          ? { name: inventory.extensionName || 'Hyper.Commerce', version: inventory.extensionVersion, source: inventory.extensionSource || 'manifest' }
+          : extensionEntry ? { name: extensionEntry.name || 'Hyper.Commerce', version: extensionEntry.version || 'unknown', source: 'control-panel' } : null
         if (!program) return { ...base, state: 'not-found', source: 'agent', extension, detail: `“${this.programName}” is not listed in the agent's current Programs and Features inventory`, installedCount: inventory.programs.length }
         return {
           ...base, state: 'ok', version: program.version || 'unknown', product: program.name,

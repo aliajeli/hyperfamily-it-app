@@ -157,24 +157,28 @@ export default function CheckoutCard({ checkout, version, onRecheck, onDeploy, o
         </IconAction>
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-1.5">
-        <span className="flex min-w-0 flex-wrap items-center gap-1">
-          <VersionPill version={version} />
-          {(version?.state === 'ok' || version?.state === 'not-found') && (
-            version.extension ? (
-              <span
-                className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--primary)/.12)] px-2 py-0.5 font-mono text-2xs font-bold text-[rgb(var(--primary))]"
-                title={`Hyper.Commerce extension — ${version.extension.source === 'file' ? 'file version of the deployed extension on this checkout' : 'read from Programs and Features on this checkout'}`}
-              >
-                Ext v{version.extension.version}
-              </span>
-            ) : (
+        <span className="flex min-w-0 flex-col items-start gap-0.5">
+          <span className="flex flex-wrap items-center gap-1">
+            <VersionPill version={version} />
+            {(version?.state === 'ok' || version?.state === 'not-found') && !version.extension && (
               <span
                 className="inline-flex items-center gap-1 rounded-full bg-nord-3/15 px-2 py-0.5 text-2xs font-bold text-[rgb(var(--muted))]"
-                title="The Hyper.Commerce extension was not found in Programs and Features or in its installation folder on this checkout"
+                title="The Hyper.Commerce extension was not found in its manifest, Programs and Features or its installation folder on this checkout"
               >
                 No extension
               </span>
-            )
+            )}
+          </span>
+          {(version?.state === 'ok' || version?.state === 'not-found') && version.extension && (
+            <span
+              className="max-w-full truncate font-mono text-2xs text-[rgb(var(--muted))]"
+              title={`${version.extension.name} v${version.extension.version} — ${
+                version.extension.source === 'manifest' ? 'read from POS/manifest.json on this checkout'
+                : version.extension.source === 'file' ? 'file version of the deployed extension on this checkout'
+                : 'read from Programs and Features on this checkout'}`}
+            >
+              {version.extension.name} <b className="text-[rgb(var(--primary))]">v{version.extension.version}</b>
+            </span>
           )}
         </span>
         <div className="flex shrink-0 items-center gap-1">

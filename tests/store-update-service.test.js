@@ -96,13 +96,13 @@ test('checkOne surfaces the Hyper.Commerce extension reported by a modern agent'
       inspect: async () => ({
         running: true, agentVersion: '3.2.0-beta.2', generatedAt: 'now',
         programs: [{ key: 'k', name: 'Store Commerce', version: '10.0.24', publisher: 'Microsoft', installLocation: 'C:\\' }],
-        extensionVersion: '1.0.45.0', extensionSource: 'file'
+        extensionName: 'Hyper.Commerce', extensionVersion: '1.0.45.0', extensionSource: 'file'
       })
     }
   })
   const result = await service.checkOne({ id: 1, name: 'Checkout 1', hostname: 'CO-01', ip: '10.0.0.1' })
   assert.equal(result.state, 'ok')
-  assert.deepEqual(result.extension, { version: '1.0.45.0', source: 'file' })
+  assert.deepEqual(result.extension, { name: 'Hyper.Commerce', version: '1.0.45.0', source: 'file' })
 })
 
 test('checkOne falls back to Programs and Features for agents without the extension field', async () => {
@@ -122,7 +122,7 @@ test('checkOne falls back to Programs and Features for agents without the extens
   })
   const result = await service.checkOne({ id: 2, name: 'Checkout 2', hostname: 'CO-02', ip: '10.0.0.2' })
   assert.equal(result.state, 'ok')
-  assert.deepEqual(result.extension, { version: '1.0.41.7', source: 'control-panel' })
+  assert.deepEqual(result.extension, { name: 'Hyper.Commerce', version: '1.0.41.7', source: 'control-panel' })
 })
 
 test('checkOne reports a missing extension as null', async () => {

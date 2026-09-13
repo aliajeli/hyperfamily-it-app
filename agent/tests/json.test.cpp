@@ -7,11 +7,20 @@ void expect(bool condition, const char* message) {
 }
 
 static void testExtensionFields() {
-    const auto withExt = hf::snapshotJson(L"9", L"CO-01", 42, L"id", 5, L"date", {}, L"", L"1.0.45.0", L"file");
-    expect(withExt.find("\"extensionVersion\":\"1.0.45.0\"") != std::string::npos, "extension version serialized");
-    expect(withExt.find("\"extensionSource\":\"file\"") != std::string::npos, "extension source serialized");
+    const auto withExt = hf::snapshotJson(L"9", L"CO-01", 42, L"id", 5, L"date", {}, L"", L"Hyper.Commerce", L"2.19.13", L"manifest");
+    expect(withExt.find("\"extensionName\":\"Hyper.Commerce\"") != std::string::npos, "extension name serialized");
+    expect(withExt.find("\"extensionVersion\":\"2.19.13\"") != std::string::npos, "extension version serialized");
+    expect(withExt.find("\"extensionSource\":\"manifest\"") != std::string::npos, "extension source serialized");
     const auto without = hf::snapshotJson(L"9", L"CO-01", 42, L"id", 6, L"date", {});
+    expect(without.find("\"extensionName\":null") != std::string::npos, "missing extension name is null");
     expect(without.find("\"extensionVersion\":null") != std::string::npos, "missing extension is null");
+    // The real manifest shape from the shipped extension package, BOM included.
+    const std::string manifest = "\xef\xbb\xbf{\r\n  \"name\": \"Hyper.Commerce\",\r\n  \"publisher\": \"OKCS.co Ltd\",\r\n  \"version\": \"2.19.13\",\r\n  \"minimumPosVersion\": \"9.29.0.0\"\r\n}\r\n";
+    std::string name, version;
+    expect(hf::jsonStringValue(manifest, "version", version) && version == "2.19.13", "manifest version parsed");
+    expect(hf::jsonStringValue(manifest, "name", name) && name == "Hyper.Commerce", "manifest name parsed");
+    std::string missing;
+    expect(!hf::jsonStringValue(manifest, "nope", missing), "absent key reports false");
     expect(hf::isHyperCommerceExtensionName(L"hyper.commerce"), "dotted extension name matches");
     expect(hf::isHyperCommerceExtensionName(L"hyper commerce extension"), "spaced extension name matches");
     expect(!hf::isHyperCommerceExtensionName(L"store commerce"), "Store Commerce itself is not the extension");

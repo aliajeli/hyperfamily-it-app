@@ -308,7 +308,31 @@ std::wstring assemblyFileVersion(const std::wstring& path) {
     return text;
 }
 
-struct ExtensionVersion { std::wstring version, source; };
+struct ExtensionVersion { std::wstring name, version, source; };
+
+std::wstring utf8ToWide(const std::string& text) {
+    if (text.empty()) return L"";
+    const int length = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0);
+    if (length <= 0) return L"";
+    std::wstring out(static_cast<std::size_t>(length), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), out.data(), length);
+    return out;
+}
+
+std::string readWholeFile(const std::wstring& path, std::size_t cap) {
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return "";
+    std::string out;
+    char buffer[8192];
+    DWORD read = 0;
+    while (ReadFile(file, buffer, sizeof buffer, &read, nullptr) && read > 0) {
+        out.append(buffer, read);
+        if (out.size() > cap) { out.clear(); break; }
+    }
+    CloseHandle(file);
+    return out;
+}
 
 /**
  * Hyper.Commerce extension version on this checkout. First choice is the
@@ -317,9 +341,22 @@ struct ExtensionVersion { std::wstring version, source; };
  * deployed assemblies answers instead.
  */
 ExtensionVersion hyperCommerceExtension(const std::vector<hf::InstalledProgram>& programs) {
+    // 1) The POS manifest is what Store Commerce itself reads — the exact name
+    //    and version shown in its extensions UI.
+    const std::string manifest = readWholeFile(std::wstring(extensionDirectory) + L"\\POS\\manifest.json", 1024 * 1024);
+    if (!manifest.empty()) {
+        const std::size_t bom = manifest.compare(0, 3, "\xef\xbb\xbf") == 0 ? 3 : 0;
+        const std::string body = manifest.substr(bom);
+        std::string name, version;
+        if (hf::jsonStringValue(body, "version", version) && !version.empty()) {
+            if (!hf::jsonStringValue(body, "name", name) || name.empty()) name = "Hyper.Commerce";
+            return { utf8ToWide(name), utf8ToWide(version), L"manifest" };
+        }
+    }
+    // 2) The extension's own Programs and Features entry.
     for (const auto& program : programs)
         if (hf::isHyperCommerceExtensionName(hf::toLower(program.name)) && !program.version.empty())
-            return { program.version, L"control-panel" };
+            return { program.name, program.version, L"control-panel" };
     std::wstring preferred, fallback;
     const std::wstring pattern = std::wstring(extensionDirectory) + L"\\*";
     WIN32_FIND_DATAW data{};
@@ -339,7 +376,7 @@ ExtensionVersion hyperCommerceExtension(const std::vector<hf::InstalledProgram>&
     FindClose(find);
     const std::wstring& chosen = preferred.empty() ? fallback : preferred;
     if (chosen.empty()) return {};
-    return { chosen, L"file" };
+    return { L"Hyper.Commerce", chosen, L"file" };
 }
 
 struct CloseWindowsContext { const std::vector<hf::AgentProcess>* processes; };
@@ -635,7 +672,7 @@ void WINAPI serviceMain(DWORD, LPWSTR*) {
                     catch (const WinError&) { error = L"The agent could not read the local uninstall registry. Check service permissions."; }
                     checkStop(service.stopEvent);
                     const auto extension = error.empty() ? hyperCommerceExtension(programs) : ExtensionVersion{};
-                    auto json = hf::snapshotJson(hf::agentVersion, machine, GetCurrentProcessId(), instance, ++sequence, utcNow(), programs, error, extension.version, extension.source);
+                    auto json = hf::snapshotJson(hf::agentVersion, machine, GetCurrentProcessId(), instance, ++sequence, utcNow(), programs, error, extension.name, extension.version, extension.source);
                     if (json.size() > maxSnapshotBytes) json = hf::snapshotJson(hf::agentVersion, machine, GetCurrentProcessId(), instance, sequence, utcNow(), {}, L"The local inventory exceeds the supported size limit.");
                     writeSnapshot(directory, json);
                 }

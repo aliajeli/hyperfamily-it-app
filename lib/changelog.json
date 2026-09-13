@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "3.2.1-beta.1",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Hyper.Commerce name and version read from its POS manifest",
+      "changes": {
+        "improved": [
+          "The extension line on each checkout card now shows the exact name and version from the extension's own POS/manifest.json (the same values Store Commerce displays), written under the Store Commerce version.",
+          "Source order for the extension: POS manifest first, then Programs and Features, then the file version of the deployed assemblies — the card states which source answered."
+        ]
+      }
+    },
+    {
       "version": "3.2.0-beta.2",
       "date": "2026-09-13",
       "channel": "beta",
