@@ -1,7 +1,7 @@
 const path = require('path')
 const { checkReachable } = require('./reachability.service')
 const { sha256File, streamCopy } = require('./software.service')
-const { pickProgram } = require('./registry.service')
+const { pickProgram, pickHyperCommerceExtension } = require('./registry.service')
 const { StoreAgentService } = require('./store-agent.service')
 const { AgentCommands } = require('./agent-commands')
 const { compareVersions } = require('./version')
@@ -190,10 +190,18 @@ class StoreUpdateService {
         if (!inventory.running) return { ...base, state: 'agent-not-running', detail: inventory.reason || 'Agent is not running' }
         if (inventory.inventoryError) return { ...base, state: 'error', error: inventory.inventoryError, source: 'agent' }
         const program = pickProgram(inventory.programs, this.programName)
-        if (!program) return { ...base, state: 'not-found', source: 'agent', detail: `“${this.programName}” is not listed in the agent's current Programs and Features inventory`, installedCount: inventory.programs.length }
+        // The Hyper.Commerce extension version: modern agents report it in the
+        // heartbeat (registry first, deployed files second); older agents only
+        // carry the raw Programs and Features list, so match that here.
+        const extensionEntry = inventory.extensionVersion ? null : pickHyperCommerceExtension(inventory.programs)
+        const extension = inventory.extensionVersion
+          ? { version: inventory.extensionVersion, source: inventory.extensionSource || 'control-panel' }
+          : extensionEntry ? { version: extensionEntry.version || 'unknown', source: 'control-panel' } : null
+        if (!program) return { ...base, state: 'not-found', source: 'agent', extension, detail: `“${this.programName}” is not listed in the agent's current Programs and Features inventory`, installedCount: inventory.programs.length }
         return {
           ...base, state: 'ok', version: program.version || 'unknown', product: program.name,
           publisher: program.publisher, installLocation: program.installLocation,
+          extension,
           source: 'agent', stale: false, agentVersion: inventory.agentVersion,
           inventoryAt: inventory.generatedAt, durationMs: Date.now() - startedAt
         }

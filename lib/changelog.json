@@ -1,6 +1,21 @@
 {
   "entries": [
     {
+      "version": "3.2.0-beta.2",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Hyper.Commerce extension version on every checkout card",
+      "changes": {
+        "added": [
+          "Update Store App now reads the Hyper.Commerce extension version on every checkout and shows it as an “Ext v…” pill next to the Store Commerce version.",
+          "The agent reports the extension in its heartbeat: first from the extension's own Programs and Features entry, otherwise from the file version of the assemblies deployed to the Store Commerce Extensions folder."
+        ],
+        "improved": [
+          "Older agents without the heartbeat field still show the extension when its installer registered it in Programs and Features — the app matches the inventory list directly."
+        ]
+      }
+    },
+    {
       "version": "3.2.0-beta.1",
       "date": "2026-09-13",
       "channel": "beta",

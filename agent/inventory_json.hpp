@@ -8,6 +8,15 @@ struct InstalledProgram {
     std::wstring key, name, version, publisher, installLocation;
 };
 
+// The Store Commerce extension registers under names such as “Hyper.Commerce”
+// or “Hyper Commerce”. Matching on BOTH words skips the Store Commerce
+// product itself (contains “commerce” but never “hyper”). `lowerName` must
+// already be lower-cased.
+inline bool isHyperCommerceExtensionName(const std::wstring& lowerName) {
+    return lowerName.find(L"hyper") != std::wstring::npos &&
+        lowerName.find(L"commerce") != std::wstring::npos;
+}
+
 // Escape UTF-16 directly: no locale/codepage dependence, including Persian,
 // control characters, quotes, backslashes and supplementary Unicode pairs.
 inline void appendHex(std::string& out, std::uint32_t unit) {
@@ -34,12 +43,16 @@ inline std::string jsonString(const std::wstring& value) {
 inline std::string snapshotJson(const std::wstring& version, const std::wstring& machine,
     std::uint32_t pid, const std::wstring& instance, std::uint64_t sequence,
     const std::wstring& generatedAt, const std::vector<InstalledProgram>& programs,
-    const std::wstring& inventoryError = L"") {
+    const std::wstring& inventoryError = L"",
+    const std::wstring& extensionVersion = L"", const std::wstring& extensionSource = L"") {
     std::string out = "{\"protocolVersion\":1,\"agentVersion\":" + jsonString(version) +
         ",\"machineName\":" + jsonString(machine) + ",\"pid\":" + std::to_string(pid) +
         ",\"instanceId\":" + jsonString(instance) + ",\"sequence\":" + std::to_string(sequence) +
         ",\"generatedAt\":" + jsonString(generatedAt) + ",\"state\":\"running\",\"inventoryError\":" +
-        (inventoryError.empty() ? "null" : jsonString(inventoryError)) + ",\"programs\":[";
+        (inventoryError.empty() ? "null" : jsonString(inventoryError)) +
+        ",\"extensionVersion\":" + (extensionVersion.empty() ? "null" : jsonString(extensionVersion)) +
+        ",\"extensionSource\":" + (extensionSource.empty() ? "null" : jsonString(extensionSource)) +
+        ",\"programs\":[";
     bool first = true;
     for (const auto& program : programs) {
         if (!first) out += ',';

@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { listRemotePrograms, parseRegQuery, pickProgram } = require('../electron/services/registry.service')
+const { listRemotePrograms, parseRegQuery, pickProgram, pickHyperCommerceExtension } = require('../electron/services/registry.service')
 const { qualifyUser, SmbSessionManager } = require('../electron/services/smb.service')
 
 /* ------------------------------------------------ reg.exe output parsing */
@@ -42,6 +42,19 @@ test('parseRegQuery survives empty or junk input', () => {
 })
 
 /* ------------------------------------------------------- program picking */
+
+test('pickHyperCommerceExtension matches the extension and never the product', () => {
+  const rows = [
+    { name: 'Store Commerce', version: '10.0.24' },
+    { name: 'Hyper.Commerce', version: '1.0.45.0' },
+    { name: 'Hyper Commerce Helper', version: '2.0' },
+    { name: 'Microsoft Dynamics 365', version: '10.0' }
+  ]
+  assert.equal(pickHyperCommerceExtension(rows).name, 'Hyper.Commerce')
+  assert.equal(pickHyperCommerceExtension(rows).version, '1.0.45.0')
+  assert.equal(pickHyperCommerceExtension([{ name: 'Store Commerce', version: '1' }]), null)
+  assert.equal(pickHyperCommerceExtension([]), null)
+})
 
 test('pickProgram prefers the product over its longer-named companions', () => {
   const rows = parseRegQuery(SAMPLE)

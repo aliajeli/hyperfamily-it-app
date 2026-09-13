@@ -87,6 +87,58 @@ test('deployOne: first-time copy — backup skipped, hash verified, steps narrat
   assert.ok(events.some((e) => e.channel === 'store-update:progress' && e.checkoutId === 7))
 })
 
+test('checkOne surfaces the Hyper.Commerce extension reported by a modern agent', async () => {
+  const { serviceOptions } = deployFixture()
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    smb: { withHost: async (_host, _creds, task) => task() },
+    agent: {
+      inspect: async () => ({
+        running: true, agentVersion: '3.2.0-beta.2', generatedAt: 'now',
+        programs: [{ key: 'k', name: 'Store Commerce', version: '10.0.24', publisher: 'Microsoft', installLocation: 'C:\\' }],
+        extensionVersion: '1.0.45.0', extensionSource: 'file'
+      })
+    }
+  })
+  const result = await service.checkOne({ id: 1, name: 'Checkout 1', hostname: 'CO-01', ip: '10.0.0.1' })
+  assert.equal(result.state, 'ok')
+  assert.deepEqual(result.extension, { version: '1.0.45.0', source: 'file' })
+})
+
+test('checkOne falls back to Programs and Features for agents without the extension field', async () => {
+  const { serviceOptions } = deployFixture()
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    smb: { withHost: async (_host, _creds, task) => task() },
+    agent: {
+      inspect: async () => ({
+        running: true, agentVersion: '3.1.5', generatedAt: 'now',
+        programs: [
+          { key: 'k1', name: 'Store Commerce', version: '10.0.24', publisher: 'Microsoft', installLocation: 'C:\\' },
+          { key: 'k2', name: 'Hyper.Commerce', version: '1.0.41.7', publisher: 'HyperFamily', installLocation: 'C:\\Program Files\\...' }
+        ]
+      })
+    }
+  })
+  const result = await service.checkOne({ id: 2, name: 'Checkout 2', hostname: 'CO-02', ip: '10.0.0.2' })
+  assert.equal(result.state, 'ok')
+  assert.deepEqual(result.extension, { version: '1.0.41.7', source: 'control-panel' })
+})
+
+test('checkOne reports a missing extension as null', async () => {
+  const { serviceOptions } = deployFixture()
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    smb: { withHost: async (_host, _creds, task) => task() },
+    agent: {
+      inspect: async () => ({ running: true, agentVersion: '3.2.0-beta.2', generatedAt: 'now', programs: [{ key: 'k', name: 'Store Commerce', version: '10.0.24', publisher: 'Microsoft', installLocation: 'C:\\' }] })
+    }
+  })
+  const result = await service.checkOne({ id: 3, name: 'Checkout 3', hostname: 'CO-03', ip: '10.0.0.3' })
+  assert.equal(result.state, 'ok')
+  assert.equal(result.extension, null)
+})
+
 test('deployOne: a modern agent hashes the copy ON the checkout; only the digest crosses the link', async () => {
   const { source, serviceOptions } = deployFixture()
   const crypto = require('crypto')
