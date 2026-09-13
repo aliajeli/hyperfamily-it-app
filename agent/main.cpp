@@ -439,7 +439,7 @@ void writeFailureResult(const std::wstring& results, const std::wstring& id, con
     try {
         wchar_t message[512]{};
         std::swprintf(message, 512, L"Agent command failed with Windows error %lu", code);
-        writeAtomicFile(results, id + L".json", hf::commandResultJson(id, action, false, {}, L"", L"", -1, false, message, utcNow(), L));
+        writeAtomicFile(results, id + L".json", hf::commandResultJson(id, action, false, {}, L"", L"", -1, false, message, utcNow()));
     } catch (...) { /* an undeliverable failure answer must never stop the service */ }
 }
 /** Executes every pending command file; called once per second by the service loop. */
