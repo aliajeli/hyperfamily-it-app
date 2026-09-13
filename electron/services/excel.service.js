@@ -239,6 +239,69 @@ async function chooseImportPath() {
   return result.canceled ? null : result.filePaths[0]
 }
 
+// Column order mirrors BRANCH_HEADERS so rows can be filled positionally.
+const BRANCH_EXPORT_KEYS = [
+  'name', 'code', 'warehouse_code', 'link1', 'ip_link1', 'link2', 'ip_link2',
+  'manager_name', 'manager_tell', 'deputy_name', 'deputy_tell'
+]
+
+function cellText(value) { return value === null || value === undefined ? '' : value }
+
+/**
+ * Writes the current directory (branches + every device, including Switch
+ * port groups) into a workbook built by the exact same sheet builders as the
+ * import template, so the file imports back on any workstation running the
+ * same application with no manual editing.
+ */
+async function exportDirectory(database, outputPath = null, actor = 'Admin') {
+  const selectedPath = outputPath || await chooseSavePath(`HyperFamily-Directory_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  if (!selectedPath) return { canceled: true }
+  const filePath = path.extname(selectedPath).toLowerCase() === '.xlsx' ? selectedPath : `${selectedPath}.xlsx`
+
+  const branches = database.listBranches()
+  const codeById = new Map(branches.map((branch) => [branch.id, branch.code]))
+  const devices = database.listDevices()
+
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'HyperFamily Branch Monitor'
+  workbook.created = new Date()
+  workbook.modified = new Date()
+  workbook.properties.subject = 'Branch and type-specific equipment directory — importable by the same application'
+  createInstructionsSheet(workbook)
+
+  const branchSheet = createBranchesSheet(workbook)
+  for (const branch of branches) {
+    const row = {}
+    BRANCH_HEADERS.forEach((header, index) => { row[header] = cellText(branch[BRANCH_EXPORT_KEYS[index]]) })
+    branchSheet.addRow(row)
+  }
+
+  for (const type of DEVICE_TYPES) {
+    const sheet = createEquipmentSheet(workbook, type)
+    for (const device of devices.filter((item) => item.device_type === type)) {
+      const row = { 'Branch Code': codeById.get(device.branch_id) || '', Dashboard: device.is_dashboard_visible ? 'Show' : 'Hide' }
+      for (const [header, canonical] of DEVICE_SHEET_FIELDS[type]) row[header] = cellText(device[fieldMap[canonical]])
+      if (type === 'Switch') {
+        // Fill the port groups in order; the Number cell keeps the real port.
+        ;(device.switch_ports || []).forEach((port, index) => {
+          const group = index + 1
+          if (group > MAX_SWITCH_PORTS) return
+          row[`Port ${group} Number`] = port.port_number
+          row[`Port ${group} VLAN`] = cellText(port.vlan)
+          row[`Port ${group} Status`] = port.status || 'Up'
+          row[`Port ${group} IP`] = cellText(port.ip)
+          row[`Port ${group} Details`] = cellText(port.details)
+        })
+      }
+      sheet.addRow(row)
+    }
+  }
+
+  await workbook.xlsx.writeFile(filePath)
+  database.audit?.(actor, 'DIRECTORY_EXPORT', filePath, `${branches.length} branches, ${devices.length} devices exported`)
+  return { success: true, path: filePath, branches: branches.length, devices: devices.length }
+}
+
 async function createImportTemplate(database, outputPath = null, actor = 'Admin') {
   const selectedPath = outputPath || await chooseSavePath('HyperFamily-Import-Template.xlsx')
   if (!selectedPath) return { canceled: true }
@@ -564,5 +627,6 @@ module.exports = {
   createImportTemplate,
   parseImportWorkbook,
   importDirectory,
+  exportDirectory,
   exportInventory
 }
