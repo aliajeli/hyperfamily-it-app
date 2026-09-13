@@ -1,18 +1,6 @@
 {
   "entries": [
     {
-      "version": "3.2.2-beta.1",
-      "date": "2026-09-13",
-      "channel": "beta",
-      "title": "Import the directory from another workstation by IP",
-      "changes": {
-        "added": [
-          "The Import button on Branches & Devices is now a menu: Excel workbook, or From another workstation — enter the source machine's IP address and its branches and devices are read over the network and merged into this system with the same rules as the workbook import.",
-          "The source workstation's own application writes the snapshot (launched over WMI as the configured administrator account, so its encrypted database is opened by the only machine that can read it); the snapshot is fetched via the admin share and deleted right after the merge."
-        ]
-      }
-    },
-    {
       "version": "3.2.1-beta.1",
       "date": "2026-09-13",
       "channel": "beta",

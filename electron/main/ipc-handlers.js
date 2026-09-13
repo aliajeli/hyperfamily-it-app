@@ -11,7 +11,7 @@ function friendlyError(error) {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, directoryTransferService, getWindow }) {
+function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, getWindow }) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
@@ -100,16 +100,6 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   // device type, then imports it back. Both open a native file dialog.
   ipcMain.handle('directory:template', secure((event) => createImportTemplate(database, null, sessions.get(event.sender.id).username)))
   ipcMain.handle('directory:import', secure((event) => importDirectory(database, null, sessions.get(event.sender.id).username)))
-  // Import from another workstation by IP: the source machine's own app
-  // writes a snapshot over WMI, it is read back via the admin share and
-  // merged with the same rules as the workbook import.
-  ipcMain.handle('directory:import-from-host', secure(async (event, payload) => {
-    const username = sessions.get(event.sender.id).username
-    const result = await directoryTransferService.importFromHost(payload?.host, username)
-    database.audit(username, 'DIRECTORY_IMPORT_FROM_HOST', result.host,
-      `Branches +${result.branches_added}/~${result.branches_updated}, devices +${result.devices_added}/~${result.devices_updated}, switch ports ${result.switch_ports_imported}`)
-    return result
-  }))
   ipcMain.handle('remote:connect', secure(async (event, payload) => {
     const result = await remoteService.connect(payload, sessions.get(event.sender.id).username)
     // iLO and NVR open inside a themed application window rather than an

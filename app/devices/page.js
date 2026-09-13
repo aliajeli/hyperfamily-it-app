@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Building2, ChevronDown, FileDown, FileUp, Network, Plus, RefreshCw, Route, Server, Trash2, Warehouse } from 'lucide-react'
+import { Building2, FileDown, FileUp, Plus, RefreshCw, Route, Server, Trash2, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchForm from '@/components/devices/BranchForm'
@@ -10,7 +10,7 @@ import BranchList from '@/components/devices/BranchList'
 import DeviceForm from '@/components/devices/DeviceForm'
 import DeviceList from '@/components/devices/DeviceList'
 import DeviceTypePicker from '@/components/devices/DeviceTypePicker'
-import { Button, Card, Dialog, Input, Skeleton } from '@/components/ui'
+import { Button, Card, Dialog, Skeleton } from '@/components/ui'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { getApi } from '@/lib/api'
 
@@ -160,16 +160,6 @@ function DevicesPageInner() {
   }
 
   const [directoryBusy, setDirectoryBusy] = useState(null)
-  const [importMenuOpen, setImportMenuOpen] = useState(false)
-  const [networkImport, setNetworkImport] = useState({ open: false, host: '' })
-
-  const directorySummary = (result) => [
-    result.branches_added ? `${result.branches_added} branches added` : null,
-    result.branches_updated ? `${result.branches_updated} branches updated` : null,
-    result.devices_added ? `${result.devices_added} devices added` : null,
-    result.devices_updated ? `${result.devices_updated} devices updated` : null,
-    result.switch_ports_imported ? `${result.switch_ports_imported} switch ports` : null
-  ].filter(Boolean).join(' · ')
 
   const downloadTemplate = async () => {
     setDirectoryBusy('template')
@@ -189,28 +179,17 @@ function DevicesPageInner() {
     try {
       const result = await getApi().directory.import()
       if (result?.canceled) return
-      const summary = directorySummary(result)
+      const summary = [
+        result.branches_added ? `${result.branches_added} branches added` : null,
+        result.branches_updated ? `${result.branches_updated} branches updated` : null,
+        result.devices_added ? `${result.devices_added} devices added` : null,
+        result.devices_updated ? `${result.devices_updated} devices updated` : null,
+        result.switch_ports_imported ? `${result.switch_ports_imported} switch ports` : null
+      ].filter(Boolean).join(' · ')
       toast.success('Directory imported', { description: summary || 'The workbook contained no new rows.' })
       await load(selectedBranchId)
     } catch (error) {
       // Validation failures arrive as a multi-line list of offending rows.
-      toast.error('Import failed', { description: error.message, duration: 12000 })
-    } finally {
-      setDirectoryBusy(null)
-    }
-  }
-
-  const importFromHost = async () => {
-    const host = networkImport.host.trim()
-    if (!host) return
-    setDirectoryBusy('network')
-    try {
-      const result = await getApi().directory.importFromHost(host)
-      const summary = directorySummary(result)
-      toast.success(`Directory imported from ${result.host}`, { description: summary || 'The source workstation contained no new rows.' })
-      setNetworkImport({ open: false, host: '' })
-      await load(selectedBranchId)
-    } catch (error) {
       toast.error('Import failed', { description: error.message, duration: 12000 })
     } finally {
       setDirectoryBusy(null)
@@ -252,30 +231,9 @@ function DevicesPageInner() {
             <Button size="sm" variant="secondary" onClick={downloadTemplate} disabled={Boolean(directoryBusy)} title="Save a blank workbook with one sheet per device type">
               <FileDown size={14} className={directoryBusy === 'template' ? 'animate-pulse' : ''} />Template
             </Button>
-            <div className="relative">
-              <Button size="sm" variant="secondary" onClick={() => setImportMenuOpen((open) => !open)} disabled={Boolean(directoryBusy)} title="Import branches and devices">
-                <FileUp size={14} className={Boolean(directoryBusy) ? 'animate-pulse' : ''} />Import<ChevronDown size={12} />
-              </Button>
-              {importMenuOpen && (<>
-                <div className="fixed inset-0 z-40" onClick={() => setImportMenuOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface)/.97)] p-1 shadow-2xl backdrop-blur-xl">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-2xs font-semibold transition-colors hover:bg-[rgb(var(--border)/.55)]"
-                    onClick={() => { setImportMenuOpen(false); importDirectory() }}
-                  >
-                    <FileUp size={13} />Excel workbook…
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-2xs font-semibold transition-colors hover:bg-[rgb(var(--border)/.55)]"
-                    onClick={() => { setImportMenuOpen(false); setNetworkImport({ open: true, host: '' }) }}
-                  >
-                    <Network size={13} />From another workstation…
-                  </button>
-                </div>
-              </>)}
-            </div>
+            <Button size="sm" variant="secondary" onClick={importDirectory} disabled={Boolean(directoryBusy)} title="Import branches and devices from a filled-in template">
+              <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />Import
+            </Button>
             <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}><Plus size={14} />Add branch</Button>
             <Button
               size="sm"
@@ -376,40 +334,6 @@ function DevicesPageInner() {
               saving={saving}
             />
           ) : null}
-        </Dialog>
-
-        <Dialog
-          open={networkImport.open}
-          onOpenChange={(open) => { if (!open && directoryBusy !== 'network') setNetworkImport((prev) => ({ ...prev, open: false })) }}
-          title="Import from another workstation"
-          description="Reads the branches and devices directory from another workstation over the network and merges it into this system."
-          className="max-w-md"
-        >
-          <form
-            onSubmit={(event) => { event.preventDefault(); importFromHost() }}
-            className="space-y-3"
-          >
-            <label className="block text-2xs font-bold text-[rgb(var(--muted))]">
-              Source workstation IP address
-              <Input
-                value={networkImport.host}
-                onChange={(event) => setNetworkImport((prev) => ({ ...prev, host: event.target.value }))}
-                placeholder="192.168.1.120"
-                inputMode="url"
-                autoFocus
-                className="mt-1"
-              />
-            </label>
-            <p className="text-2xs text-[rgb(var(--muted))]">
-              The source workstation must run HyperFamily Branch Monitor 3.2.2 or newer and be reachable over SMB. The connection uses the Target access credentials from Settings.
-            </p>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" size="sm" variant="secondary" onClick={() => setNetworkImport((prev) => ({ ...prev, open: false }))} disabled={directoryBusy === 'network'}>Cancel</Button>
-              <Button type="submit" size="sm" disabled={directoryBusy === 'network' || !networkImport.host.trim()}>
-                <Network size={14} className={directoryBusy === 'network' ? 'animate-pulse' : ''} />Import
-              </Button>
-            </div>
-          </form>
         </Dialog>
       </div>
     </AppShell>

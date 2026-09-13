@@ -42,8 +42,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
   },
   directory: {
     template: () => invoke('directory:template'),
-    import: () => invoke('directory:import'),
-    importFromHost: (host) => invoke('directory:import-from-host', { host })
+    import: () => invoke('directory:import')
   },
   remote: {
     connect: (payload) => invoke('remote:connect', payload),
