@@ -259,7 +259,7 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
     return summary
   }))
   // Update Store Commerce: the guided install pipeline (close → verify →
-  // installer /install → version) driven through the checkout's agent.
+  // installer install → version) driven through the checkout's agent.
   ipcMain.handle('store-update:install-one', secure(async (event, payload) => {
     const result = await storeInstallService.installOne(payload?.checkout || {}, {
       destinationPath: String(payload?.destinationPath || ''),
@@ -286,7 +286,7 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
       sessions.get(event.sender.id).username,
       'STORE_INSTALL_ALL',
       `${summary.ok}/${summary.total} checkout(s) updated`,
-      `Store Commerce installer /install (${summary.durationMs} ms)`
+      `Store Commerce installer install (${summary.durationMs} ms)`
     )
     return summary
   }))
