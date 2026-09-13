@@ -272,36 +272,45 @@ export default function AboutPage() {
         <div className="grid gap-2 lg:grid-cols-[1.05fr_.95fr]">
           <Card aria-label="Product overview" className="relative flex h-full flex-col overflow-hidden border-[rgb(var(--primary)/.25)]">
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.10)] via-transparent to-[rgb(var(--primary)/.04)]" />
-            <CardContent className="relative flex h-full flex-col justify-center p-4">
+            <CardContent className="relative flex h-full flex-col p-4">
               <div className="flex items-center gap-3">
-                <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-[rgb(var(--primary)/.18)] bg-[rgb(var(--surface)/.75)] shadow-sm">
-                  <BrandMark className="h-12 w-12" symbol />
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-[rgb(var(--primary)/.18)] bg-[rgb(var(--surface)/.75)] shadow-sm">
+                  <BrandMark className="h-10 w-10" symbol />
                 </div>
                 <div className="min-w-0">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[rgb(var(--primary))]">HyperFamily Stores · IT Operations</p>
+                  <p className="mb-0.5 text-xs font-bold uppercase tracking-[.18em] text-[rgb(var(--primary))]">HyperFamily Stores · IT Operations</p>
                   <h2 className="text-lg font-bold leading-tight tracking-tight">{APP_NAME}</h2>
-                  <p className="mt-1.5 text-2xs leading-relaxed text-[rgb(var(--muted))]">Branch connectivity, inventory and remote support — together in one Windows workspace.</p>
+                  <p className="mt-1 text-2xs leading-relaxed text-[rgb(var(--muted))]">Branch connectivity, inventory and remote support — together in one Windows workspace.</p>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[rgb(var(--primary)/.15)] pt-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">{info.version.includes('-') ? 'Preview release' : 'Stable release'}</p>
-                  <p className="mt-0.5 font-mono text-sm font-bold text-[rgb(var(--primary))]">v{info.version}</p>
-                </div>
-                <div className="space-y-1 text-xs text-[rgb(var(--muted))]">
-                  <span className="flex items-center gap-1.5"><HardDrive size={12} />{info.platform}</span>
-                  <span className="flex items-center gap-1.5"><Code2 size={12} />Ali Ajeli Lahiji</span>
-                </div>
+              {/* Four stat tiles stretch to fill the whole card height, so the
+                  card never shows dead space next to the taller update card. */}
+              <div className="mt-3 grid flex-1 grid-cols-2 gap-1.5">
+                {[
+                  { icon: Rocket, label: info.version.includes('-') ? 'Preview release' : 'Stable release', value: `v${info.version}`, mono: true, accent: true },
+                  { icon: HardDrive, label: 'Platform', value: info.platform },
+                  { icon: CircleDot, label: 'Update channel', value: channel === 'beta' ? 'Beta' : 'Main' },
+                  { icon: Code2, label: 'Developer', value: 'Ali Ajeli Lahiji' }
+                ].map(({ icon: Icon, label, value, mono, accent }) => (
+                  <div key={label} className="flex flex-col justify-between gap-1.5 rounded-lg border border-[rgb(var(--primary)/.12)] bg-[rgb(var(--surface)/.55)] px-2.5 py-2">
+                    <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">
+                      <Icon size={11} className={accent ? 'text-[rgb(var(--primary))]' : ''} />
+                      {label}
+                    </span>
+                    <span className={`truncate text-sm font-bold ${mono ? 'font-mono' : ''} ${accent ? 'text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]'}`} title={value}>{value}</span>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="flex h-full flex-col">
-            <CardHeader className="p-2.5 pb-1">
+          <Card aria-label="Application updates" className="relative flex h-full flex-col overflow-hidden border-[rgb(var(--primary)/.25)]">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.10)] via-transparent to-[rgb(var(--primary)/.04)]" />
+            <CardHeader className="relative p-2.5 pb-1">
               <CardTitle className="flex items-center gap-2 text-sm"><Rocket size={15} />Application updates</CardTitle>
               <CardDescription className="mt-0 text-xs leading-snug">Updates arrive as a small differential download and install themselves.</CardDescription>
             </CardHeader>
-            <CardContent className="flex h-full flex-col p-2.5 pt-1">
+            <CardContent className="relative flex h-full flex-col p-2.5 pt-1">
               {/* The status box reserves the height of both its lines from the
                   start, and the "Latest release" slot is always rendered. That
                   is what keeps the card exactly the same height before a check,
