@@ -473,7 +473,7 @@ export default function StoreUpdatePage() {
         )}
 
         {loading ? (
-          <div className="space-y-3"><Skeleton className="h-9 w-64" /><div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-[104px]" />)}</div></div>
+          <div className="space-y-3"><Skeleton className="h-9 w-64" /><div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <Skeleton key={i} className="h-[72px]" />)}</div></div>
         ) : allCheckouts.length === 0 ? (
           <EmptyState
             icon={<ShoppingCart size={26} />}
@@ -489,7 +489,7 @@ export default function StoreUpdatePage() {
                 <span className="rounded-full bg-[rgb(var(--border)/.6)] px-2 py-0.5 text-xs font-bold text-[rgb(var(--muted))]">{group.branch.code}</span>
                 <span className="text-xs text-[rgb(var(--muted))]">{group.checkouts.length} checkout{group.checkouts.length !== 1 ? 's' : ''}</span>
               </header>
-              <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
                 <AnimatePresence initial={false}>
                   {group.checkouts.map((checkout) => (
                     <CheckoutCard

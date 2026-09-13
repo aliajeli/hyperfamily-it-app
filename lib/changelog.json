@@ -1,6 +1,21 @@
 {
   "entries": [
     {
+      "version": "3.1.6-beta.1",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Compact checkout cards — at least four per row",
+      "changes": {
+        "improved": [
+          "Update Store App checkout cards are redesigned as compact two-row tiles: status dot, name and address on the top row; version pill and icon actions below. At least four cards now fit on every line instead of three.",
+          "Every card action stays one click away — inspect, recheck, Import Agent, Deploy and Update are icon buttons with explanatory tooltips."
+        ],
+        "fixed": [
+          "Remaining /install mentions in the Update button tooltip and service comments were replaced with the real install argument."
+        ]
+      }
+    },
+    {
       "version": "3.1.5-beta.1",
       "date": "2026-09-13",
       "channel": "beta",
