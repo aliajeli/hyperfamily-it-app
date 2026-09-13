@@ -5,6 +5,7 @@
 #include <shellapi.h>
 #include <objbase.h>
 #include <tlhelp32.h>
+#include <winver.h>
 #include <algorithm>
 #include <cwchar>
 #include <cwctype>
@@ -285,6 +286,99 @@ std::wstring storeCommerceVersion() {
     }
     return L"";
 }
+// Where the Store Commerce extension lands when Hyper.StoreCommerce.Installer.exe
+// runs its install action; used for the file-version fallback when the
+// extension did not register itself in Programs and Features.
+constexpr wchar_t extensionDirectory[] = L"C:\\Program Files\\Microsoft Dynamics 365\\10.0\\Store Commerce\\Extensions\\Hyper.Commerce";
+
+/** VS_FIXEDFILEINFO file version of one deployed assembly, e.g. "1.0.45.0"; empty when the file carries no version resource. */
+std::wstring assemblyFileVersion(const std::wstring& path) {
+    DWORD handle = 0;
+    const DWORD size = GetFileVersionInfoSizeW(path.c_str(), &handle);
+    if (!size) return L"";
+    std::vector<BYTE> buffer(size);
+    if (!GetFileVersionInfoW(path.c_str(), handle, size, buffer.data())) return L"";
+    VS_FIXEDFILEINFO* info = nullptr;
+    UINT length = 0;
+    if (!VerQueryValueW(buffer.data(), L"\\", reinterpret_cast<void**>(&info), &length) || !info) return L"";
+    if (!info->dwFileVersionMS && !info->dwFileVersionLS) return L"";
+    wchar_t text[64]{};
+    std::swprintf(text, 64, L"%u.%u.%u.%u", HIWORD(info->dwFileVersionMS), LOWORD(info->dwFileVersionMS),
+        HIWORD(info->dwFileVersionLS), LOWORD(info->dwFileVersionLS));
+    return text;
+}
+
+struct ExtensionVersion { std::wstring name, version, source; };
+
+std::wstring utf8ToWide(const std::string& text) {
+    if (text.empty()) return L"";
+    const int length = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0);
+    if (length <= 0) return L"";
+    std::wstring out(static_cast<std::size_t>(length), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), out.data(), length);
+    return out;
+}
+
+std::string readWholeFile(const std::wstring& path, std::size_t cap) {
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return "";
+    std::string out;
+    char buffer[8192];
+    DWORD read = 0;
+    while (ReadFile(file, buffer, sizeof buffer, &read, nullptr) && read > 0) {
+        out.append(buffer, read);
+        if (out.size() > cap) { out.clear(); break; }
+    }
+    CloseHandle(file);
+    return out;
+}
+
+/**
+ * Hyper.Commerce extension version on this checkout. First choice is the
+ * extension's own Programs and Features entry (the number Store Commerce
+ * shows); when the installer registered nothing, the file version of the
+ * deployed assemblies answers instead.
+ */
+ExtensionVersion hyperCommerceExtension(const std::vector<hf::InstalledProgram>& programs) {
+    // 1) The POS manifest is what Store Commerce itself reads — the exact name
+    //    and version shown in its extensions UI.
+    const std::string manifest = readWholeFile(std::wstring(extensionDirectory) + L"\\POS\\manifest.json", 1024 * 1024);
+    if (!manifest.empty()) {
+        const std::size_t bom = manifest.compare(0, 3, "\xef\xbb\xbf") == 0 ? 3 : 0;
+        const std::string body = manifest.substr(bom);
+        std::string name, version;
+        if (hf::jsonStringValue(body, "version", version) && !version.empty()) {
+            if (!hf::jsonStringValue(body, "name", name) || name.empty()) name = "Hyper.Commerce";
+            return { utf8ToWide(name), utf8ToWide(version), L"manifest" };
+        }
+    }
+    // 2) The extension's own Programs and Features entry.
+    for (const auto& program : programs)
+        if (hf::isHyperCommerceExtensionName(hf::toLower(program.name)) && !program.version.empty())
+            return { program.name, program.version, L"control-panel" };
+    std::wstring preferred, fallback;
+    const std::wstring pattern = std::wstring(extensionDirectory) + L"\\*";
+    WIN32_FIND_DATAW data{};
+    HANDLE find = FindFirstFileW(pattern.c_str(), &data);
+    if (find == INVALID_HANDLE_VALUE) return {};
+    do {
+        if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        const std::wstring name = hf::toLower(data.cFileName);
+        const bool module = name.size() > 4 &&
+            (name.compare(name.size() - 4, 4, L".dll") == 0 || name.compare(name.size() - 4, 4, L".exe") == 0);
+        if (!module) continue;
+        const std::wstring version = assemblyFileVersion(std::wstring(extensionDirectory) + L"\\" + data.cFileName);
+        if (version.empty()) continue;
+        if (preferred.empty() && name.compare(0, 5, L"hyper") == 0) preferred = version;
+        if (fallback.empty()) fallback = version;
+    } while (FindNextFileW(find, &data));
+    FindClose(find);
+    const std::wstring& chosen = preferred.empty() ? fallback : preferred;
+    if (chosen.empty()) return {};
+    return { L"Hyper.Commerce", chosen, L"file" };
+}
+
 struct CloseWindowsContext { const std::vector<hf::AgentProcess>* processes; };
 BOOL CALLBACK postCloseToWindows(HWND window, LPARAM parameter) {
     const auto& context = *reinterpret_cast<const CloseWindowsContext*>(parameter);
@@ -577,7 +671,8 @@ void WINAPI serviceMain(DWORD, LPWSTR*) {
                     try { programs = readPrograms(service.stopEvent); }
                     catch (const WinError&) { error = L"The agent could not read the local uninstall registry. Check service permissions."; }
                     checkStop(service.stopEvent);
-                    auto json = hf::snapshotJson(hf::agentVersion, machine, GetCurrentProcessId(), instance, ++sequence, utcNow(), programs, error);
+                    const auto extension = error.empty() ? hyperCommerceExtension(programs) : ExtensionVersion{};
+                    auto json = hf::snapshotJson(hf::agentVersion, machine, GetCurrentProcessId(), instance, ++sequence, utcNow(), programs, error, extension.name, extension.version, extension.source);
                     if (json.size() > maxSnapshotBytes) json = hf::snapshotJson(hf::agentVersion, machine, GetCurrentProcessId(), instance, sequence, utcNow(), {}, L"The local inventory exceeds the supported size limit.");
                     writeSnapshot(directory, json);
                 }

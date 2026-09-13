@@ -1,6 +1,45 @@
 {
   "entries": [
     {
+      "version": "3.2.2",
+      "date": "2026-09-13",
+      "channel": "main",
+      "title": "Hyper.Commerce extension name and version on every checkout card",
+      "changes": {
+        "added": [
+          "Each checkout card now shows the Hyper.Commerce extension name and version under the Store Commerce version, read from the extension's POS/manifest.json — the exact values Store Commerce displays.",
+          "Fallbacks keep older checkouts covered: Programs and Features first, then the file version of the deployed extension assemblies."
+        ]
+      }
+    },
+    {
+      "version": "3.2.1-beta.1",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Hyper.Commerce name and version read from its POS manifest",
+      "changes": {
+        "improved": [
+          "The extension line on each checkout card now shows the exact name and version from the extension's own POS/manifest.json (the same values Store Commerce displays), written under the Store Commerce version.",
+          "Source order for the extension: POS manifest first, then Programs and Features, then the file version of the deployed assemblies — the card states which source answered."
+        ]
+      }
+    },
+    {
+      "version": "3.2.0-beta.2",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Hyper.Commerce extension version on every checkout card",
+      "changes": {
+        "added": [
+          "Update Store App now reads the Hyper.Commerce extension version on every checkout and shows it as an “Ext v…” pill next to the Store Commerce version.",
+          "The agent reports the extension in its heartbeat: first from the extension's own Programs and Features entry, otherwise from the file version of the assemblies deployed to the Store Commerce Extensions folder."
+        ],
+        "improved": [
+          "Older agents without the heartbeat field still show the extension when its installer registered it in Programs and Features — the app matches the inventory list directly."
+        ]
+      }
+    },
+    {
       "version": "3.2.0-beta.1",
       "date": "2026-09-13",
       "channel": "beta",

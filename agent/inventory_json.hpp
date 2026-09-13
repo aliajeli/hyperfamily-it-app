@@ -8,6 +8,50 @@ struct InstalledProgram {
     std::wstring key, name, version, publisher, installLocation;
 };
 
+// Minimal JSON string-field extractor for the extension's POS manifest:
+// finds "key" : "value" with arbitrary whitespace and returns the unescaped
+// value. Deliberately tiny — the manifest only carries plain string fields.
+inline bool jsonStringValue(const std::string& json, const char* key, std::string& out) {
+    const std::string needle = std::string("\"") + key + "\"";
+    std::size_t at = json.find(needle);
+    if (at == std::string::npos) return false;
+    at += needle.size();
+    const auto isSpace = [](char ch) { return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n'; };
+    while (at < json.size() && isSpace(json[at])) ++at;
+    if (at >= json.size() || json[at] != ':') return false;
+    ++at;
+    while (at < json.size() && isSpace(json[at])) ++at;
+    if (at >= json.size() || json[at] != '"') return false;
+    ++at;
+    out.clear();
+    for (; at < json.size(); ++at) {
+        const char ch = json[at];
+        if (ch == '\\' && at + 1 < json.size()) {
+            const char next = json[++at];
+            switch (next) {
+                case '"': out += '"'; break;
+                case '\\': out += '\\'; break;
+                case '/': out += '/'; break;
+                case 'n': out += '\n'; break;
+                case 't': out += '\t'; break;
+                case 'r': out += '\r'; break;
+                default: out += next; break;
+            }
+        } else if (ch == '"') return true;
+        else out += ch;
+    }
+    return false;
+}
+
+// The Store Commerce extension registers under names such as “Hyper.Commerce”
+// or “Hyper Commerce”. Matching on BOTH words skips the Store Commerce
+// product itself (contains “commerce” but never “hyper”). `lowerName` must
+// already be lower-cased.
+inline bool isHyperCommerceExtensionName(const std::wstring& lowerName) {
+    return lowerName.find(L"hyper") != std::wstring::npos &&
+        lowerName.find(L"commerce") != std::wstring::npos;
+}
+
 // Escape UTF-16 directly: no locale/codepage dependence, including Persian,
 // control characters, quotes, backslashes and supplementary Unicode pairs.
 inline void appendHex(std::string& out, std::uint32_t unit) {
@@ -34,12 +78,18 @@ inline std::string jsonString(const std::wstring& value) {
 inline std::string snapshotJson(const std::wstring& version, const std::wstring& machine,
     std::uint32_t pid, const std::wstring& instance, std::uint64_t sequence,
     const std::wstring& generatedAt, const std::vector<InstalledProgram>& programs,
-    const std::wstring& inventoryError = L"") {
+    const std::wstring& inventoryError = L"",
+    const std::wstring& extensionName = L"", const std::wstring& extensionVersion = L"",
+    const std::wstring& extensionSource = L"") {
     std::string out = "{\"protocolVersion\":1,\"agentVersion\":" + jsonString(version) +
         ",\"machineName\":" + jsonString(machine) + ",\"pid\":" + std::to_string(pid) +
         ",\"instanceId\":" + jsonString(instance) + ",\"sequence\":" + std::to_string(sequence) +
         ",\"generatedAt\":" + jsonString(generatedAt) + ",\"state\":\"running\",\"inventoryError\":" +
-        (inventoryError.empty() ? "null" : jsonString(inventoryError)) + ",\"programs\":[";
+        (inventoryError.empty() ? "null" : jsonString(inventoryError)) +
+        ",\"extensionName\":" + (extensionName.empty() ? "null" : jsonString(extensionName)) +
+        ",\"extensionVersion\":" + (extensionVersion.empty() ? "null" : jsonString(extensionVersion)) +
+        ",\"extensionSource\":" + (extensionSource.empty() ? "null" : jsonString(extensionSource)) +
+        ",\"programs\":[";
     bool first = true;
     for (const auto& program : programs) {
         if (!first) out += ',';

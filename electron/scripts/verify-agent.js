@@ -53,7 +53,7 @@ function inspectPe(buffer) {
     // Only inbox Windows DLLs; no .NET or redistributable C++ runtime DLLs.
     // bcrypt.dll is the built-in CNG crypto API (Windows Vista and later) used
     // for hashing deploy payloads on the checkout.
-    if (!/^(kernel32|kernelbase|advapi32|ole32|shell32|user32|msvcrt|ntdll|rpcrt4|sechost|bcrypt)\.dll$/.test(name) && !/^api-ms-win-(core|security|service|eventing)-[a-z0-9-]+\.dll$/.test(name)) {
+    if (!/^(kernel32|kernelbase|advapi32|ole32|shell32|user32|msvcrt|ntdll|rpcrt4|sechost|bcrypt|version)\.dll$/.test(name) && !/^api-ms-win-(core|security|service|eventing)-[a-z0-9-]+\.dll$/.test(name)) {
       throw new Error(`Agent depends on an unexpected external DLL: ${name}`)
     }
     imports.push(name)

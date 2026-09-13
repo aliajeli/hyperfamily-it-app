@@ -193,4 +193,18 @@ async function readHiveOverShare(host, options = {}) {
   }
 }
 
-module.exports = { listRemotePrograms, readHiveOverShare, parseRegQuery, pickProgram, UNINSTALL_KEYS }
+/**
+ * The Hyper.Commerce extension entry, when its installer registered it in
+ * Programs and Features. Matching on both words skips the Store Commerce
+ * product itself, which contains "commerce" but never "hyper".
+ */
+function pickHyperCommerceExtension(programs) {
+  const matches = (programs || []).filter((program) => {
+    const name = String(program?.name || '').toLowerCase()
+    return name.includes('hyper') && name.includes('commerce')
+  })
+  if (!matches.length) return null
+  return matches.sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name))[0]
+}
+
+module.exports = { listRemotePrograms, readHiveOverShare, parseRegQuery, pickProgram, pickHyperCommerceExtension, UNINSTALL_KEYS }
