@@ -57,7 +57,7 @@ test('native EXE is small, standalone, and reads Unicode plus both registry view
   }
 })
 
-test('Windows EXE: self-test, real LocalService install, heartbeat, hash skip and stop detection', { skip: !enabled, timeout: 180000 }, async () => {
+test('Windows EXE: self-test, real LocalSystem install, heartbeat, hash skip and stop detection', { skip: !enabled, timeout: 180000 }, async () => {
   const source = path.join(__dirname, '../agent/build', AGENT_EXE)
   await promisify(execFile)(source, ['--self-test'], { timeout: 30000, maxBuffer: 16 * 1024 * 1024 })
   const control = new AgentControl()
@@ -94,7 +94,7 @@ test('Windows EXE: self-test, real LocalService install, heartbeat, hash skip an
     assert.ok(next.sequence > data.sequence, 'Native service must keep publishing heartbeats')
     assert.equal(next.instanceId, data.instanceId)
     const qc = await control.sc('localhost', ['qc', 'HyperFamilyStoreAgent'])
-    assert.match(qc.stdout, /LocalService/i)
+    assert.match(qc.stdout, /LocalSystem/i)
     assert.match(qc.stdout, /:\s*2\s+AUTO_START/i)
     const again = await agent.importOne({ id: 1, hostname: 'localhost' })
     assert.equal(again.ok, true, JSON.stringify(again))

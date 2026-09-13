@@ -1,7 +1,7 @@
 {
   "name": "hyperfamily-credential-recovery",
   "productName": "HyperFamily Credential Recovery",
-  "version": "3.1.4-beta.1",
+  "version": "3.1.5-beta.1",
   "private": true,
   "description": "Displays the HyperFamily Branch Monitor administrator credentials saved on this machine.",
   "author": "Ali Ajeli Lahiji",

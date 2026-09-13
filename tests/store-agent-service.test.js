@@ -265,14 +265,15 @@ test('invalid host, missing bundled agent and service-name collision are safe fa
   assert.match((await f.service.importOne(checkout)).error, /bundled agent EXE is missing/)
 })
 
-test('service configuration uses fixed binary, automatic startup and least-privilege account', async () => {
+test('service configuration uses fixed binary, automatic startup and the LocalSystem account', async () => {
   const calls = []
   const control = new AgentControl({ sc: async (host, args) => { calls.push({ host, args }); return { code: 0, stdout: '' } } })
   await control.configure('172.18.168.33', false)
   const command = calls[0].args
   assert.equal(command[0], 'create')
   assert.equal(command[command.indexOf('start=') + 1], 'auto')
-  assert.equal(command[command.indexOf('obj=') + 1], 'NT AUTHORITY\\LocalService')
+  assert.equal(command[command.indexOf('obj=') + 1], 'LocalSystem')
+  assert.ok(!command.includes('password='), 'LocalSystem needs no stored password')
   assert.equal(command[command.indexOf('binPath=') + 1], '"C:\\Agent\\HyperFamilyStoreAgent.exe"')
   assert.ok(calls.some((row) => row.args[0] === 'failure'))
 })
@@ -293,11 +294,14 @@ test('Windows PowerShell query does not assume .NET Core ServiceController.Start
 test('agent ACL setup uses framework APIs without PSModulePath-dependent Set-Acl autoload', async () => {
   const control = new AgentControl({ runPs: async (script) => {
     assert.doesNotMatch(script, /Set-Acl/)
-    assert.match(script, /DirectoryInfo\(\$entry.Path\)\)\.SetAccessControl/)
+    assert.match(script, /DirectoryInfo\(\$path\)\)\.SetAccessControl/)
     assert.match(script, /FileInfo\(\$exe\)\)\.SetAccessControl/)
-    assert.match(script, /S-1-5-19/)
-    assert.match(script, /ReadAndExecute/)
-    assert.match(script, /Modify/)
+    // LocalService (S-1-5-19) must have no access: the SYSTEM agent would
+    // otherwise execute command files any LocalService process could plant.
+    assert.doesNotMatch(script, /S-1-5-19/)
+    assert.match(script, /S-1-5-18/)
+    assert.match(script, /S-1-5-32-544/)
+    assert.match(script, /FullControl/)
   } })
   await control.secureDirectories('CO-01')
 })

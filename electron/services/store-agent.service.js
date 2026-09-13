@@ -382,7 +382,7 @@ class StoreAgentService {
       }
       this.throwIfCancelled(signal, `Import to ${host}`)
       record('service', 'Configuring the automatic Windows service', null, 'running')
-      // Stop even on a matching binary to apply the least-privilege account and
+      // Stop even on a matching binary to apply the service account and
       // automatic startup consistently, without copying the EXE again.
       if (previous.exists) { record('service', `Stopping the verified agent service on ${host}`, null, 'running'); serviceTouched = true; await this.control.stop(host) }
       // Remove old data so a successful restart cannot pass on an old heartbeat.
@@ -396,7 +396,7 @@ class StoreAgentService {
       // Mark before create: configuration can fail AFTER create succeeded.
       createdService = !previous.exists
       await this.control.configure(host, previous.exists)
-      record('service', 'Automatic startup, LocalService account and failure recovery configured', null, 'running')
+      record('service', 'Automatic startup, LocalSystem account and failure recovery configured', null, 'running')
       this.throwIfCancelled(signal, `Import to ${host}`)
       await this.control.start(host)
       record('service', 'Agent service started')

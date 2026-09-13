@@ -1,6 +1,22 @@
 {
   "entries": [
     {
+      "version": "3.1.5-beta.1",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Checkout agent now runs as LocalSystem: Store Commerce closes and installs succeed",
+      "changes": {
+        "fixed": [
+          "Open Store Commerce programs can now be closed on the checkout: the agent service runs as LocalSystem instead of LocalService, which had no right to terminate processes of the signed-in user.",
+          "The Store Commerce installer no longer fails with “Access to the path 'extensions.config' is denied”: as LocalSystem it can write to C:\\Program Files like a normal elevated installation.",
+          "Upgrading is automatic — re-running Import Agent reconfigures the existing service account even when the agent EXE itself is unchanged."
+        ],
+        "improved": [
+          "The agent directories are now locked to SYSTEM and local Administrators only; LocalService can no longer plant command files that the agent would execute."
+        ]
+      }
+    },
+    {
       "version": "3.1.4-beta.1",
       "date": "2026-09-13",
       "channel": "beta",
