@@ -18,6 +18,7 @@ const { TerminalService } = require('../services/terminal.service')
 const { UpdateService } = require('../services/update.service')
 const { StoreUpdateService } = require('../services/store-update.service')
 const { StoreInstallService } = require('../services/store-install.service')
+const { DirectoryTransferService } = require('../services/directory-transfer.service')
 const { SmbSessionManager } = require('../services/smb.service')
 let storeUpdateServiceRef = null
 const { registerIpcHandlers } = require('./ipc-handlers')
@@ -161,7 +162,15 @@ else {
         try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
       }
     })
-    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, getWindow: () => mainWindow })
+    // Directory import from another workstation by IP (reads per call, so a
+    // Settings change applies without a restart).
+    const directoryTransferService = new DirectoryTransferService({
+      database,
+      getCredentials: () => {
+        try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
+      }
+    })
+    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, directoryTransferService, getWindow: () => mainWindow })
     registerDeviceWebviewHandlers(ipcMain)
     createWindow()
     pingMonitor = new PingMonitor(database, sendEvent)
