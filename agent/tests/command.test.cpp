@@ -47,6 +47,11 @@ int main() {
         expect(settled.find("line\\\"1\\\\\\u000a") != std::string::npos, "output is JSON-escaped");
         expect(settled.find("\"error\":\"Installer failed\"") != std::string::npos, "errors are reported");
 
+        const auto hashed = hf::commandResultJson(L"x", L"sha256", true, {}, L"", L"", -1, false, L"", L"now", L"ba7816");
+        expect(hashed.find("\"sha256\":\"ba7816\"") != std::string::npos, "a computed hash is quoted");
+        const auto noHash = hf::commandResultJson(L"x", L"status", true, {}, L"", L"", -1, false, L"", L"now");
+        expect(noHash.find("\"sha256\":null") != std::string::npos, "an absent hash stays null");
+
         std::cout << "Native agent command protocol tests passed\n";
         return 0;
     } catch (const std::exception& error) {

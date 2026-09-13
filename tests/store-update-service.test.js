@@ -87,6 +87,52 @@ test('deployOne: first-time copy — backup skipped, hash verified, steps narrat
   assert.ok(events.some((e) => e.channel === 'store-update:progress' && e.checkoutId === 7))
 })
 
+test('deployOne: a modern agent hashes the copy ON the checkout; only the digest crosses the link', async () => {
+  const { source, serviceOptions } = deployFixture()
+  const crypto = require('crypto')
+  const expected = crypto.createHash('sha256').update('new installer payload').digest('hex')
+  const asked = []
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    agent: { inspect: async () => ({ running: true, agentVersion: '3.1.4-beta.1' }) },
+    commands: { sendCommand: async (_host, command) => { asked.push(command); return { sha256: expected } } }
+  })
+  const result = await service.deployOne({ id: 9, name: 'Checkout 9', hostname: 'CO-09' }, { source, destinationPath: 'C:\\Store Commerce', runId: 't-hash' })
+  assert.equal(result.ok, true)
+  assert.equal(asked.length, 1, 'exactly one sha256 command')
+  assert.equal(asked[0].action, 'sha256')
+  assert.equal(asked[0].path, 'C:\\Store Commerce\\StoreCommerce-Update.exe', 'the checkout-local path is hashed')
+  const verify = result.steps.filter((entry) => entry.step === 'verify' && entry.status === 'done').at(-1)
+  assert.match(verify.detail, /computed by the agent on the checkout/)
+})
+
+test('deployOne: a checkout without the command agent falls back to the read-back hash', async () => {
+  const { source, serviceOptions } = deployFixture()
+  let commandsUsed = 0
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    agent: { inspect: async () => ({ running: true, agentVersion: '3.1.2' }) }, // older than the hash command
+    commands: { sendCommand: async () => { commandsUsed += 1; return { sha256: 'deadbeef' } } }
+  })
+  const result = await service.deployOne({ id: 10, name: 'Checkout 10', hostname: 'CO-10' }, { source, destinationPath: 'C:\\Store Commerce', runId: 't-fallback' })
+  assert.equal(result.ok, true)
+  assert.equal(commandsUsed, 0, 'no command may be sent to an old agent')
+  const verify = result.steps.filter((entry) => entry.step === 'verify' && entry.status === 'done').at(-1)
+  assert.match(verify.detail, /the copy is intact/)
+})
+
+test('deployOne: an agent hash that disagrees with the source fails verification', async () => {
+  const { source, serviceOptions } = deployFixture()
+  const service = new StoreUpdateService(null, {
+    ...serviceOptions,
+    agent: { inspect: async () => ({ running: true, agentVersion: '3.1.4-beta.1' }) },
+    commands: { sendCommand: async () => ({ sha256: '0'.repeat(64) }) }
+  })
+  const result = await service.deployOne({ id: 11, name: 'Checkout 11', hostname: 'CO-11' }, { source, destinationPath: 'C:\\Store Commerce', runId: 't-mismatch' })
+  assert.equal(result.ok, false)
+  assert.match(result.error, /SHA-256 mismatch/)
+})
+
 test('deployOne: existing target is renamed to the Jalali-dated backup first', async () => {
   const { source, destBase, serviceOptions } = deployFixture()
   const machineDir = path.join(destBase, 'CO-02', 'Store Commerce')

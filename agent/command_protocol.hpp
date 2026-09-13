@@ -77,7 +77,7 @@ inline bool isStoreCommerceProcess(const std::wstring& imageName) {
 inline std::string commandResultJson(const std::wstring& id, const std::wstring& action, bool ok,
     const std::vector<AgentProcess>& processes, const std::wstring& version,
     const std::wstring& output, long exitCode, bool timedOut, const std::wstring& error,
-    const std::wstring& at) {
+    const std::wstring& at, const std::wstring& sha256 = L"") {
     std::string out = "{\"protocolVersion\":1,\"id\":" + jsonString(id) + ",\"action\":" + jsonString(action) +
         ",\"ok\":" + (ok ? "true" : "false") + ",\"running\":" + (processes.empty() ? "false" : "true") +
         ",\"closed\":" + (processes.empty() ? "true" : "false") + ",\"processes\":[";
@@ -92,6 +92,7 @@ inline std::string commandResultJson(const std::wstring& id, const std::wstring&
         ",\"exitCode\":" + (exitCode < 0 ? std::string("null") : std::to_string(exitCode)) +
         ",\"timedOut\":" + (timedOut ? "true" : "false") +
         ",\"error\":" + (error.empty() ? std::string("null") : jsonString(error)) +
+        ",\"sha256\":" + (sha256.empty() ? std::string("null") : jsonString(sha256)) +
         ",\"at\":" + jsonString(at) + '}';
     return out;
 }

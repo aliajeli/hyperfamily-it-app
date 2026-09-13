@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <bcrypt.h>
 #include <shellapi.h>
 #include <objbase.h>
 #include <tlhelp32.h>
@@ -241,6 +242,17 @@ std::wstring widenOem(const std::string& bytes) {
     MultiByteToWideChar(CP_OEMCP, 0, bytes.data(), static_cast<int>(bytes.size()), text.data(), count);
     return text;
 }
+/** Lets SYSTEM terminate processes of other sessions/users; best effort, never fatal. */
+void enableDebugPrivilege() {
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) return;
+    Handle handle(token);
+    TOKEN_PRIVILEGES privileges{};
+    privileges.PrivilegeCount = 1;
+    privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+    if (!LookupPrivilegeValueW(nullptr, SE_DEBUG_NAME, &privileges.Privileges[0].Luid)) return;
+    AdjustTokenPrivileges(handle.get(), FALSE, &privileges, sizeof(privileges), nullptr, nullptr);
+}
 std::vector<hf::AgentProcess> listStoreCommerceProcesses() {
     std::vector<hf::AgentProcess> result;
     const HANDLE raw = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -287,39 +299,75 @@ BOOL CALLBACK postCloseToWindows(HWND window, LPARAM parameter) {
     PostMessageW(window, WM_CLOSE, 0, 0);
     return TRUE;
 }
-/** Asks Store Commerce to close, force-stops what refuses, and returns what is still alive. */
-std::vector<hf::AgentProcess> closeStoreCommerce() {
+/** Asks Store Commerce to close, force-stops what refuses, and returns what is
+ *  still alive. The Windows error of a failed forced stop is reported through
+ *  `terminateError` so the operator sees WHY instead of a bare "still running". */
+std::vector<hf::AgentProcess> closeStoreCommerce(DWORD* terminateError) {
     auto processes = listStoreCommerceProcesses();
     if (processes.empty()) return processes;
     CloseWindowsContext context{&processes};
     EnumWindows(postCloseToWindows, reinterpret_cast<LPARAM>(&context));
-    const ULONGLONG politeDeadline = GetTickCount64() + 10000;
+    const ULONGLONG politeDeadline = GetTickCount64() + 15000;
     while (GetTickCount64() < politeDeadline) {
         Sleep(250);
         processes = listStoreCommerceProcesses();
         if (processes.empty()) return processes;
     }
-    for (const auto& process : processes) {
-        const HANDLE raw = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, process.pid);
-        if (!raw) continue;
-        Handle handle(raw);
-        TerminateProcess(handle.get(), 1);
-        WaitForSingleObject(handle.get(), 5000);
-    }
-    const ULONGLONG hardDeadline = GetTickCount64() + 5000;
-    while (GetTickCount64() < hardDeadline) {
-        Sleep(250);
-        processes = listStoreCommerceProcesses();
-        if (processes.empty()) return processes;
+    for (int pass = 0; pass < 2 && !processes.empty(); ++pass) {
+        for (const auto& process : processes) {
+            const HANDLE raw = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, process.pid);
+            if (!raw) { if (terminateError) *terminateError = GetLastError(); continue; }
+            Handle handle(raw);
+            if (!TerminateProcess(handle.get(), 1) && terminateError) *terminateError = GetLastError();
+            WaitForSingleObject(handle.get(), 5000);
+        }
+        const ULONGLONG hardDeadline = GetTickCount64() + 7000;
+        while (GetTickCount64() < hardDeadline) {
+            Sleep(250);
+            processes = listStoreCommerceProcesses();
+            if (processes.empty()) break;
+        }
     }
     return processes;
+}
+/** SHA-256 of a local file, computed ON the checkout by the agent — the desktop
+ *  only receives the 64-hex digest instead of reading the whole copy back. */
+std::wstring sha256FileHex(const std::wstring& path, HANDLE stopEvent) {
+    BCRYPT_ALG_HANDLE provider = nullptr;
+    NTSTATUS status = BCryptOpenAlgorithmProvider(&provider, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
+    if (status) throw WinError(static_cast<DWORD>(status));
+    struct ProviderGuard { BCRYPT_ALG_HANDLE value; ~ProviderGuard() { if (value) BCryptCloseAlgorithmProvider(value, 0); } } providerGuard{provider};
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    status = BCryptCreateHash(provider, &hash, nullptr, 0, nullptr, 0, 0);
+    if (status) throw WinError(static_cast<DWORD>(status));
+    struct HashGuard { BCRYPT_HASH_HANDLE value; ~HashGuard() { if (value) BCryptDestroyHash(value); } } hashGuard{hash};
+    const HANDLE raw = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (raw == INVALID_HANDLE_VALUE) throw WinError(GetLastError());
+    Handle file(raw);
+    std::vector<unsigned char> buffer(1024 * 1024);
+    DWORD count = 0;
+    while (true) {
+        if (!ReadFile(file.get(), buffer.data(), static_cast<DWORD>(buffer.size()), &count, nullptr)) throw WinError(GetLastError());
+        if (!count) break;
+        checkStop(stopEvent);
+        status = BCryptHashData(hash, buffer.data(), count, 0);
+        if (status) throw WinError(static_cast<DWORD>(status));
+    }
+    unsigned char digest[32]{};
+    status = BCryptFinishHash(hash, digest, sizeof(digest), 0);
+    if (status) throw WinError(static_cast<DWORD>(status));
+    constexpr wchar_t digits[] = L"0123456789abcdef";
+    std::wstring hex;
+    hex.reserve(64);
+    for (const unsigned char byte : digest) { hex += digits[byte >> 4]; hex += digits[byte & 15]; }
+    return hex;
 }
 struct InstallOutcome {
     long exitCode = -1;
     std::wstring output;
     bool timedOut = false;
 };
-/** Runs `<executable> /install` invisibly, capturing everything it prints. */
+/** Runs `<executable> install` invisibly, capturing everything it prints. */
 InstallOutcome runInstaller(const std::wstring& executable) {
     const DWORD attributes = GetFileAttributesW(executable.c_str());
     if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) throw WinError(ERROR_FILE_NOT_FOUND);
@@ -339,7 +387,7 @@ InstallOutcome runInstaller(const std::wstring& executable) {
     startup.hStdError = writeEnd.get();
     startup.hStdInput = nullptr;
 
-    std::wstring commandLine = L"\"" + executable + L"\" /install";
+    std::wstring commandLine = L"\"" + executable + L"\" install";
     std::vector<wchar_t> mutableCommand(commandLine.begin(), commandLine.end());
     mutableCommand.push_back(L'\0');
     const auto separator = executable.find_last_of(L"\\/");
@@ -391,11 +439,11 @@ void writeFailureResult(const std::wstring& results, const std::wstring& id, con
     try {
         wchar_t message[512]{};
         std::swprintf(message, 512, L"Agent command failed with Windows error %lu", code);
-        writeAtomicFile(results, id + L".json", hf::commandResultJson(id, action, false, {}, L"", L"", -1, false, message, utcNow()));
+        writeAtomicFile(results, id + L".json", hf::commandResultJson(id, action, false, {}, L"", L"", -1, false, message, utcNow(), L));
     } catch (...) { /* an undeliverable failure answer must never stop the service */ }
 }
 /** Executes every pending command file; called once per second by the service loop. */
-void pollCommands(const std::wstring& dataDirectory) {
+void pollCommands(const std::wstring& dataDirectory, HANDLE stopEvent) {
     const std::wstring commands = dataDirectory + L"\\commands";
     const std::wstring results = dataDirectory + L"\\results";
     ensureDirectory(commands);
@@ -424,6 +472,7 @@ void pollCommands(const std::wstring& dataDirectory) {
             std::wstring version;
             std::wstring output;
             std::wstring error;
+            std::wstring sha;
             long exitCode = -1;
             bool timedOut = false;
             bool ok = true;
@@ -431,10 +480,17 @@ void pollCommands(const std::wstring& dataDirectory) {
                 processes = listStoreCommerceProcesses();
                 version = storeCommerceVersion();
             } else if (action == L"close") {
-                processes = closeStoreCommerce();
+                DWORD terminateError = 0;
+                processes = closeStoreCommerce(&terminateError);
                 version = storeCommerceVersion();
                 ok = processes.empty();
-                if (!ok) error = L"Store Commerce is still running after a forced stop";
+                if (!ok) error = terminateError
+                    ? L"Store Commerce is still running; forcing it to stop failed with Windows error " + std::to_wstring(terminateError)
+                    : L"Store Commerce is still running after a forced stop";
+            } else if (action == L"sha256") {
+                // Destination-side hash: the desktop only gets the digest back.
+                if (command.path.size() < 5 || command.path[1] != L':') throw WinError(ERROR_INVALID_NAME);
+                sha = sha256FileHex(command.path, stopEvent);
             } else if (action == L"install") {
                 if (command.path.size() < 5 || command.path[1] != L':') throw WinError(ERROR_INVALID_NAME);
                 const auto lowered = hf::toLower(command.path);
@@ -452,7 +508,7 @@ void pollCommands(const std::wstring& dataDirectory) {
                 ok = false;
                 error = L"Unsupported action \"" + action + L"\"";
             }
-            writeAtomicFile(results, id + L".json", hf::commandResultJson(id, action.empty() ? stem : action, ok, processes, version, output, exitCode, timedOut, error, utcNow()));
+            writeAtomicFile(results, id + L".json", hf::commandResultJson(id, action.empty() ? stem : action, ok, processes, version, output, exitCode, timedOut, error, utcNow(), sha));
         } catch (const WinError& failure) {
             writeFailureResult(results, id, action, failure.code);
         } catch (...) {
@@ -498,6 +554,7 @@ void WINAPI serviceMain(DWORD, LPWSTR*) {
     service.statusHandle = RegisterServiceCtrlHandlerExW(serviceName, controlHandler, nullptr);
     if (!service.statusHandle) return;
     service.report(SERVICE_START_PENDING);
+    enableDebugPrivilege();
     DWORD exitCode = NO_ERROR;
     std::wstring directory;
     try {
@@ -513,7 +570,7 @@ void WINAPI serviceMain(DWORD, LPWSTR*) {
                 // Commands first: the operator's pipeline waits for these, the
                 // heartbeat may lag a second behind. A broken command file
                 // must never stop the inventory heartbeat.
-                try { pollCommands(directory); } catch (...) { }
+                try { pollCommands(directory, service.stopEvent); } catch (...) { }
                 if (tick % heartbeatTicks == 0) {
                     std::vector<hf::InstalledProgram> programs;
                     std::wstring error;
@@ -551,6 +608,14 @@ int selfTest() {
             if (readSnapshot(directory + L"\\inventory.json") != json) throw WinError(ERROR_CRC);
         }
         DeleteFileW((directory + L"\\inventory.json").c_str());
+        // Known-answer SHA-256: the CNG implementation must match RFC 6234.
+        const std::wstring shaFile = directory + L"\\sha.txt";
+        const HANDLE shaHandle = CreateFileW(shaFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (shaHandle == INVALID_HANDLE_VALUE) throw WinError(GetLastError());
+        { Handle file(shaHandle); writeBytes(file.get(), "abc"); }
+        const auto digest = sha256FileHex(shaFile, nullptr);
+        DeleteFileW(shaFile.c_str());
+        if (digest != L"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") throw WinError(ERROR_CRC);
         if (!RemoveDirectoryW(directory.c_str())) throw WinError(GetLastError());
         directory.clear();
         const HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);

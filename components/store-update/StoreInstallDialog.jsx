@@ -13,7 +13,7 @@ const STEP_LABELS = {
   close: 'Close Store Commerce',
   'verify-closed': 'Closed verification',
   'file-check': 'Installer file check',
-  install: 'Run installer /install',
+  install: 'Run installer (install)',
   version: 'Store Commerce version',
   cancelled: 'Stopped',
   error: 'Error'
@@ -106,7 +106,7 @@ export default function StoreInstallDialog({ open, onOpenChange, run, running, o
       description={
         done
           ? `${run.summary.ok} of ${run.summary.total} checkout(s) updated successfully in ${formatDuration(run.summary.durationMs)}.`
-          : `Close → verify → Hyper.StoreCommerce.Installer.exe /install → version, on every selected checkout`
+          : `Close → verify → Hyper.StoreCommerce.Installer.exe install → version, on every selected checkout`
       }
       className="max-w-3xl"
     >

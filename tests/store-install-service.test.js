@@ -61,7 +61,7 @@ function harness(overrides = {}) {
 
 const DEST = 'C:\\Updates'
 
-test('happy path: close → verify → installer /install → version, with the full answer', async () => {
+test('happy path: close → verify → installer install → version, with the full answer', async () => {
   const { service, checkout, events, sent, stepStatuses } = harness()
   const result = await service.installOne(checkout, { destinationPath: DEST })
   assert.equal(result.ok, true)

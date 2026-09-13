@@ -16,7 +16,8 @@ const { compareVersions } = require('./version')
  *   4. close         — if yes: ask it to close, force-stop what refuses
  *   5. verify-closed — prove it is really gone before touching files
  *   6. file-check    — is Hyper.StoreCommerce.Installer.exe in the deploy folder?
- *   7. install       — the agent runs it with /install as SYSTEM (no UAC, no
+ *   7. install       — the agent runs it with its `install` argument as SYSTEM
+ *                      (no UAC, no
  *                      signed-in user needed) and captures the exit code and
  *                      everything the installer printed
  *   8. version       — the Store Commerce version afterwards, on success AND
@@ -40,7 +41,7 @@ const PIPELINE = [
   { key: 'close', label: 'Close Store Commerce' },
   { key: 'verify-closed', label: 'Closed verification' },
   { key: 'file-check', label: 'Installer file check' },
-  { key: 'install', label: 'Run installer /install' },
+  { key: 'install', label: 'Run installer (install)' },
   { key: 'version', label: 'Store Commerce version' }
 ]
 
@@ -212,9 +213,9 @@ class StoreInstallService {
         }
         record('file-check', 'done', `${this.installerFile} (${installerStat.size ?? '?'} bytes) is in ${destinationPath}`)
 
-        // 7 --- run it with /install ------------------------------------------
+        // 7 --- run the installer with its `install` argument ------------------
         this.#throwIfCancelled(signal)
-        record('install', 'running', `Running ${this.installerFile} /install with system rights…`)
+        record('install', 'running', `Running ${this.installerFile} install with system rights…`)
         const installed = await withTimeout(
           this.commands.sendCommand(address, { action: 'install', path: localInstaller }, { signal, timeoutMs: INSTALL_TIMEOUT_MS }),
           INSTALL_TIMEOUT_MS + 60000,

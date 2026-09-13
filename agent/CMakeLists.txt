@@ -24,7 +24,7 @@ add_executable(HyperFamilyStoreAgent WIN32 main.cpp "${CMAKE_CURRENT_BINARY_DIR}
 target_include_directories(HyperFamilyStoreAgent PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_features(HyperFamilyStoreAgent PRIVATE cxx_std_17)
 target_compile_definitions(HyperFamilyStoreAgent PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0A00)
-target_link_libraries(HyperFamilyStoreAgent PRIVATE advapi32 ole32 shell32 user32)
+target_link_libraries(HyperFamilyStoreAgent PRIVATE advapi32 ole32 shell32 user32 bcrypt)
 set_target_properties(HyperFamilyStoreAgent PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build"
   RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/build")
