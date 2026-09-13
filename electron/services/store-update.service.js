@@ -3,6 +3,11 @@ const { checkReachable } = require('./reachability.service')
 const { sha256File, streamCopy } = require('./software.service')
 const { pickProgram } = require('./registry.service')
 const { StoreAgentService } = require('./store-agent.service')
+const { AgentCommands } = require('./agent-commands')
+const { compareVersions } = require('./version')
+
+/** First agent that hashes files ON the checkout and answers over the command channel. */
+const MIN_AGENT_SHA256 = '3.1.4-beta.1'
 const { SmbSessionManager } = require('./smb.service')
 const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync, withTimeout } = require('./async-fs')
 
@@ -111,6 +116,9 @@ class StoreUpdateService {
       platform: this.platform, sourcePath: options.agentSourcePath,
       smb: this.smb, getCredentials: this.getCredentials, reach: this.reach, send: this.sendEvent
     })
+    // Destination-side SHA-256: the agent hashes the copy locally and only the
+    // digest crosses the link. Injectable for tests, like everything OS-shaped.
+    this.commands = options.commands || new AgentCommands({ agentPathMapper: options.agentPathMapper })
   }
 
   /**
@@ -328,9 +336,12 @@ class StoreUpdateService {
         // 2 --- resolve target --------------------------------------------
         let destDir
         let target
+        let localTarget
         try {
           destDir = this.mapPath(address, destinationPath)
           target = path.join(destDir, fileName)
+          // The checkout-local path of the copy: that is what the agent hashes.
+          localTarget = `${String(destinationPath).replace(/[\/]+$/, '')}\\${fileName}`
           // A freshly reimaged checkout should receive its first deploy
           // without manual preparation of the folder.
           await mkdirAsync(destDir)
@@ -383,15 +394,34 @@ class StoreUpdateService {
           record('copy', 'done', `${sourceSize} bytes copied${suffix}`)
 
           record('verify', 'running', `Comparing SHA-256 of source and destination…${suffix}`)
-          let targetHash
+          // Ask the agent to hash the copy ON the checkout: for big files that
+          // is seconds of local disk instead of reading the whole copy back
+          // over the WAN. Checkouts without the new agent fall back to the
+          // classic read-back hash.
+          let targetHash = null
+          let hashedBy = null
           try {
-            targetHash = await withTimeout(sha256File(target), this.copyTimeoutMs, `Hashing the copy on ${address} stalled`)
-          } catch (error) {
-            record('verify', 'failed', `Could not hash the copied file — ${error.message}`)
-            return finish(false, { error: 'Verification failed', backup: backupName })
+            const inventory = await this.agent.inspect(address)
+            if (inventory.running && compareVersions(inventory.agentVersion || '0', MIN_AGENT_SHA256) >= 0) {
+              const answer = await withTimeout(
+                this.commands.sendCommand(address, { action: 'sha256', path: localTarget }),
+                this.copyTimeoutMs, `The agent on ${address} did not return the file hash in time`)
+              if (answer.sha256) { targetHash = String(answer.sha256).toLowerCase(); hashedBy = 'agent' }
+            }
+          } catch { /* fall back to the read-back hash below */ }
+          if (!targetHash) {
+            try {
+              targetHash = await withTimeout(sha256File(target), this.copyTimeoutMs, `Hashing the copy on ${address} stalled`)
+              hashedBy = 'desktop'
+            } catch (error) {
+              record('verify', 'failed', `Could not hash the copied file — ${error.message}`)
+              return finish(false, { error: 'Verification failed', backup: backupName })
+            }
           }
           if (targetHash === sourceHash) {
-            record('verify', 'done', 'SHA-256 hashes match — the copy is intact')
+            record('verify', 'done', hashedBy === 'agent'
+              ? 'SHA-256 hashes match — computed by the agent on the checkout'
+              : 'SHA-256 hashes match — the copy is intact')
             record('finish', 'done', `Deployed ${fileName}${backupName ? ` (previous file kept as ${backupName})` : ''}`)
             return finish(true, { backup: backupName, bytes: sourceSize, attempts: attempt, sha256: sourceHash })
           }

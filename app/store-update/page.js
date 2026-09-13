@@ -236,7 +236,7 @@ export default function StoreUpdatePage() {
   /* -------------------------------------------- update Store Commerce */
   /**
    * One, several (the selected checkboxes) or all checkouts: the guided
-   * pipeline closes Store Commerce, runs the deployed installer with /install
+   * pipeline closes Store Commerce, runs the deployed installer with its `install` argument
    * through the agent and reports the resulting version per checkout.
    */
   const startInstall = async (targets, { all = false } = {}) => {
@@ -245,7 +245,7 @@ export default function StoreUpdatePage() {
       title: all ? `Update Store Commerce on all ${targets.length} checkout(s)?`
         : targets.length === 1 ? `Update Store Commerce on ${targets[0].name}?`
         : `Update Store Commerce on ${targets.length} selected checkout(s)?`,
-      description: `Per checkout: connection check → is Store Commerce open? → close it → verify it is closed → look for Hyper.StoreCommerce.Installer.exe in ${settings.store_update_path} → run it with /install using system rights through the agent → report the new version. Checkouts are updated strictly one after another and the batch can be stopped at any time.`,
+      description: `Per checkout: connection check → is Store Commerce open? → close it → verify it is closed → look for Hyper.StoreCommerce.Installer.exe in ${settings.store_update_path} → run it with the install argument using system rights through the agent → report the new version. Checkouts are updated strictly one after another and the batch can be stopped at any time.`,
       confirmLabel: 'Update Store Commerce', destructive: false
     })
     if (!accepted || installBusyRef.current) return

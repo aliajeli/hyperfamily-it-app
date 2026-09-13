@@ -51,7 +51,9 @@ function inspectPe(buffer) {
     if (end < nameOffset || end - nameOffset > 260) throw new Error('Invalid agent import name')
     const name = buffer.toString('ascii', nameOffset, end).toLowerCase()
     // Only inbox Windows DLLs; no .NET or redistributable C++ runtime DLLs.
-    if (!/^(kernel32|kernelbase|advapi32|ole32|shell32|user32|msvcrt|ntdll|rpcrt4|sechost)\.dll$/.test(name) && !/^api-ms-win-(core|security|service|eventing)-[a-z0-9-]+\.dll$/.test(name)) {
+    // bcrypt.dll is the built-in CNG crypto API (Windows Vista and later) used
+    // for hashing deploy payloads on the checkout.
+    if (!/^(kernel32|kernelbase|advapi32|ole32|shell32|user32|msvcrt|ntdll|rpcrt4|sechost|bcrypt)\.dll$/.test(name) && !/^api-ms-win-(core|security|service|eventing)-[a-z0-9-]+\.dll$/.test(name)) {
       throw new Error(`Agent depends on an unexpected external DLL: ${name}`)
     }
     imports.push(name)

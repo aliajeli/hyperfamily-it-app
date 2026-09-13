@@ -1,6 +1,37 @@
 {
   "entries": [
     {
+      "version": "3.1.5",
+      "date": "2026-09-13",
+      "channel": "main",
+      "title": "Checkout-side hashing, robust Store Commerce close, corrected installer call",
+      "changes": {
+        "improved": [
+          "Deploy verification is fast again on big files: the agent computes the SHA-256 of the copied file ON the checkout and sends back only the digest; older agents keep the classic read-back hash.",
+          "Closing Store Commerce is more robust: the agent can terminate it in any session, retries the forced stop, and reports the exact Windows error if it still refuses."
+        ],
+        "fixed": [
+          "The Store Commerce installer is now invoked with its real argument — Hyper.StoreCommerce.Installer.exe install — instead of the mistyped /install switch."
+        ]
+      }
+    },
+    {
+      "version": "3.1.4-beta.1",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Faster deploy verification and a corrected Store Commerce installer call",
+      "changes": {
+        "improved": [
+          "Deploy verification is fast again on big files: the agent now computes the SHA-256 of the copied file ON the checkout and sends back only the 64-hex digest; checkouts without the new agent keep the classic read-back hash.",
+          "Closing Store Commerce is more robust: the agent enables the debug privilege so it can terminate the process in any session, retries the forced stop, and reports the exact Windows error when a process still refuses to die."
+        ],
+        "fixed": [
+          "The Store Commerce installer is now invoked with its real argument — Hyper.StoreCommerce.Installer.exe install — instead of the mistyped /install switch.",
+          "Closing Store Commerce on a checkout no longer ends in an error: the agent can now terminate it in any session and reports the exact Windows error if something still refuses."
+        ]
+      }
+    },
+    {
       "version": "3.1.4",
       "date": "2026-09-12",
       "channel": "main",
