@@ -92,7 +92,7 @@ export default function InventoryPage() {
           </Card>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card>
           <div className="grid gap-2 border-b p-3 md:grid-cols-[1fr_190px_190px]">
             <label className="relative">
               <Search size={16} className="absolute left-3.5 top-3 text-[rgb(var(--muted))]" />

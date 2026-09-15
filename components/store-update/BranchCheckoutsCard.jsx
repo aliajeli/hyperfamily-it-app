@@ -6,17 +6,21 @@ import { cn } from '@/lib/utils'
 
 /** The status dot next to a checkout row — the at-a-glance state. */
 function stateDot(version) {
-  const state = version?.state || 'checking'
+  const state = version?.state || 'unknown'
   if (state === 'ok') return 'bg-nord-14'
   if (state === 'checking') return 'bg-[rgb(var(--primary))] animate-pulse'
   if (state === 'offline' || state === 'error' || state === 'agent-not-running') return 'bg-nord-11'
   if (state === 'no-host') return 'bg-nord-3'
+  if (state === 'unknown') return 'bg-[rgb(var(--border))]'
   return 'bg-nord-12'
 }
 
 /** Compact Store Commerce version chip for a list row. */
 function VersionChip({ version }) {
-  const state = version?.state || 'checking'
+  const state = version?.state || 'unknown'
+  if (state === 'unknown') {
+    return <span className="inline-flex items-center rounded-full bg-[rgb(var(--border)/.5)] px-2 py-0.5 text-2xs font-bold text-[rgb(var(--muted))]" title="Not checked yet in this session — use Recheck">Not checked</span>
+  }
   if (state === 'checking') {
     return <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--primary)/.1)] px-2 py-0.5 text-2xs font-bold text-[rgb(var(--primary))]"><Loader2 size={10} className="animate-spin" />Checking…</span>
   }
@@ -110,10 +114,11 @@ export default function BranchCheckoutsCard({
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const { branch, checkouts } = group
-  const states = checkouts.map((checkout) => versions[checkout.id]?.state || 'checking')
+  const states = checkouts.map((checkout) => versions[checkout.id]?.state || 'unknown')
   const okCount = states.filter((state) => state === 'ok').length
   const offlineCount = states.filter((state) => state === 'offline' || state === 'error' || state === 'agent-not-running').length
   const checkingCount = states.filter((state) => state === 'checking').length
+  const unknownCount = states.filter((state) => state === 'unknown').length
   const allSelected = checkouts.length > 0 && checkouts.every((checkout) => selected.has(checkout.id))
 
   return (
@@ -130,6 +135,7 @@ export default function BranchCheckoutsCard({
           {checkingCount > 0 && <span className="rounded-full bg-[rgb(var(--primary)/.1)] px-1.5 py-0.5 text-[rgb(var(--primary))]">{checkingCount} checking</span>}
           {okCount > 0 && <span className="rounded-full bg-nord-14/12 px-1.5 py-0.5 text-nord-14">{okCount} ok</span>}
           {offlineCount > 0 && <span className="rounded-full bg-nord-11/12 px-1.5 py-0.5 text-nord-11">{offlineCount} offline</span>}
+          {unknownCount > 0 && <span className="rounded-full bg-[rgb(var(--border)/.6)] px-1.5 py-0.5 text-[rgb(var(--muted))]">{unknownCount} not checked</span>}
         </span>
         <div className="ml-auto flex items-center gap-1.5">
           <label className="flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1.5 py-1 text-2xs font-bold text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))]">
@@ -153,7 +159,7 @@ export default function BranchCheckoutsCard({
       {!collapsed && (
         <ul className="divide-y divide-[rgb(var(--border)/.4)]">
           {checkouts.map((checkout) => {
-            const version = versions[checkout.id] || { state: 'checking' }
+            const version = versions[checkout.id] || { state: 'unknown' }
             const installResult = installResults[checkout.id]
             const agentBusy = agentBusyIds.has(checkout.id)
             const busy = version?.state === 'checking' || agentBusy

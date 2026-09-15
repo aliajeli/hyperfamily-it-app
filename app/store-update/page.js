@@ -62,7 +62,6 @@ export default function StoreUpdatePage() {
   // Live deploy narration: checkoutId → step list / progress
   const [steps, setSteps] = useState({})
   const [progress, setProgress] = useState({})
-  const sweepStarted = useRef(false)
   const dialogRef = useRef(dialog)
   dialogRef.current = dialog
 
@@ -133,13 +132,17 @@ export default function StoreUpdatePage() {
       })
   }, [])
 
-  // Automatic sweep on first load — the page's whole point is seeing every
-  // checkout's Store Commerce version immediately.
+  // Opening the page shows the cached answers — filled by the sweep that runs
+  // at application startup and by every earlier recheck — instead of scanning
+  // the whole estate again on each visit. Fresh data comes only from Recheck
+  // all, the branch Recheck, or a single checkout's Recheck.
   useEffect(() => {
-    if (sweepStarted.current || !settings || allCheckouts.length === 0) return
-    sweepStarted.current = true
-    runSweep(allCheckouts)
-  }, [settings, allCheckouts, runSweep])
+    let alive = true
+    getApi().storeUpdate.versionCache?.()
+      .then((cache) => { if (alive && cache) setVersions((previous) => ({ ...cache, ...previous })) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   /** Adopt the exact program name an operator picked from the diagnostic list. */
   const adoptProgramName = useCallback(async (name) => {

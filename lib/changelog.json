@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "3.2.5-beta.2",
+      "date": "2026-09-15",
+      "channel": "beta",
+      "title": "Redesigned About page, instant Store App page, page-level inventory scroll",
+      "changes": {
+        "improved": [
+          "The About page is redesigned: a gradient hero band with a glass spec panel (release, platform, channel, developer), a slimmer updates card with a gradient progress bar, and a dedicated Support & source card for issues, repository and developer contact.",
+          "Update Store App now opens instantly with the versions collected by a sweep that runs at application startup — even when the page is never opened. Opening the page no longer re-scans every checkout; fresh data comes only from Recheck all, the branch Recheck, or a single checkout's Recheck.",
+          "The Asset inventory list no longer scrolls inside its card — the whole page scrolls, with the column header sticking just below the app header."
+        ]
+      }
+    },
+    {
       "version": "3.2.5-beta.1",
       "date": "2026-09-15",
       "channel": "beta",

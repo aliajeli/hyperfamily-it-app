@@ -39,10 +39,12 @@ export default function InventoryTable({ devices }) {
   if (!devices.length) return <EmptyState icon={<Boxes />} title="No matching assets" description="Change the active filters or add devices to your branch directory." />
 
   return (
-    <div className="w-full overflow-y-auto" style={{ maxHeight: 'calc(100vh - 20.5rem)' }}>
+    // No inner scroll container: the whole page scrolls, and the column
+    // header sticks just below the fixed app header while it does.
+    <div className="w-full">
       <table className="w-full table-fixed text-left text-2xs">
         <colgroup>{columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}</colgroup>
-        <thead className="sticky top-0 bg-[rgb(var(--surface))]">
+        <thead className="sticky top-14 z-10 bg-[rgb(var(--surface))]">
           <tr className="border-b text-xs uppercase tracking-wider text-[rgb(var(--muted))]">
             {columns.map((column) => (
               <th key={column.key} className={`px-2 py-2 ${column.key === 'actions' ? 'text-right' : ''}`}>{column.label}</th>
