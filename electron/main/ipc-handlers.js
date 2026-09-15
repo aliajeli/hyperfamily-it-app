@@ -1,6 +1,6 @@
 const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
-const { createImportTemplate, exportInventory, importDirectory } = require('../services/excel.service')
+const { createImportTemplate, exportDirectory, exportInventory, importDirectory } = require('../services/excel.service')
 const { openDeviceWebview, broadcastPalette } = require('./webview-window')
 const { STORE_COMMERCE_PROGRAM } = require('../services/store-update.service')
 
@@ -100,6 +100,9 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
   // device type, then imports it back. Both open a native file dialog.
   ipcMain.handle('directory:template', secure((event) => createImportTemplate(database, null, sessions.get(event.sender.id).username)))
   ipcMain.handle('directory:import', secure((event) => importDirectory(database, null, sessions.get(event.sender.id).username)))
+  // Writes the current directory into the exact workbook layout the importer
+  // reads, so the file can be imported on another workstation as-is.
+  ipcMain.handle('directory:export', secure((event) => exportDirectory(database, null, sessions.get(event.sender.id).username)))
   ipcMain.handle('remote:connect', secure(async (event, payload) => {
     const result = await remoteService.connect(payload, sessions.get(event.sender.id).username)
     // iLO and NVR open inside a themed application window rather than an

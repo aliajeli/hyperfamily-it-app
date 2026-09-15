@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Building2, FileDown, FileUp, Plus, RefreshCw, Route, Server, Trash2, Warehouse } from 'lucide-react'
+import { Building2, Download, FileDown, FileUp, Plus, RefreshCw, Route, Server, Trash2, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchForm from '@/components/devices/BranchForm'
@@ -196,6 +196,19 @@ function DevicesPageInner() {
     }
   }
 
+  const exportDirectory = async () => {
+    setDirectoryBusy('export')
+    try {
+      const result = await getApi().directory.export()
+      if (result?.canceled) return
+      toast.success('Directory exported', { description: `${result.branches} branches · ${result.devices} devices — ${result.path}` })
+    } catch (error) {
+      toast.error('Export failed', { description: error.message, duration: 12000 })
+    } finally {
+      setDirectoryBusy(null)
+    }
+  }
+
   const openAddDevice = () => {
     if (!selectedBranch) return
     setDialog({ kind: 'device', step: 'type', type: null, value: null })
@@ -230,6 +243,9 @@ function DevicesPageInner() {
             <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</Button>
             <Button size="sm" variant="secondary" onClick={downloadTemplate} disabled={Boolean(directoryBusy)} title="Save a blank workbook with one sheet per device type">
               <FileDown size={14} className={directoryBusy === 'template' ? 'animate-pulse' : ''} />Template
+            </Button>
+            <Button size="sm" variant="secondary" onClick={exportDirectory} disabled={Boolean(directoryBusy)} title="Save the full directory as a workbook that any workstation can import as-is">
+              <Download size={14} className={directoryBusy === 'export' ? 'animate-pulse' : ''} />Export
             </Button>
             <Button size="sm" variant="secondary" onClick={importDirectory} disabled={Boolean(directoryBusy)} title="Import branches and devices from a filled-in template">
               <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />Import

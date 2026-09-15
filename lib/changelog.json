@@ -1,6 +1,31 @@
 {
   "entries": [
     {
+      "version": "3.2.4",
+      "date": "2026-09-15",
+      "channel": "main",
+      "title": "Export the directory as an importable workbook",
+      "changes": {
+        "added": [
+          "New Export button on Branches & Devices saves the full directory — branches, every device type, and Switch port groups — into a workbook built with the exact layout the Import feature reads, so the file can be imported on another workstation as-is with no manual editing."
+        ]
+      }
+    },
+    {
+      "version": "3.2.3-beta.1",
+      "date": "2026-09-13",
+      "channel": "beta",
+      "title": "Export the directory as an importable workbook",
+      "changes": {
+        "added": [
+          "New Export button on Branches & Devices saves the full directory — branches, every device type, and Switch port groups — into a workbook built with the exact layout the Import feature reads, so the file can be imported on another workstation as-is with no manual editing."
+        ],
+        "removed": [
+          "The experimental “import from another workstation by IP” feature from the previous beta has been removed."
+        ]
+      }
+    },
+    {
       "version": "3.2.2",
       "date": "2026-09-13",
       "channel": "main",
