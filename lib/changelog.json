@@ -1,6 +1,23 @@
 {
   "entries": [
     {
+      "version": "3.2.5-beta.1",
+      "date": "2026-09-15",
+      "channel": "beta",
+      "title": "Lower CPU usage, faster batch installs, and a calmer, roomier interface",
+      "changes": {
+        "improved": [
+          "Much lower background CPU use: pings run in bounded waves (12 at a time) every 5 seconds instead of spawning a process per device every 3 seconds, the UI is refreshed only when a displayed value actually changes, and the VPN health probe is now a single combined check every 5 seconds instead of up to six process spawns every second.",
+          "Store Commerce updates and agent imports now process up to 3 checkouts in parallel, and agent commands are answered up to 3× faster (poll interval 750 → 250 ms) — batch runs finish in a fraction of the former wall time.",
+          "The app header no longer repeats each page's title; page headings are compact single rows, so every screen gains usable vertical space.",
+          "Update Store App is redesigned around one card per branch: the card header shows the branch summary (checking/ok/offline counts) with Select all, Recheck and Update branch actions, and its checkouts are listed as compact rows with version and extension chips, status dot, and per-row Recheck / Import agent / Deploy / Inspect / Update actions."
+        ],
+        "removed": [
+          "POS and Scale no longer appear in Settings → Connections or Credential assignments — those devices are never connected to remotely."
+        ]
+      }
+    },
+    {
       "version": "3.2.3-beta.1",
       "date": "2026-09-13",
       "channel": "beta",

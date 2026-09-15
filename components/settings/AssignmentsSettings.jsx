@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { KeyRound, Search, Layers, MonitorSmartphone, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Input, EmptyState, Select } from '@/components/ui'
-import { DEVICE_TYPES } from '@/lib/constants'
+import { CONNECTABLE_DEVICE_TYPES } from '@/lib/constants'
 import { getApi } from '@/lib/api'
 
 /**
@@ -136,7 +136,7 @@ export default function AssignmentsSettings() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-1.5 sm:grid-cols-3 xl:grid-cols-5">
-            {DEVICE_TYPES.map((type) => {
+            {CONNECTABLE_DEVICE_TYPES.map((type) => {
               const key = `type-${type}`
               return (
                 <div key={type} className="rounded-lg border p-1.5">
@@ -183,7 +183,7 @@ export default function AssignmentsSettings() {
             </Select>
             <Select aria-label="Filter by device type" className="h-7 w-32 text-2xs" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="all">All types</option>
-              {DEVICE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+              {CONNECTABLE_DEVICE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
             </Select>
             <span className="ml-auto text-xs text-[rgb(var(--muted))]">{visibleRows.length} shown</span>
           </div>

@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import { useSettingsStore } from '@/stores/settings.store'
-import { DEVICE_TYPES, DEVICE_TYPE_DETAILS } from '@/lib/constants'
+import { CONNECTABLE_DEVICE_TYPES, DEVICE_TYPE_DETAILS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import {
   CONNECTION_METHODS,
@@ -37,7 +37,7 @@ const spring = { type: 'spring', stiffness: 600, damping: 28 }
 export default function ConnectionsSettings({ settings, onSaved }) {
   const setGlobalSettings = useSettingsStore((state) => state.setSettings)
   const [draft, setDraft] = useState(() =>
-    Object.fromEntries(DEVICE_TYPES.map((type) => [type, resolveConnectionMethods(type, settings)])))
+    Object.fromEntries(CONNECTABLE_DEVICE_TYPES.map((type) => [type, resolveConnectionMethods(type, settings)])))
   const [openType, setOpenType] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -68,14 +68,14 @@ export default function ConnectionsSettings({ settings, onSaved }) {
   }
 
   const restoreDefaults = () => {
-    setDraft(Object.fromEntries(DEVICE_TYPES.map((type) => [type, [...(DEFAULT_CONNECTION_METHODS[type] || ['browser'])]])))
+    setDraft(Object.fromEntries(CONNECTABLE_DEVICE_TYPES.map((type) => [type, [...(DEFAULT_CONNECTION_METHODS[type] || ['browser'])]])))
     toast.info('Factory connection methods restored — save to apply')
   }
 
   const save = async () => {
     setSaving(true)
     try {
-      const patch = Object.fromEntries(DEVICE_TYPES.map((type) => [connectionSettingKey(type), draft[type]]))
+      const patch = Object.fromEntries(CONNECTABLE_DEVICE_TYPES.map((type) => [connectionSettingKey(type), draft[type]]))
       const next = await getApi().settings.save(patch)
       onSaved(next)
       setGlobalSettings(next)
@@ -98,7 +98,7 @@ export default function ConnectionsSettings({ settings, onSaved }) {
       <CardContent className="space-y-2">
         {/* Device cards ------------------------------------------------------- */}
         <div className="grid gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {DEVICE_TYPES.map((type, index) => {
+          {CONNECTABLE_DEVICE_TYPES.map((type, index) => {
             const methods = draft[type] || []
             const defaultLabel = CONNECTION_METHODS[methods[0]]?.label || 'None'
             return (

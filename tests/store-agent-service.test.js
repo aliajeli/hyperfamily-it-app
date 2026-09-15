@@ -215,7 +215,10 @@ test('stopping a batch skips the checkouts that had not started yet', async (t) 
       options?.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted')) }, { once: true })
     })
   }
-  const summary = await f.service.importAll([checkout, { id: 2, name: 'Checkout 2', hostname: 'CO-02' }], { runId: 'batch-1' })
+  // concurrency: 1 pins the pool to the old one-at-a-time behaviour, so the
+  // in-flight/skipped split after a Stop stays deterministic (with the default
+  // pool of 3, several checkouts are legitimately in flight at once).
+  const summary = await f.service.importAll([checkout, { id: 2, name: 'Checkout 2', hostname: 'CO-02' }], { runId: 'batch-1', concurrency: 1 })
   assert.equal(summary.total, 2)
   assert.equal(summary.ok, 0)
   assert.equal(summary.cancelled, 1, 'the checkout in flight is reported as stopped')

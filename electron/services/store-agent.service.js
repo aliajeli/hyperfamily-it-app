@@ -446,14 +446,24 @@ class StoreAgentService {
     const ownRun = options.signal ? null : this.registerRun(options.runId)
     const runId = options.runId || ownRun.id
     const signal = options.signal || ownRun.controller.signal
-    const results = []
+    const results = new Array(list.length)
+    // Same bounded pool as the Store Commerce batch: imports spend most of
+    // their time waiting on SMB copies and service restarts, so a few at a
+    // time is dramatically faster without hammering the network.
+    const concurrency = Math.max(1, Math.min(Number(options.concurrency) || 3, list.length || 1))
+    let cursor = 0
     try {
-      for (const checkout of list) {
-        if (signal.aborted) {
-          results.push({ checkoutId: checkout.id, name: checkout.name, ok: false, cancelled: true, skipped: true, error: 'Skipped — the import was stopped', steps: [], durationMs: 0 })
-          continue
+      const worker = async () => {
+        while (cursor < list.length) {
+          if (signal.aborted) return
+          const index = cursor++
+          results[index] = await this.importOne(list[index], { ...options, runId, signal })
         }
-        results.push(await this.importOne(checkout, { ...options, runId, signal }))
+      }
+      await Promise.all(Array.from({ length: concurrency }, worker))
+      for (let index = 0; index < list.length; index += 1) {
+        if (results[index]) continue
+        results[index] = { checkoutId: list[index].id, name: list[index].name, ok: false, cancelled: true, skipped: true, error: 'Skipped — the import was stopped', steps: [], durationMs: 0 }
       }
       // `cancelled` counts the checkouts that were actually in flight when Stop
       // was pressed and had to be rolled back; `skipped` counts the ones that
