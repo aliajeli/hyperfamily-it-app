@@ -19,11 +19,11 @@ jobs:
           cache: npm
       # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
       - run: npm run build:agent
+      - run: npm ci
       - name: Test the real Windows Agent service
         run: npm run test:agent
         env:
           HF_AGENT_WINDOWS_TEST: '1'
-      - run: npm ci
       - run: npm audit --audit-level=high
       - run: npm run lint
       - name: TypeScript check (Electron layer)
