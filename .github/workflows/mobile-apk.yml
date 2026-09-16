@@ -8,12 +8,17 @@
 name: Mobile APK
 
 on:
-  release:
-    types: [published]
+  # Releases are created by the release workflows with GITHUB_TOKEN, and
+  # token-created releases do not fire `release` events for other workflows —
+  # so hook onto the completion of those workflows instead.
+  workflow_run:
+    workflows: ['Beta Release', 'Stable Release']
+    types: [completed]
   workflow_dispatch:
 
 jobs:
   apk:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     env:
       # steps.if cannot read the secrets context, so gate on this instead.
@@ -67,10 +72,12 @@ jobs:
           ls -la HyperFamily-Companion-*.apk
 
       - name: Attach APK to release
-        if: github.event_name == 'release'
+        if: github.event_name == 'workflow_run'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" HyperFamily-Companion-*.apk --clobber
+        run: |
+          TAG=$(gh release view --json tagName --jq .tagName)
+          gh release upload "$TAG" HyperFamily-Companion-*.apk --clobber
 
       - name: Upload build artifact
         if: github.event_name == 'workflow_dispatch'
