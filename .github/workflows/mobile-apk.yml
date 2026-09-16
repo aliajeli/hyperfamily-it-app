@@ -84,7 +84,9 @@ jobs:
           ls -la HyperFamily-Companion-*.apk
 
       - name: Attach APK to release
-        if: ${{ github.event_name == 'workflow_call' || inputs.release_tag != '' }}
+        # In a called workflow github.event_name is the CALLER's event (push/
+        # tag), so treat everything except a plain dispatch as attach mode.
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.release_tag != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
