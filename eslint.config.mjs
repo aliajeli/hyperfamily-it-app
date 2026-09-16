@@ -4,7 +4,18 @@ import reactPlugin from 'eslint-plugin-react'
 export default [
   // electron/vendor holds verbatim upstream library sources (ssh2 and its pure
   // JavaScript dependencies). They are third-party code and are not linted.
-  { ignores: ['node_modules/**', '.next/**', 'out/**', 'dist/**', 'electron/vendor/**'] },
+  {
+    ignores: [
+      'node_modules/**',
+      '.next/**',
+      'out/**',
+      'dist/**',
+      'electron/vendor/**',
+      // Capacitor-generated Android project (built with Gradle, not eslint).
+      'mobile/android/**',
+      'mobile/www/**'
+    ]
+  },
   {
     files: ['**/*.{js,jsx,mjs}'],
     languageOptions: {

@@ -3,6 +3,18 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.5.0-beta.1
+
+**Companion APK ships on GitHub Releases with in-app updates**
+
+_Released 2026-09-16 · beta channel_
+
+### Added
+- The Android companion now updates itself from GitHub Releases, the same way the workstation app does: a banner on the connect screen offers the new version, downloads the APK, and opens the Android installer.
+- A Mobile APK workflow builds the companion APK on every published release and attaches it to that release, signed with the project keystore.
+
+### Improved
+- Release APKs are signed with a stable project key so updates install cleanly over previous versions, and the companion version now mirrors the workstation version.
 ## 3.4.0-beta.1
 
 **Android companion: the workstation becomes the phone’s backend**

@@ -153,6 +153,33 @@
       .hidden {
         display: none;
       }
+
+      .update {
+        margin-top: 18px;
+        padding: 12px 14px;
+        border: 1px solid #ebcb8b;
+        border-radius: 10px;
+        background: rgba(235, 203, 139, 0.08);
+        font-size: 13px;
+        color: #ebcb8b;
+        text-align: center;
+        line-height: 1.5;
+      }
+      .update.hidden {
+        display: none;
+      }
+      .update button {
+        margin-top: 10px;
+        background: #ebcb8b;
+        padding: 10px;
+        font-size: 14px;
+      }
+      .appver {
+        text-align: center;
+        font-size: 11.5px;
+        color: #4c566a;
+        margin-top: 14px;
+      }
     </style>
   </head>
   <body>
@@ -201,6 +228,8 @@
           address and token shown there. Both devices must be on the same store network.
         </p>
       </form>
+      <div class="update hidden" id="update"></div>
+      <p class="appver" id="appver"></p>
     </div>
 
     <script>
@@ -298,6 +327,137 @@
             )
           })
       }
+
+      // ---- In-app updater: GitHub Releases, mirroring the desktop updater --
+      var REPO = 'aliajeli/hyperfamily-it-app'
+
+      function parseVer(s) {
+        s = String(s).replace(/^v/, '')
+        var parts = s.split('-')
+        var nums = parts[0].split('.').map(function (n) {
+          return parseInt(n, 10) || 0
+        })
+        return { nums: nums, pre: parts[1] || '' }
+      }
+      // Is version a strictly newer than version b?
+      function newerThan(a, b) {
+        var pa = parseVer(a),
+          pb = parseVer(b)
+        for (var i = 0; i < 3; i++) {
+          var x = pa.nums[i] || 0,
+            y = pb.nums[i] || 0
+          if (x !== y) return x > y
+        }
+        if (!pa.pre && pb.pre) return true
+        if (pa.pre && !pb.pre) return false
+        if (pa.pre === pb.pre) return false
+        var na = parseInt((pa.pre.match(/(\d+)$/) || [0, '0'])[1], 10)
+        var nb = parseInt((pb.pre.match(/(\d+)$/) || [0, '0'])[1], 10)
+        if (na !== nb) return na > nb
+        return pa.pre > pb.pre
+      }
+      function pickAsset(release) {
+        var apks = (release.assets || []).filter(function (a) {
+          return /^HyperFamily-Companion-.*\.apk$/.test(a.name)
+        })
+        var signed = apks.filter(function (a) {
+          return !/-(debug|unsigned)\.apk$/.test(a.name)
+        })
+        return signed[0] || apks[0] || null
+      }
+      function toBase64(buffer) {
+        var bytes = new Uint8Array(buffer)
+        var binary = ''
+        var CHUNK = 0x8000
+        for (var i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK))
+        }
+        return btoa(binary)
+      }
+      async function downloadAndInstall(asset) {
+        var box = document.getElementById('update')
+        box.innerHTML = 'Downloading update…<br><small>' + asset.name + '</small>'
+        var Filesystem = window.CapacitorPlugins.Filesystem
+        var path = 'HyperFamily-Companion-update.apk'
+        var file
+        try {
+          file = await Filesystem.downloadFile({
+            url: asset.browser_download_url,
+            path: path,
+            directory: window.CapacitorPlugins.Directory.Cache
+          })
+        } catch (e) {
+          var res = await fetch(asset.browser_download_url)
+          if (!res.ok) throw new Error('download failed: HTTP ' + res.status)
+          file = await Filesystem.writeFile({
+            path: path,
+            data: toBase64(await res.arrayBuffer()),
+            directory: window.CapacitorPlugins.Directory.Cache
+          })
+        }
+        box.innerHTML = 'Opening installer…<br><small>tap Install in the Android dialog</small>'
+        await window.CapacitorPlugins.FileOpener.open({
+          filePath: file.uri,
+          contentType: 'application/vnd.android.package-archive',
+          openWithDefault: true
+        })
+      }
+      function showLatest(info) {
+        var box = document.getElementById('update')
+        box.className = 'update'
+        box.style.borderColor = '#a3be8c'
+        box.style.color = '#a3be8c'
+        box.innerHTML = 'You are on the latest version (' + info.version + ').'
+      }
+      async function checkUpdate(manual) {
+        var box = document.getElementById('update')
+        var cap = window.Capacitor
+        if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) {
+          if (manual) show('Updates are only available in the installed app', true)
+          return
+        }
+        var info, release
+        try {
+          info = await window.CapacitorPlugins.App.getInfo()
+          // /releases/latest skips prereleases, so take the newest entry instead.
+          var res = await fetch('https://api.github.com/repos/' + REPO + '/releases?per_page=1', {
+            headers: { Accept: 'application/vnd.github+json' }
+          })
+          if (!res.ok) throw new Error('HTTP ' + res.status)
+          release = (await res.json())[0]
+        } catch (e) {
+          if (manual) show('Update check failed: ' + e.message, true)
+          return
+        }
+        document.getElementById('appver').textContent = 'app v' + info.version
+        if (!release || !newerThan(release.tag_name, info.version)) {
+          if (manual) showLatest(info)
+          return
+        }
+        var asset = pickAsset(release)
+        if (!asset) {
+          if (manual) show('Release ' + release.tag_name + ' has no APK asset', true)
+          return
+        }
+        box.className = 'update'
+        box.innerHTML =
+          'Update available: <b>' +
+          release.tag_name +
+          '</b><br><small>you have v' +
+          info.version +
+          '</small>' +
+          '<br><button id="doupdate" type="button">Download &amp; install</button>'
+        document.getElementById('doupdate').addEventListener('click', async function () {
+          try {
+            await downloadAndInstall(asset)
+          } catch (e) {
+            box.innerHTML = 'Update failed: ' + e.message
+          }
+        })
+      }
+      document.addEventListener('capacitorReady', function () {
+        checkUpdate(false)
+      })
     </script>
   </body>
 </html>
