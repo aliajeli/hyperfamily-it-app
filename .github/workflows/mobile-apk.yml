@@ -33,7 +33,8 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      # No setup-android needed: ubuntu runners ship the SDK (ANDROID_HOME is
+      # preset) with platforms;android-35 and build-tools;35.
 
       - name: Install dependencies
         run: cd mobile && npm ci
