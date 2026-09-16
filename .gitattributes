@@ -1,0 +1,12 @@
+# Normalize every text file to LF — in the repository and in every working
+# copy. Windows CI (prettier/eslint) and Linux tooling must see identical
+# bytes, or format checks pass on one machine and fail on the other.
+* text=auto eol=lf
+
+# Binary assets must never be touched by the normalization.
+*.png binary
+*.jpg binary
+*.ico binary
+*.exe binary
+*.zip binary
+*.blockmap binary
