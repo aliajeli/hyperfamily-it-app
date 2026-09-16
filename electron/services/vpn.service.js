@@ -173,11 +173,11 @@ class VPNService {
   }
 
   /**
-   * Polls the real state once a second and emits a status update whenever it
+   * Polls the real state every few seconds and emits a status update whenever it
    * changes, so the header button turns green/red on its own — including when
    * the tunnel drops or FortiClient is closed outside the app.
    */
-  startHealthMonitor(intervalMs = 1000) {
+  startHealthMonitor(intervalMs = 5000) {
     if (this.healthTimer) return
     this.healthTimer = setInterval(() => {
       this.refreshHealth().catch(() => {})
@@ -196,7 +196,7 @@ class VPNService {
 
     // The real tunnel is probed every tick regardless of the mode we think we
     // are in, so a tunnel raised or dropped in FortiClient itself is reflected
-    // in the indicator within one second either way.
+    // in the indicator within a few seconds either way.
     const probe = await VPNService.detectGlobalTunnel(this.globalBaseline || null)
     this.serviceRunning = probe.serviceRunning
     this.forticlientRunning = probe.serviceRunning
@@ -315,6 +315,38 @@ class VPNService {
    * but the hardware description keeps the vendor string, so this catches a
    * renamed FortiClient adapter that the name test misses.
    */
+  /**
+   * One PowerShell round-trip answers every Windows-side health question at
+   * once (VPN service state, FortiClient process, tunnel adapter by
+   * description). The former implementation spawned up to six separate
+   * processes per tick, which was a major source of background CPU churn.
+   */
+  static combinedHealthProbe() {
+    if (process.platform !== 'win32') return Promise.resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
+    return new Promise((resolve) => {
+      const script = "$ErrorActionPreference='SilentlyContinue';" +
+        "$svc = @('FortiSSLVPNdaemon','FA_Scheduler','FortiClient','FortiClientService') | Where-Object { (Get-Service -Name $_).Status -eq 'Running' };" +
+        "$proc = [bool](Get-Process -Name 'FortiSSLVPNdaemon','FortiClient','FortiTray','FortiSSLVPNclient');" +
+        "$desc = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1' } | ForEach-Object { (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex).InterfaceDescription };" +
+        "$match = [bool]($desc | Where-Object { $_ -match 'forti|ssl.?vpn|pangp|tap-windows' });" +
+        "ConvertTo-Json -Compress @{ serviceRunning = [bool]$svc; processRunning = $proc; adapterByDescription = $match }"
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
+        { windowsHide: true, timeout: 10000, encoding: 'utf8' }, (error, stdout) => {
+          if (error) return resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
+          try {
+            const parsed = JSON.parse(String(stdout || '{}'))
+            resolve({
+              serviceRunning: Boolean(parsed.serviceRunning),
+              processRunning: Boolean(parsed.processRunning),
+              adapterByDescription: Boolean(parsed.adapterByDescription)
+            })
+          } catch {
+            resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
+          }
+        })
+    })
+  }
+
   static isTunnelAdapterUpByDescription() {
     if (process.platform !== 'win32') return Promise.resolve(false)
     return new Promise((resolve) => {
@@ -350,11 +382,8 @@ class VPNService {
    */
   static async detectGlobalTunnel(baseline = null) {
     if (process.platform !== 'win32') return { serviceRunning: false, adapterUp: false, live: false }
-    const [serviceRunning, processRunning, byDescription] = await Promise.all([
-      VPNService.isVpnServiceRunning(),
-      VPNService.isForticlientProcessRunning(),
-      VPNService.isTunnelAdapterUpByDescription()
-    ])
+    // A single PowerShell round-trip replaces the former per-check spawns.
+    const { serviceRunning, processRunning, adapterByDescription: byDescription } = await VPNService.combinedHealthProbe()
 
     const byName = VPNService.isTunnelAdapterUp()
 

@@ -119,6 +119,28 @@ class StoreUpdateService {
     // Destination-side SHA-256: the agent hashes the copy locally and only the
     // digest crosses the link. Injectable for tests, like everything OS-shaped.
     this.commands = options.commands || new AgentCommands({ agentPathMapper: options.agentPathMapper })
+    // Last known version answer per checkout id. Filled by the startup sweep
+    // (which runs even when the Store App page is closed) and by every manual
+    // recheck, so opening the page shows data instantly instead of re-scanning
+    // the whole estate on every visit.
+    this.versionCache = new Map()
+  }
+
+  #remember(checkout, full) {
+    if (checkout?.id != null) this.versionCache.set(checkout.id, full)
+    return full
+  }
+
+  /** Snapshot of the cached answers, keyed by checkout id, for the renderer. */
+  getCachedVersions() {
+    return Object.fromEntries(this.versionCache)
+  }
+
+  /** checkOne + cache, for the single-checkout recheck path. */
+  async checkOneCached(checkout) {
+    const result = await this.checkOne(checkout)
+    this.#remember(checkout, { checkoutId: checkout?.id, name: checkout?.name, branchId: checkout?.branch_id, ...result })
+    return result
   }
 
   /**
@@ -264,7 +286,7 @@ class StoreUpdateService {
       while (queue.length) {
         const checkout = queue.shift()
         const result = await this.checkOne(checkout).catch((error) => ({ state: 'error', error: error.message }))
-        const full = { checkoutId: checkout.id, name: checkout.name, branchId: checkout.branch_id, ...result }
+        const full = this.#remember(checkout, { checkoutId: checkout.id, name: checkout.name, branchId: checkout.branch_id, ...result })
         this.emit('store-update:version', full)
         results.push(full)
       }

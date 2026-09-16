@@ -236,7 +236,7 @@ function DevicesPageInner() {
       <div className="mx-auto max-w-[1700px] space-y-3 text-base-ui">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
-            <h1 className="text-xl font-black tracking-tight">Branches &amp; Devices</h1>
+            <h1 className="text-lg font-black tracking-tight">Branches &amp; Devices</h1>
             <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">Manage branch and equipment records, then connect to any device straight from the list.</p>
           </div>
           <div className="flex flex-wrap gap-1.5">

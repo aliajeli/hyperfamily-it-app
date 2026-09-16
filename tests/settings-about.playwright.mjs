@@ -113,7 +113,7 @@ for (let attempt = 1; attempt <= 4; attempt++) {
     // page, and that instability must not masquerade as an About regression.
     const seed = (theme) => `
       sessionStorage.setItem('hyperfamily-session', JSON.stringify({ state: { user: { username: 'Admin', role: 'admin' } }, version: 0 }))
-      localStorage.setItem('hyperfamily.browser.demo.v2', JSON.stringify({ settings: {
+      if (!localStorage.getItem('hyperfamily.browser.demo.v2')) localStorage.setItem('hyperfamily.browser.demo.v2', JSON.stringify({ settings: {
         theme: ${JSON.stringify(theme)}, store_program_name: 'Previously selected product', store_update_path: 'D:\\\\Updates',
         target_domain: 'test-domain', target_admin_user: 'administrator', target_admin_password: 'fixture-secret'
       } }))`
@@ -157,7 +157,8 @@ for (let attempt = 1; attempt <= 4; attempt++) {
       await expect(page.getByRole('tab', { name: 'Store App', exact: true })).toHaveAttribute('data-state', 'active')
       await expect.poll(() => page.getByRole('tabpanel').evaluate((el) => Number(getComputedStyle(el).opacity))).toBe(1)
       await page.screenshot({ path: `${screenshots}/store-app-${theme}.png`, fullPage: true })
-      await themeBrowser.close()
+      // The browser stays open: the checks below continue on this page and the
+      // suite closes it once at the very end.
     }
     // A fresh profile must supply a password; test and domain errors stay local.
     await page.evaluate(() => {

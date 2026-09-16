@@ -1,11 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
-import { Building2, CloudUpload, FileUp, HardDriveDownload, ListChecks, Loader2, RefreshCw, Settings2, ShoppingCart, ShieldCheck, Wrench, X } from 'lucide-react'
+import { CloudUpload, FileUp, HardDriveDownload, ListChecks, Loader2, RefreshCw, Settings2, ShoppingCart, ShieldCheck, Wrench, X } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
-import CheckoutCard from '@/components/store-update/CheckoutCard'
+import BranchCheckoutsCard from '@/components/store-update/BranchCheckoutsCard'
 import AgentImportDialog from '@/components/store-update/AgentImportDialog'
 import DeployDialog from '@/components/store-update/DeployDialog'
 import StoreInstallDialog from '@/components/store-update/StoreInstallDialog'
@@ -14,6 +13,9 @@ import { Button, Card, CardContent, EmptyState, Skeleton } from '@/components/ui
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { getApi } from '@/lib/api'
 import { formatDuration } from '@/lib/utils'
+
+// Stable empty set so rows do not re-render on a fresh object each pass.
+const EMPTY_ID_SET = new Set()
 
 /** Checkout devices grouped and ordered under their branch name. */
 function groupCheckouts(branches, devices) {
@@ -60,7 +62,6 @@ export default function StoreUpdatePage() {
   // Live deploy narration: checkoutId → step list / progress
   const [steps, setSteps] = useState({})
   const [progress, setProgress] = useState({})
-  const sweepStarted = useRef(false)
   const dialogRef = useRef(dialog)
   dialogRef.current = dialog
 
@@ -131,13 +132,17 @@ export default function StoreUpdatePage() {
       })
   }, [])
 
-  // Automatic sweep on first load — the page's whole point is seeing every
-  // checkout's Store Commerce version immediately.
+  // Opening the page shows the cached answers — filled by the sweep that runs
+  // at application startup and by every earlier recheck — instead of scanning
+  // the whole estate again on each visit. Fresh data comes only from Recheck
+  // all, the branch Recheck, or a single checkout's Recheck.
   useEffect(() => {
-    if (sweepStarted.current || !settings || allCheckouts.length === 0) return
-    sweepStarted.current = true
-    runSweep(allCheckouts)
-  }, [settings, allCheckouts, runSweep])
+    let alive = true
+    getApi().storeUpdate.versionCache?.()
+      .then((cache) => { if (alive && cache) setVersions((previous) => ({ ...cache, ...previous })) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   /** Adopt the exact program name an operator picked from the diagnostic list. */
   const adoptProgramName = useCallback(async (name) => {
@@ -310,6 +315,18 @@ export default function StoreUpdatePage() {
     })
   }
 
+  /** Selects or clears a whole branch from the card header checkbox. */
+  const selectMany = (ids, value) => {
+    setSelected((previous) => {
+      const next = new Set(previous)
+      for (const id of ids) {
+        if (value) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+  }
+
   /** Green/red info on a card: reopen that checkout's result dialog. */
   const showInstallResult = (checkout) => setInstallView({ open: true, checkout })
 
@@ -473,7 +490,15 @@ export default function StoreUpdatePage() {
         )}
 
         {loading ? (
-          <div className="space-y-3"><Skeleton className="h-9 w-64" /><div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <Skeleton key={i} className="h-[72px]" />)}</div></div>
+          <div className="space-y-2.5">
+            {[0, 1].map((i) => (
+              <div key={i} className="overflow-hidden rounded-2xl border border-[rgb(var(--border)/.7)]">
+                <Skeleton className="h-10 w-full rounded-none" />
+                <Skeleton className="mx-3 my-2 h-7 w-[calc(100%-1.5rem)]" />
+                <Skeleton className="mx-3 mb-2 h-7 w-[calc(100%-1.5rem)]" />
+              </div>
+            ))}
+          </div>
         ) : allCheckouts.length === 0 ? (
           <EmptyState
             icon={<ShoppingCart size={26} />}
@@ -482,36 +507,26 @@ export default function StoreUpdatePage() {
           />
         ) : (
           groups.map((group) => (
-            <section key={group.branch.id} className="space-y-2">
-              <header className="flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><Building2 size={14} /></span>
-                <h2 className="text-sm font-bold text-[rgb(var(--text))]">{group.branch.name}</h2>
-                <span className="rounded-full bg-[rgb(var(--border)/.6)] px-2 py-0.5 text-xs font-bold text-[rgb(var(--muted))]">{group.branch.code}</span>
-                <span className="text-xs text-[rgb(var(--muted))]">{group.checkouts.length} checkout{group.checkouts.length !== 1 ? 's' : ''}</span>
-              </header>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
-                <AnimatePresence initial={false}>
-                  {group.checkouts.map((checkout) => (
-                    <CheckoutCard
-                      key={checkout.id}
-                      checkout={checkout}
-                      version={versions[checkout.id] || { state: 'checking' }}
-                      onRecheck={recheck}
-                      onImportAgent={(target) => importAgents([target])}
-                      agentBusy={agentRun.running && agentRun.targets.some((target) => target.id === checkout.id)}
-                      onDeploy={deployOne}
-                      onInspect={(target) => setInspect({ open: true, checkout: target })}
-                      onUpdateStore={(target) => startInstall([target])}
-                      selected={selected.has(checkout.id)}
-                      onSelect={toggleSelect}
-                      installResult={installResults[checkout.id]}
-                      onShowInstallResult={showInstallResult}
-                      anyDeployRunning={anyDeployRunning}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            </section>
+            <BranchCheckoutsCard
+              key={group.branch.id}
+              group={group}
+              versions={versions}
+              selected={selected}
+              onSelectMany={selectMany}
+              onToggleSelect={toggleSelect}
+              onRecheckBranch={(checkouts) => runSweep(checkouts)}
+              onUpdateBranch={(checkouts) => startInstall(checkouts)}
+              onRecheck={recheck}
+              onImportAgent={(target) => importAgents([target])}
+              onDeploy={deployOne}
+              onInspect={(target) => setInspect({ open: true, checkout: target })}
+              onUpdateStore={(target) => startInstall([target])}
+              onShowInstallResult={showInstallResult}
+              installResults={installResults}
+              agentBusyIds={agentRun.running ? new Set(agentRun.targets.map((target) => target.id)) : EMPTY_ID_SET}
+              anyDeployRunning={anyDeployRunning}
+              hasFile={Boolean(file)}
+            />
           ))
         )}
       </div>

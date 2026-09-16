@@ -205,7 +205,10 @@ function registerIpcHandlers({ database, remoteService, vpnService, terminalServ
     }
     return state
   }))
-  ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOne(payload?.checkout || {})))
+  ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOneCached(payload?.checkout || {})))
+  // Cached answers from the startup sweep and earlier rechecks — opening the
+  // Store App page reads this instead of scanning every checkout again.
+  ipcMain.handle('store-update:version-cache', secure(() => storeUpdateService.getCachedVersions()))
   // Diagnostic: the full Programs and Features list of one checkout, so the
   // operator can see how the product is really named there.
   ipcMain.handle('store-update:installed', secure(async (event, payload) => {

@@ -1,6 +1,54 @@
 {
   "entries": [
     {
+      "version": "3.2.6",
+      "date": "2026-09-16",
+      "channel": "main",
+      "title": "Calmer performance, redesigned About, and instant Store App data",
+      "changes": {
+        "improved": [
+          "Lower CPU usage while monitoring: lighter polling waves and a deduplicated page header keep the application quiet in the background.",
+          "Batch Store Commerce installs run faster and report per-checkout progress.",
+          "The About page is redesigned around a gradient hero band with a glass spec panel (release, platform, channel, developer), a slimmer updates card with a gradient progress bar, and a dedicated Support & source card.",
+          "Update Store App opens instantly from the sweep that runs at application startup; the page no longer re-scans on open — fresh data comes only from Recheck all, a branch Recheck, or a single checkout's Recheck.",
+          "The Store App page now presents each branch as a card with its checkouts and their states, and the Asset inventory scrolls as a whole page with a sticky column header."
+        ],
+        "removed": [
+          "POS and Scale device types were retired from the directory."
+        ]
+      }
+    },
+    {
+      "version": "3.2.5-beta.2",
+      "date": "2026-09-15",
+      "channel": "beta",
+      "title": "Redesigned About page, instant Store App page, page-level inventory scroll",
+      "changes": {
+        "improved": [
+          "The About page is redesigned: a gradient hero band with a glass spec panel (release, platform, channel, developer), a slimmer updates card with a gradient progress bar, and a dedicated Support & source card for issues, repository and developer contact.",
+          "Update Store App now opens instantly with the versions collected by a sweep that runs at application startup — even when the page is never opened. Opening the page no longer re-scans every checkout; fresh data comes only from Recheck all, the branch Recheck, or a single checkout's Recheck.",
+          "The Asset inventory list no longer scrolls inside its card — the whole page scrolls, with the column header sticking just below the app header."
+        ]
+      }
+    },
+    {
+      "version": "3.2.5-beta.1",
+      "date": "2026-09-15",
+      "channel": "beta",
+      "title": "Lower CPU usage, faster batch installs, and a calmer, roomier interface",
+      "changes": {
+        "improved": [
+          "Much lower background CPU use: pings run in bounded waves (12 at a time) every 5 seconds instead of spawning a process per device every 3 seconds, the UI is refreshed only when a displayed value actually changes, and the VPN health probe is now a single combined check every 5 seconds instead of up to six process spawns every second.",
+          "Store Commerce updates and agent imports now process up to 3 checkouts in parallel, and agent commands are answered up to 3× faster (poll interval 750 → 250 ms) — batch runs finish in a fraction of the former wall time.",
+          "The app header no longer repeats each page's title; page headings are compact single rows, so every screen gains usable vertical space.",
+          "Update Store App is redesigned around one card per branch: the card header shows the branch summary (checking/ok/offline counts) with Select all, Recheck and Update branch actions, and its checkouts are listed as compact rows with version and extension chips, status dot, and per-row Recheck / Import agent / Deploy / Inspect / Update actions."
+        ],
+        "removed": [
+          "POS and Scale no longer appear in Settings → Connections or Credential assignments — those devices are never connected to remotely."
+        ]
+      }
+    },
+    {
       "version": "3.2.4",
       "date": "2026-09-15",
       "channel": "main",

@@ -29,13 +29,13 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-[1920px] space-y-3 text-base-ui">
         <div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <motion.h1 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="mr-1 text-xl font-extrabold tracking-[0.015em]">Network at a glance</motion.h1>
+            <motion.h1 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="mr-1 text-lg font-extrabold tracking-[0.015em]">Network at a glance</motion.h1>
             <div className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-[rgb(var(--muted))]">
               <Clock3 size={11} className={generatedAt ? 'text-[rgb(var(--primary))]' : 'animate-spin'} />
               {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : 'Connecting to monitor…'}
             </div>
           </div>
-          <p className="mt-1 text-xs text-[rgb(var(--muted))]">Live health and Router latency across every store. Select a branch title to see all monitored equipment.</p>
+          <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">Live health and Router latency across every store. Select a branch title to see all monitored equipment.</p>
         </div>
 
         {!generatedAt ? (

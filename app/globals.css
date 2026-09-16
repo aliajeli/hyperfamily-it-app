@@ -254,10 +254,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* The per-group size multipliers are applied here, in the components layer,
      so a Tailwind text-* utility on the same element still overrides them. */
-  .page-title { @apply text-2xl font-bold tracking-tight md:text-3xl; font-size: calc(1.5rem * var(--font-header-scale)); }
+  .page-title { @apply text-lg font-bold tracking-tight md:text-xl; font-size: calc(1.15rem * var(--font-header-scale)); }
   .app-header-title { font-size: calc(1rem * var(--font-header-scale)); }
   .card-title, .section-title { font-size: calc(1rem * var(--font-title-scale)); }
-  .page-subtitle { color: rgb(var(--muted)); @apply mt-1 text-sm; font-size: calc(.875rem * var(--font-info-scale)); }
+  .page-subtitle { color: rgb(var(--muted)); @apply mt-0.5 text-2xs; font-size: calc(.72rem * var(--font-info-scale)); }
   .field-label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider; color: rgb(var(--muted)); font-size: calc(.75rem * var(--font-info-scale)); }
   .info-text { font-size: calc(.6875rem * var(--font-info-scale)); }
   .status-dot { @apply h-2.5 w-2.5 rounded-full; }

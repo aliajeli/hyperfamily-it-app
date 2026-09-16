@@ -1,5 +1,10 @@
 const { execFile } = require('child_process')
 
+// Hard cap on simultaneous ping.exe processes. Probing in bounded waves keeps
+// CPU and process churn flat no matter how many devices are monitored.
+const PING_CONCURRENCY = 12
+const DEFAULT_INTERVAL_SECONDS = 5
+
 function pingHost(host, timeoutMs = 1000) {
   const isWindows = process.platform === 'win32'
   const args = isWindows ? ['-n', '1', '-w', String(timeoutMs), host] : ['-c', '1', '-W', String(Math.max(1, Math.ceil(timeoutMs / 1000))), host]
@@ -20,6 +25,10 @@ class PingMonitor {
     this.sendEvent = sendEvent
     this.timer = null
     this.running = false
+    // Last emitted result fingerprint. The renderer only needs a snapshot when
+    // something it displays actually changed — re-sending identical data every
+    // tick was a major source of UI re-renders.
+    this.lastFingerprint = ''
   }
 
   /**
@@ -51,17 +60,46 @@ class PingMonitor {
     this.timer = setTimeout(() => this.tick(), delay)
   }
 
+  /** Probes every device in waves of PING_CONCURRENCY instead of all at once. */
+  async probeAll(devices) {
+    const results = new Array(devices.length)
+    for (let start = 0; start < devices.length; start += PING_CONCURRENCY) {
+      const wave = devices.slice(start, start + PING_CONCURRENCY)
+      const settled = await Promise.allSettled(wave.map((device) => this.probe(device)))
+      settled.forEach((item, offset) => {
+        const device = wave[offset]
+        results[start + offset] = item.status === 'fulfilled'
+          ? { device_id: device.id, ...item.value }
+          : { device_id: device.id, status: 'offline', ping_time: null }
+      })
+    }
+    return results
+  }
+
   async tick() {
     try {
       const devices = this.database.listMonitoredDevices()
       if (devices.length) {
-        const settled = await Promise.allSettled(devices.map(async (device) => ({ device_id: device.id, ...(await this.probe(device)) })))
-        const results = settled.map((item, index) => item.status === 'fulfilled' ? item.value : { device_id: devices[index].id, status: 'offline', ping_time: null })
+        const results = await this.probeAll(devices)
         this.database.recordPingBatch(results)
+        // Emit only when a displayed value changed; the database keeps the
+        // full history either way.
+        const fingerprint = results.map((item) => `${item.device_id}:${item.status}:${item.ping_time}`).join('|')
+        if (fingerprint !== this.lastFingerprint) {
+          this.lastFingerprint = fingerprint
+          const settings = this.database.getSettings()
+          this.sendEvent('monitor:update', this.database.getMonitorSnapshot(settings.ping_history_count || 30))
+        }
+      } else {
+        // No monitored devices: still refresh so removals reach the UI once.
+        if (this.lastFingerprint !== 'empty') {
+          this.lastFingerprint = 'empty'
+          const settings = this.database.getSettings()
+          this.sendEvent('monitor:update', this.database.getMonitorSnapshot(settings.ping_history_count || 30))
+        }
       }
       const settings = this.database.getSettings()
-      this.sendEvent('monitor:update', this.database.getMonitorSnapshot(settings.ping_history_count || 30))
-      this.schedule(Math.max(1, Number(settings.ping_interval) || 3) * 1000)
+      this.schedule(Math.max(1, Number(settings.ping_interval) || DEFAULT_INTERVAL_SECONDS) * 1000)
     } catch (error) {
       this.database.audit('System', 'PING_SERVICE_ERROR', 'Monitoring', error.message)
       this.schedule(5000)
@@ -69,4 +107,4 @@ class PingMonitor {
   }
 }
 
-module.exports = { PingMonitor, pingHost }
+module.exports = { PingMonitor, pingHost, PING_CONCURRENCY }

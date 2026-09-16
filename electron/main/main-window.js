@@ -20,6 +20,7 @@ const { StoreUpdateService } = require('../services/store-update.service')
 const { StoreInstallService } = require('../services/store-install.service')
 const { SmbSessionManager } = require('../services/smb.service')
 let storeUpdateServiceRef = null
+let startupSweepTimer = null
 const { registerIpcHandlers } = require('./ipc-handlers')
 const { registerDeviceWebviewHandlers } = require('./webview-window')
 
@@ -167,9 +168,20 @@ else {
     pingMonitor = new PingMonitor(database, sendEvent)
     pingMonitor.start()
     database.audit('System', 'APP_START', app.getVersion(), `${process.platform} ${process.arch}`)
+    // Startup version sweep for the Store App page: runs shortly after launch
+    // even when that page is never opened, so opening it later shows cached
+    // answers instantly. Manual refreshes (Recheck all / branch / checkout)
+    // stay the only way to fetch again during the session.
+    startupSweepTimer = setTimeout(() => {
+      try {
+        const checkouts = database.listDevices().filter((device) => device.device_type === 'Checkout')
+        if (checkouts.length) storeUpdateService.checkMany(checkouts).catch(() => {})
+      } catch { /* the page's own Recheck still works if this fails */ }
+    }, 12000)
+    startupSweepTimer.unref?.()
   })
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('before-quit', () => { pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); storeUpdateServiceRef?.smb?.releaseAll?.().catch(() => {}); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })
+app.on('before-quit', () => { if (startupSweepTimer) clearTimeout(startupSweepTimer); pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); storeUpdateServiceRef?.smb?.releaseAll?.().catch(() => {}); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })

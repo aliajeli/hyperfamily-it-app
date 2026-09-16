@@ -270,19 +270,32 @@ class StoreInstallService {
   async installAll(checkouts, options = {}) {
     const runId = options.runId || `install-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     this.#registerRun(runId)
-    const results = []
+    const results = new Array(checkouts.length)
     let cancelledByOperator = false
+    // Checkouts are installed by a small pool of workers instead of one at a
+    // time — the per-checkout pipeline is dominated by remote waits (POS
+    // closing, installer, agent polling), so running a few in parallel cuts
+    // the batch wall time roughly by the concurrency factor.
+    const concurrency = Math.max(1, Math.min(Number(options.concurrency) || 3, checkouts.length || 1))
+    let cursor = 0
     try {
-      for (const checkout of checkouts) {
-        if (this.runs.get(runId)?.controller.signal.aborted) {
-          cancelledByOperator = true
-          results.push({ checkoutId: checkout.id, name: checkout.name, ok: false, cancelled: true, skipped: true, steps: [], durationMs: 0, error: 'Skipped after the operator stopped the batch' })
-          this.emit('store-update:install-step', { runId, checkoutId: checkout.id, name: checkout.name, step: 'cancelled', status: 'skipped', detail: 'Skipped after the operator stopped the batch', at: new Date().toISOString() })
-          continue
+      const worker = async () => {
+        while (cursor < checkouts.length) {
+          if (this.runs.get(runId)?.controller.signal.aborted) return
+          const index = cursor++
+          const checkout = checkouts[index]
+          results[index] = await this.installOne(checkout, { ...options, runId })
+          if (results[index].cancelled) cancelledByOperator = true
         }
-        const result = await this.installOne(checkout, { ...options, runId })
-        results.push(result)
-        if (result.cancelled) cancelledByOperator = true
+      }
+      await Promise.all(Array.from({ length: concurrency }, worker))
+      // Anything never picked up (operator stopped mid-batch) is reported as
+      // skipped, exactly like the former sequential loop did.
+      for (let index = 0; index < checkouts.length; index += 1) {
+        if (results[index]) continue
+        cancelledByOperator = true
+        results[index] = { checkoutId: checkouts[index].id, name: checkouts[index].name, ok: false, cancelled: true, skipped: true, steps: [], durationMs: 0, error: 'Skipped after the operator stopped the batch' }
+        this.emit('store-update:install-step', { runId, checkoutId: checkouts[index].id, name: checkouts[index].name, step: 'cancelled', status: 'skipped', detail: 'Skipped after the operator stopped the batch', at: new Date().toISOString() })
       }
     } finally {
       this.#releaseRun(runId, true)

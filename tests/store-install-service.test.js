@@ -171,7 +171,10 @@ test('Stop skips the remaining checkouts and flags the batch as cancelled', asyn
     { id: 3, name: 'co-3', hostname: 'co-3', ip: '10.0.0.3' }
   ]
   const runId = `install-test-${Date.now()}`
-  const run = service.installAll(checkouts, { destinationPath: DEST, runId })
+  // concurrency: 1 pins the pool to one-at-a-time so the skip semantics after
+  // a Stop are deterministic (the default pool of 3 would legitimately have
+  // every checkout of a 3-item batch already in flight).
+  const run = service.installAll(checkouts, { destinationPath: DEST, runId, concurrency: 1 })
   // Stop the moment the batch is registered: the first checkout is already in
   // flight, every later one must be skipped.
   assert.equal(service.cancel(runId).cancelled, true)

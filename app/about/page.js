@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { RefreshCw, Download, Rocket, Github, CircleDot, HardDrive, Code2, ExternalLink, CheckCircle2, Mail, Pause, Play, Square, ScrollText, X } from 'lucide-react'
+import { RefreshCw, Download, Rocket, Github, CircleDot, HardDrive, Code2, ExternalLink, CheckCircle2, Mail, Pause, Play, Square, ScrollText, X, Sparkles, ShieldCheck, Radio } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
@@ -261,69 +261,98 @@ export default function AboutPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1400px] space-y-2">
+      <div className="mx-auto max-w-[1400px] space-y-2.5">
         <div>
           <h1 className="page-title">About HyperFamily Monitor</h1>
           <p className="page-subtitle">Product information, secure updates, technology credits, and support.</p>
         </div>
 
-        {/* Both cards stretch to the same height on every breakpoint: the row
-            has no items-start, and each card fills its grid cell. */}
-        <div className="grid gap-2 lg:grid-cols-[1.05fr_.95fr]">
-          <Card aria-label="Product overview" className="relative flex h-full flex-col overflow-hidden border-[rgb(var(--primary)/.25)]">
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.10)] via-transparent to-[rgb(var(--primary)/.04)]" />
-            <CardContent className="relative flex h-full flex-col p-4">
-              <div className="flex items-center gap-3">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-[rgb(var(--primary)/.18)] bg-[rgb(var(--surface)/.75)] shadow-sm">
-                  <BrandMark className="h-10 w-10" symbol />
-                </div>
-                <div className="min-w-0">
-                  <p className="mb-0.5 text-xs font-bold uppercase tracking-[.18em] text-[rgb(var(--primary))]">HyperFamily Stores · IT Operations</p>
-                  <h2 className="text-lg font-bold leading-tight tracking-tight">{APP_NAME}</h2>
-                  <p className="mt-1 text-2xs leading-relaxed text-[rgb(var(--muted))]">Branch connectivity, inventory and remote support — together in one Windows workspace.</p>
-                </div>
-              </div>
-              {/* Four stat tiles stretch to fill the whole card height, so the
-                  card never shows dead space next to the taller update card. */}
-              <div className="mt-3 grid flex-1 grid-cols-2 gap-1.5">
-                {[
-                  { icon: Rocket, label: info.version.includes('-') ? 'Preview release' : 'Stable release', value: `v${info.version}`, mono: true, accent: true },
-                  { icon: HardDrive, label: 'Platform', value: info.platform },
-                  { icon: CircleDot, label: 'Update channel', value: channel === 'beta' ? 'Beta' : 'Main' },
-                  { icon: Code2, label: 'Developer', value: 'Ali Ajeli Lahiji' }
-                ].map(({ icon: Icon, label, value, mono, accent }) => (
-                  <div key={label} className="flex flex-col justify-between gap-1.5 rounded-lg border border-[rgb(var(--primary)/.12)] bg-[rgb(var(--surface)/.55)] px-2.5 py-2">
-                    <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">
-                      <Icon size={11} className={accent ? 'text-[rgb(var(--primary))]' : ''} />
-                      {label}
-                    </span>
-                    <span className={`truncate text-sm font-bold ${mono ? 'font-mono' : ''} ${accent ? 'text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]'}`} title={value}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        {/* ------------------------------------------------------------ hero */}
+        {/* Structure contract: the first element child is the decorative layer,
+            the second is the content that fills the card's full height. */}
+        <section
+          aria-label="Product overview"
+          className="relative flex flex-col overflow-hidden rounded-3xl border border-[rgb(var(--primary)/.28)] shadow-lg shadow-[rgb(var(--primary)/.06)]"
+        >
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.16)] via-[rgb(var(--surface)/.4)] to-[rgb(var(--primary)/.05)]" />
+            {/* Soft glows as static radial gradients — a blur filter this size
+                would re-rasterize constantly and even destabilise software
+                renderers; gradients look the same for zero render cost. */}
+            <div
+              className="absolute inset-0"
+              style={{ background: 'radial-gradient(34rem 30rem at -6rem -10rem, rgb(var(--primary) / .20), transparent 62%), radial-gradient(30rem 26rem at calc(100% - 4rem) calc(100% + 8rem), rgb(var(--primary) / .12), transparent 62%)' }}
+            />
+            <div
+              className="absolute inset-0 opacity-[0.35]"
+              style={{ backgroundImage: 'radial-gradient(rgb(var(--primary) / .14) 1px, transparent 1px)', backgroundSize: '22px 22px' }}
+            />
+          </div>
 
+          <div className="relative flex h-full flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3.5">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, rotate: -4 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-white/25 bg-[rgb(var(--surface)/.6)] shadow-xl shadow-[rgb(var(--primary)/.15)] backdrop-blur-xl"
+              >
+                <BrandMark className="h-11 w-11" symbol />
+              </motion.div>
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-[.22em] text-[rgb(var(--primary))]">
+                  <Sparkles size={11} />HyperFamily Stores · IT Operations
+                </p>
+                <h2 className="mt-1 text-2xl font-black leading-tight tracking-tight md:text-3xl">{APP_NAME}</h2>
+                <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-[rgb(var(--muted))]">
+                  Branch connectivity, live monitoring, asset inventory and remote support — one calm Windows workspace for every store.
+                </p>
+              </div>
+            </div>
+
+            {/* Glass spec panel — the four facts at a glance. */}
+            <div className="grid w-full max-w-md shrink-0 grid-cols-2 gap-1.5 rounded-2xl border border-white/25 bg-[rgb(var(--surface)/.5)] p-2 shadow-xl shadow-black/5 backdrop-blur-xl">
+              {[
+                { icon: Rocket, label: info.version.includes('-') ? 'Preview release' : 'Stable release', value: `v${info.version}`, mono: true, accent: true },
+                { icon: HardDrive, label: 'Platform', value: info.platform },
+                { icon: Radio, label: 'Update channel', value: channel === 'beta' ? 'Beta' : 'Main' },
+                { icon: Code2, label: 'Developer', value: 'Ali Ajeli Lahiji' }
+              ].map(({ icon: Icon, label, value, mono, accent }) => (
+                <div key={label} className="flex flex-col justify-between gap-1 rounded-xl border border-[rgb(var(--primary)/.12)] bg-[rgb(var(--surface)/.65)] px-2.5 py-2 transition-colors hover:border-[rgb(var(--primary)/.3)]">
+                  <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">
+                    <Icon size={11} className={accent ? 'text-[rgb(var(--primary))]' : ''} />
+                    {label}
+                  </span>
+                  <span className={`truncate text-sm font-bold ${mono ? 'font-mono' : ''} ${accent ? 'text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]'}`} title={value}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* --------------------------------------------------------- updates */}
+        <div className="grid gap-2.5 lg:grid-cols-[1.15fr_.85fr]">
           <Card aria-label="Application updates" className="relative flex h-full flex-col overflow-hidden border-[rgb(var(--primary)/.25)]">
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.10)] via-transparent to-[rgb(var(--primary)/.04)]" />
-            <CardHeader className="relative p-2.5 pb-1">
-              <CardTitle className="flex items-center gap-2 text-sm"><Rocket size={15} />Application updates</CardTitle>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgb(var(--primary)/.7)] to-transparent" />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[rgb(var(--primary)/.07)] via-transparent to-transparent" />
+            <CardHeader className="relative p-3 pb-1">
+              <CardTitle className="flex items-center gap-2 text-sm"><Rocket size={15} className="text-[rgb(var(--primary))]" />Application updates</CardTitle>
               <CardDescription className="mt-0 text-xs leading-snug">Updates arrive as a small differential download and install themselves.</CardDescription>
             </CardHeader>
-            <CardContent className="relative flex h-full flex-col p-2.5 pt-1">
+            <CardContent className="relative flex h-full flex-col p-3 pt-1">
               {/* The status box reserves the height of both its lines from the
                   start, and the "Latest release" slot is always rendered. That
                   is what keeps the card exactly the same height before a check,
                   after an update is found, and while it downloads. */}
-              <div className="flex min-h-[92px] flex-col rounded-lg border bg-[rgb(var(--surface)/.42)] p-2">
+              <div className="flex min-h-[92px] flex-col rounded-xl border bg-[rgb(var(--surface)/.45)] p-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0">
-                    <small className="block text-xs uppercase tracking-wider text-[rgb(var(--muted))]">Installed version</small>
-                    <b className="text-sm">v{info.version}</b>
+                    <small className="block text-2xs uppercase tracking-wider text-[rgb(var(--muted))]">Installed version</small>
+                    <b className="font-mono text-sm">v{info.version}</b>
                   </span>
                   <span className="min-w-0 text-right">
-                    <small className="block text-xs uppercase tracking-wider text-[rgb(var(--muted))]">Latest release</small>
-                    <b className={`text-sm ${update?.hasUpdate ? 'text-[rgb(var(--primary))]' : ''}`}>{update ? `v${update.latestVersion}` : '—'}</b>
+                    <small className="block text-2xs uppercase tracking-wider text-[rgb(var(--muted))]">Latest release</small>
+                    <b className={`font-mono text-sm ${update?.hasUpdate ? 'text-[rgb(var(--primary))]' : ''}`}>{update ? `v${update.latestVersion}` : '—'}</b>
                   </span>
                 </div>
                 {/* One status line, always present, so nothing below it moves. */}
@@ -348,7 +377,7 @@ export default function AboutPage() {
                       <b>{progress}%</b>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-[rgb(var(--border))]">
-                      <motion.div animate={{ width: `${progress}%` }} className="h-full bg-[rgb(var(--primary))]" />
+                      <motion.div animate={{ width: `${progress}%` }} className="h-full rounded-full bg-gradient-to-r from-[rgb(var(--primary))] to-nord-14" />
                     </div>
                     {transfer.total > 0 && (
                       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs text-[rgb(var(--muted))]">
@@ -368,8 +397,8 @@ export default function AboutPage() {
                 )}
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1" role="radiogroup" aria-label="Update channel">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">Update channel</span>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1" role="radiogroup" aria-label="Update channel">
+                <span className="text-2xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">Update channel</span>
                 <label className={`flex items-center gap-1.5 text-2xs ${downloading || paused ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
@@ -463,14 +492,52 @@ export default function AboutPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* ------------------------------------------------------- support */}
+          <Card className="relative flex h-full flex-col overflow-hidden">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-br from-nord-14/6 via-transparent to-[rgb(var(--primary)/.04)]" />
+            <CardHeader className="relative p-3 pb-1">
+              <CardTitle className="flex items-center gap-2 text-sm"><ShieldCheck size={15} className="text-nord-14" />Support &amp; source</CardTitle>
+              <CardDescription className="mt-0 text-xs leading-snug">Report a reproducible issue, browse the repository, or reach the developer directly.</CardDescription>
+            </CardHeader>
+            <CardContent className="relative flex h-full flex-col gap-1.5 p-3 pt-1">
+              <button
+                type="button"
+                onClick={emailDeveloper}
+                className="contact-card group flex w-full items-center gap-2.5 rounded-xl border bg-[rgb(var(--surface)/.45)] px-2.5 py-2.5 text-left transition hover:border-[rgb(var(--primary)/.4)]"
+                aria-label={`Send an email to ${DEVELOPER_EMAIL}`}
+              >
+                <span className="contact-card-icon grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))] transition">
+                  <Mail size={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <b className="block text-2xs">Developer contact · Ali Ajeli Lahiji</b>
+                  <span className="block truncate font-mono text-xs text-[rgb(var(--primary))] underline-offset-2 group-hover:underline">{DEVELOPER_EMAIL}</span>
+                </span>
+                <ExternalLink size={14} className="shrink-0 text-[rgb(var(--muted))] transition group-hover:text-[rgb(var(--primary))]" />
+              </button>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button size="sm" variant="secondary" className="justify-start" onClick={() => external(`${REPO}/issues/new`)}>
+                  <CircleDot size={14} />Report an issue
+                </Button>
+                <Button size="sm" className="justify-start" onClick={() => external(REPO)}>
+                  <Github size={14} />Repository
+                </Button>
+              </div>
+              <p className="mt-auto rounded-xl border border-dashed bg-[rgb(var(--surface)/.35)] px-2.5 py-2 text-2xs leading-relaxed text-[rgb(var(--muted))]">
+                Issues are triaged against the audit log and the version shown above — include both when reporting so a fix can be reproduced exactly.
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
+        {/* ---------------------------------------------------- tech stack */}
         <Card>
-          <CardHeader className="p-2.5 pb-1">
+          <CardHeader className="p-3 pb-1">
             <CardTitle className="text-sm">Production technology stack</CardTitle>
             <CardDescription className="mt-0 text-xs leading-snug">Core runtime, interface, data protection, native Agent, and Windows build tools.</CardDescription>
           </CardHeader>
-          <CardContent className="p-2.5 pt-1">
+          <CardContent className="p-3 pt-1">
             <div className="grid gap-1.5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
               {technologies.map(({ name, description, brand, brandDark, url }, index) => (
                 <motion.button
@@ -488,7 +555,7 @@ export default function AboutPage() {
                   onClick={() => url && external(url)}
                   title={`${description} — open ${name} in your browser`}
                   aria-label={`${name}: ${description}. Opens ${url} in your browser`}
-                  className="tech-tile group relative min-w-0 cursor-pointer overflow-hidden rounded-lg border bg-[rgb(var(--surface)/.38)] px-2 py-1.5 text-left"
+                  className="tech-tile group relative min-w-0 cursor-pointer overflow-hidden rounded-xl border bg-[rgb(var(--surface)/.38)] px-2.5 py-2 text-left"
                 >
                   <span aria-hidden className="tech-tile-wash" />
                   <b className="tech-tile-name relative block text-xs leading-snug">
@@ -505,39 +572,6 @@ export default function AboutPage() {
         {/* Every release is recorded in lib/changelog.json, which is also what
             the release workflows publish as the GitHub release notes. */}
         <ChangeLogCard version={info.version} updateVersion={update?.hasUpdate ? update.latestVersion : null} updateNotes={update?.releaseNotes} onOpenExternal={external} />
-
-        <div className="grid gap-2 lg:grid-cols-2">
-        <Card className="p-2.5">
-          <div className="flex h-full flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="text-xs font-bold">Need help with branch infrastructure?</h3>
-              <p className="text-xs leading-snug text-[rgb(var(--muted))]">Report a reproducible issue or browse the source repository.</p>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" variant="secondary" onClick={() => external(`${REPO}/issues/new`)}><CircleDot size={14} />Report an issue</Button>
-              <Button size="sm" onClick={() => external(REPO)}><Github size={14} />GitHub <ExternalLink size={12} /></Button>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-2.5">
-          <button
-            type="button"
-            onClick={emailDeveloper}
-            className="contact-card group flex h-full w-full items-center gap-2.5 rounded-lg border bg-[rgb(var(--surface)/.38)] px-2.5 py-2 text-left transition"
-            aria-label={`Send an email to ${DEVELOPER_EMAIL}`}
-          >
-            <span className="contact-card-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))] transition">
-              <Mail size={15} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <b className="block text-2xs">Developer contact · Ali Ajeli Lahiji</b>
-              <span className="block truncate font-mono text-xs text-[rgb(var(--primary))] underline-offset-2 group-hover:underline">{DEVELOPER_EMAIL}</span>
-            </span>
-            <ExternalLink size={14} className="shrink-0 text-[rgb(var(--muted))] transition group-hover:text-[rgb(var(--primary))]" />
-          </button>
-        </Card>
-        </div>
 
         <footer className="pb-0.5 text-center text-xs uppercase tracking-widest text-[rgb(var(--muted))]">© 2026 HyperFamily Stores • MIT License • Built by Ali Ajeli Lahiji</footer>
 

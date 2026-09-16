@@ -18,7 +18,7 @@ const { mkdirAsync, renameAsync, withTimeout } = require('./async-fs')
  */
 const ACTIONS = new Set(['status', 'close', 'install'])
 const COMMAND_EXT = '.cmd'
-const POLL_MS = 750
+const POLL_MS = 250
 const DEFAULT_TIMEOUT_MS = 60 * 1000
 /** The installer may legitimately run for many minutes; the agent kills it at 15. */
 const INSTALL_TIMEOUT_MS = 20 * 60 * 1000

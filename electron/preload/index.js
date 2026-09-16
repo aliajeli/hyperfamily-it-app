@@ -97,6 +97,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     onAgentStep: (callback) => subscribe('store-update:agent-step', callback),
     version: (payload) => invoke('store-update:version', payload),
     versions: (payload) => invoke('store-update:versions', payload),
+    versionCache: () => invoke('store-update:version-cache'),
     deploy: (payload) => invoke('store-update:deploy', payload),
     deployAll: (payload) => invoke('store-update:deploy-all', payload),
     // Update Store Commerce: close → verify → installer install → version.
