@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2e3440" />
+    <title>HyperFamily Companion</title>
+    <style>
+      :root {
+        --canvas: #2e3440;
+        --surface: #3b4252;
+        --text: #eceff4;
+        --muted: #c4cddd;
+        --border: #4c566a;
+        --primary: #bf616a;
+        --primary-strong: #b25a63;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(34rem 30rem at -6rem -10rem, rgba(191, 97, 106, 0.2), transparent 62%),
+          radial-gradient(
+            30rem 26rem at calc(100% - 4rem) calc(100% + 8rem),
+            rgba(136, 192, 208, 0.12),
+            transparent 62%
+          ),
+          var(--canvas);
+        color: var(--text);
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+      .card {
+        width: 100%;
+        max-width: 25rem;
+        background: rgba(59, 66, 82, 0.82);
+        border: 1px solid var(--border);
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin-bottom: 1.1rem;
+      }
+      .mark {
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: 0.9rem;
+        display: grid;
+        place-items: center;
+        background: var(--primary-strong);
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.15rem;
+        letter-spacing: -0.01em;
+      }
+      p.sub {
+        margin: 0.2rem 0 0;
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      label {
+        display: block;
+        margin-top: 0.9rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      input {
+        width: 100%;
+        margin-top: 0.3rem;
+        padding: 0.7rem 0.8rem;
+        border-radius: 0.7rem;
+        border: 1px solid var(--border);
+        background: rgba(46, 52, 64, 0.6);
+        color: var(--text);
+        font-size: 0.95rem;
+        outline: none;
+      }
+      input:focus {
+        border-color: var(--primary);
+      }
+      .row {
+        display: flex;
+        gap: 0.6rem;
+      }
+      .row > div:first-child {
+        flex: 1;
+      }
+      .row > div:last-child {
+        width: 6.5rem;
+      }
+      button {
+        width: 100%;
+        margin-top: 1.1rem;
+        padding: 0.75rem;
+        border: 0;
+        border-radius: 0.7rem;
+        background: var(--primary-strong);
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+      }
+      button.secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-weight: 600;
+        margin-top: 0.6rem;
+      }
+      .note {
+        margin: 1rem 0 0;
+        font-size: 0.72rem;
+        line-height: 1.5;
+        color: var(--muted);
+        border: 1px dashed var(--border);
+        border-radius: 0.7rem;
+        padding: 0.6rem 0.75rem;
+      }
+      .status {
+        margin-top: 0.9rem;
+        font-size: 0.8rem;
+        min-height: 1.2em;
+        color: var(--muted);
+      }
+      .status.error {
+        color: #ebcb8b;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="brand">
+        <div class="mark">HF</div>
+        <div>
+          <h1>HyperFamily Companion</h1>
+          <p class="sub">Connect to your monitoring workstation</p>
+        </div>
+      </div>
+
+      <div id="status" class="status hidden"></div>
+
+      <form id="form">
+        <div class="row">
+          <div>
+            <label for="host">Server address</label>
+            <input
+              id="host"
+              inputmode="url"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="192.168.1.50"
+              required
+            />
+          </div>
+          <div>
+            <label for="port">Port</label>
+            <input id="port" type="number" inputmode="numeric" min="1" max="65535" value="8420" required />
+          </div>
+        </div>
+        <label for="token">Companion token</label>
+        <input
+          id="token"
+          type="password"
+          autocomplete="off"
+          placeholder="Shown in Settings → General on the workstation"
+          required
+        />
+        <button id="connect" type="submit">Connect</button>
+        <button id="forget" type="button" class="secondary hidden">Forget this server</button>
+        <p class="note">
+          On the workstation: Settings → General → Companion server (Android) → enable it, then enter the
+          address and token shown there. Both devices must be on the same store network.
+        </p>
+      </form>
+    </div>
+
+    <script>
+      var KEY = 'hyperfamily.server'
+      var form = document.getElementById('form')
+      var status = document.getElementById('status')
+      var connect = document.getElementById('connect')
+      var forget = document.getElementById('forget')
+
+      function read() {
+        try {
+          return JSON.parse(localStorage.getItem(KEY) || 'null')
+        } catch (e) {
+          return null
+        }
+      }
+      function save(config) {
+        localStorage.setItem(KEY, JSON.stringify(config))
+      }
+      function show(message, isError) {
+        status.textContent = message
+        status.className = 'status' + (isError ? ' error' : '')
+      }
+      function health(url) {
+        var controller = new AbortController()
+        var timer = setTimeout(function () {
+          controller.abort()
+        }, 4000)
+        return fetch(url + '/api/health', { signal: controller.signal }).then(function (response) {
+          clearTimeout(timer)
+          if (!response.ok) throw new Error('Server answered ' + response.status)
+          return response.json()
+        })
+      }
+      function go(config) {
+        // The token rides along once; the served page keeps it from then on.
+        window.location.replace(
+          'http://' + config.host + ':' + config.port + '/?companion=' + encodeURIComponent(config.token)
+        )
+      }
+      function fill(config) {
+        document.getElementById('host').value = config.host || ''
+        document.getElementById('port').value = config.port || 8420
+        document.getElementById('token').value = config.token || ''
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault()
+        var config = {
+          host: document
+            .getElementById('host')
+            .value.trim()
+            .replace(/^https?:\/\//, '')
+            .replace(/\/+$/, ''),
+          port: Number(document.getElementById('port').value) || 8420,
+          token: document.getElementById('token').value.trim()
+        }
+        if (!config.host) return show('Enter the server address', true)
+        connect.disabled = true
+        show('Connecting to ' + config.host + ':' + config.port + '…')
+        health('http://' + config.host + ':' + config.port)
+          .then(function () {
+            save(config)
+            forget.className = 'secondary hidden'
+            go(config)
+          })
+          .catch(function () {
+            connect.disabled = false
+            show(
+              'Could not reach that server. Check the address, the port, and that both devices are on the same network.',
+              true
+            )
+          })
+      })
+
+      forget.addEventListener('click', function () {
+        localStorage.removeItem(KEY)
+        forget.className = 'secondary hidden'
+        show('Saved server forgotten — enter the details again.')
+      })
+
+      var saved = read()
+      if (saved && saved.host) {
+        fill(saved)
+        forget.className = 'secondary'
+        show('Reconnecting to ' + saved.host + ':' + saved.port + '…')
+        health('http://' + saved.host + ':' + saved.port)
+          .then(function () {
+            go(saved)
+          })
+          .catch(function () {
+            show(
+              'The saved server is not reachable right now — check it below, or Forget it and enter a new one.',
+              true
+            )
+          })
+      }
+    </script>
+  </body>
+</html>

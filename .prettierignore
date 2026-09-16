@@ -5,3 +5,4 @@ dist
 package-lock.json
 electron/vendor
 CHANGELOG.md
+mobile/android

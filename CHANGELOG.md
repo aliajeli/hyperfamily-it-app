@@ -3,6 +3,18 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.4.0-beta.1
+
+**Android companion: the workstation becomes the phone’s backend**
+
+_Released 2026-09-16 · beta channel_
+
+### Added
+- Companion server for Android: a switch in Settings → General turns this workstation into a token-protected backend that serves the application’s own interface and live branch data to the phone over the store network — it restarts automatically with the app.
+- A new mobile/ project builds the HyperFamily Companion app (Capacitor): enter the workstation address and the companion token shown in Settings, then sign in with a regular application account to watch branch and device health from the store floor.
+
+### Improved
+- The companion token can be rotated from Settings at any time, which immediately locks out a lost or retired phone without touching the application accounts.
 ## 3.3.0-beta.1
 
 **Engineering hardening: self-discovered tests, file logging, nightly UI checks**

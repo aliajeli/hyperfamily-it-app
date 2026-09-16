@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Activity, KeyRound, ShieldCheck, UserRoundCog } from 'lucide-react'
 import { toast } from 'sonner'
+import CompanionServerCard from '@/components/settings/CompanionServerCard'
 import {
   Button,
   Card,
@@ -289,6 +290,9 @@ export default function GeneralSettings({ settings, onSaved }) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Android companion server — the phone uses this machine as its backend. */}
+      <CompanionServerCard />
     </div>
   )
 }

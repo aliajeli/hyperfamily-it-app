@@ -37,6 +37,11 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     subscribe: (callback) => subscribe('monitor:update', callback)
   },
   settings: { get: () => invoke('settings:get'), save: (patch) => invoke('settings:save', patch) },
+  companion: {
+    state: () => invoke('companion:state'),
+    set: (patch) => invoke('companion:set', patch),
+    rotateToken: () => invoke('companion:rotate-token')
+  },
   credentials: {
     list: () => invoke('credentials:list'),
     reveal: (id) => invoke('credentials:reveal', id),

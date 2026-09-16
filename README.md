@@ -283,6 +283,7 @@ electron/database/      Encrypted persistence and migrations
 electron/services/      Monitoring, deployment, terminal, VPN and other OS services
 electron/recovery/      Shared credential recovery core, page and optional standalone shell
 electron/scripts/       Native Agent build and binary verification
+mobile/                 Android companion app (Capacitor shell) — see mobile/README.md
 tests/                  Unit, Electron, Windows service and browser checks
 docs/                   Architecture, release notes and validation guides
 .github/workflows/      CI, Beta prerelease and stable tag-release automation

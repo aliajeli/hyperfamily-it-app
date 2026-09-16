@@ -1,11 +1,13 @@
 const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
+const path = require('path')
 const {
   createImportTemplate,
   exportDirectory,
   exportInventory,
   importDirectory
 } = require('../services/excel.service')
+const { createCompanionServer } = require('../services/companion-server.service')
 const { openDeviceWebview, broadcastPalette } = require('./webview-window')
 const { STORE_COMMERCE_PROGRAM } = require('../services/store-update.service')
 
@@ -698,6 +700,30 @@ function registerIpcHandlers({
     'app:path-exists',
     secure((_event, value) => fs.existsSync(String(value || '')))
   )
+
+  // Companion server for the Android app: the phone loads this workstation's
+  // own interface and API over the LAN. Configured in Settings → General.
+  const companionServer = createCompanionServer({
+    database,
+    exportRoot: path.resolve(__dirname, '../../out'),
+    appVersion: require('../../package.json').version
+  })
+  ipcMain.handle(
+    'companion:state',
+    secure(() => companionServer.state())
+  )
+  ipcMain.handle(
+    'companion:set',
+    secure((_event, patch) => companionServer.configure(patch))
+  )
+  ipcMain.handle(
+    'companion:rotate-token',
+    secure(() => companionServer.rotateToken())
+  )
+  // A previously enabled server comes back on its own once the app has settled.
+  setTimeout(() => {
+    companionServer.autostart().catch(() => {})
+  }, 3000).unref?.()
 
   return () => {
     ipcMain.removeHandler('auth:login')

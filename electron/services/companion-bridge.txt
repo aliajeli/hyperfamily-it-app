@@ -1,0 +1,169 @@
+/* HyperFamily companion bridge — injected into every served page.
+ *
+ * The phone's WebView loads this application from the workstation over HTTP,
+ * where no Electron preload exists. This bridge provides window.hyperfamily
+ * on top of the companion /api endpoints, so the renderer cannot tell the
+ * difference for everything the phone supports. Modules the companion does
+ * not implement answer with a clear "not available" error instead of failing
+ * silently. The token arrives once in the URL (?companion=…) from the mobile
+ * shell and is kept in this origin's localStorage from then on. */
+;(function () {
+  var KEY = 'hyperfamily.companion.token'
+  try {
+    var params = new URLSearchParams(window.location.search)
+    var incoming = params.get('companion')
+    if (incoming) {
+      window.localStorage.setItem(KEY, incoming)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  } catch (e) {
+    /* private modes without localStorage simply re-send the token each time */
+  }
+
+  function token() {
+    try {
+      return window.localStorage.getItem(KEY) || ''
+    } catch (e) {
+      return ''
+    }
+  }
+
+  function call(method, url, body) {
+    return window
+      .fetch(url, {
+        method: method,
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token() },
+        body: body === undefined ? undefined : JSON.stringify(body)
+      })
+      .then(function (response) {
+        return response.text().then(function (text) {
+          var data = null
+          try {
+            data = text ? JSON.parse(text) : null
+          } catch (e) {
+            data = null
+          }
+          if (!response.ok) throw new Error((data && data.error) || 'Companion request failed (' + response.status + ')')
+          return data
+        })
+      })
+  }
+
+  function unavailable(feature) {
+    return function () {
+      return Promise.reject(new Error(feature + ' is not available in the companion app'))
+    }
+  }
+
+  var monitorListeners = new Set()
+  var monitorTimer = null
+
+  function pollMonitor() {
+    call('GET', '/api/monitor')
+      .then(function (snapshot) {
+        monitorListeners.forEach(function (listener) {
+          try {
+            listener(snapshot)
+          } catch (e) {
+            /* one broken listener must not stop the others */
+          }
+        })
+      })
+      .catch(function () {
+        /* transient network hiccups are normal on store Wi-Fi; the next tick retries */
+      })
+  }
+
+  var api = {
+    app: {
+      info: function () {
+        return call('GET', '/api/app/info')
+      },
+      openExternal: function (url) {
+        window.open(url, '_blank')
+        return Promise.resolve()
+      }
+    },
+    auth: {
+      status: function () {
+        return Promise.resolve({ authenticated: true })
+      },
+      login: function (form) {
+        return call('POST', '/api/auth/login', form)
+      },
+      logout: function () {
+        return Promise.resolve({ success: true })
+      },
+      changePassword: unavailable('Changing credentials'),
+      updateCredentials: unavailable('Changing credentials'),
+      recoverStatus: unavailable('PIN recovery'),
+      recover: unavailable('PIN recovery')
+    },
+    monitor: {
+      snapshot: function () {
+        return call('GET', '/api/monitor')
+      },
+      subscribe: function (callback) {
+        monitorListeners.add(callback)
+        if (!monitorTimer) monitorTimer = window.setInterval(pollMonitor, 5000)
+        pollMonitor()
+        return function () {
+          monitorListeners.delete(callback)
+          if (!monitorListeners.size && monitorTimer) {
+            window.clearInterval(monitorTimer)
+            monitorTimer = null
+          }
+        }
+      }
+    },
+    branches: {
+      list: function () {
+        return call('GET', '/api/branches')
+      },
+      save: function (payload) {
+        return call('POST', '/api/branches', payload)
+      },
+      remove: function (id) {
+        return call('POST', '/api/branches/remove', { id: id })
+      },
+      removeAll: unavailable('Wiping the directory')
+    },
+    devices: {
+      list: function () {
+        return call('GET', '/api/devices')
+      },
+      save: function (payload) {
+        return call('POST', '/api/devices', payload)
+      },
+      remove: function (id) {
+        return call('POST', '/api/devices/remove', { id: id })
+      }
+    },
+    settings: {
+      get: function () {
+        return call('GET', '/api/settings')
+      },
+      save: function (patch) {
+        return call('POST', '/api/settings', patch)
+      }
+    }
+  }
+
+  // Anything outside the supported surface degrades loudly instead of
+  // crashing the page: every unknown module.method rejects with a readable
+  // message the UI can toast.
+  window.hyperfamily = new Proxy(api, {
+    get: function (target, property) {
+      if (property in target) return target[property]
+      if (typeof property !== 'string') return undefined
+      return new Proxy(
+        {},
+        {
+          get: function (_target, method) {
+            return unavailable(property + '.' + String(method))
+          }
+        }
+      )
+    }
+  })
+})()
