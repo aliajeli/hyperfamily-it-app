@@ -66,7 +66,9 @@ function DeveloperCredit({ onComplete, reduceMotion }) {
     }
 
     playSequence()
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [onComplete, reduceMotion])
 
   return (
@@ -133,7 +135,11 @@ function AuthenticationStatus({ phase }) {
               transition={{ type: 'spring', stiffness: 240, damping: 17 }}
               className="absolute inset-2 flex items-center justify-center rounded-full bg-nord-14 text-white shadow-[0_0_32px_rgba(163,190,140,.42)]"
             >
-              <motion.div initial={{ rotate: -35, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ delay: 0.18, type: 'spring' }}>
+              <motion.div
+                initial={{ rotate: -35, scale: 0 }}
+                animate={{ rotate: 0, scale: 1 }}
+                transition={{ delay: 0.18, type: 'spring' }}
+              >
                 <Check size={42} strokeWidth={2.8} />
               </motion.div>
               <motion.div
@@ -217,9 +223,15 @@ function RecoveryDialog({ open, onOpenChange }) {
 
   useEffect(() => {
     if (!open) return
-    setPin(''); setMessage(''); setLocked(false); setRemainingAttempts(null)
-    setRetryAfter(null); setResult(null); setCopied(null)
-    getApi().auth.recoverStatus()
+    setPin('')
+    setMessage('')
+    setLocked(false)
+    setRemainingAttempts(null)
+    setRetryAfter(null)
+    setResult(null)
+    setCopied(null)
+    getApi()
+      .auth.recoverStatus()
       .then(setStatus)
       .catch((error) => setMessage(error.message))
   }, [open])
@@ -227,11 +239,18 @@ function RecoveryDialog({ open, onOpenChange }) {
   // Countdown while locked out.
   useEffect(() => {
     if (!retryAfter) return undefined
-    const timer = setInterval(() => setRetryAfter((value) => {
-      const next = (value || 0) - 1
-      if (next <= 0) { setLocked(false); return null }
-      return next
-    }), 1000)
+    const timer = setInterval(
+      () =>
+        setRetryAfter((value) => {
+          const next = (value || 0) - 1
+          if (next <= 0) {
+            setLocked(false)
+            return null
+          }
+          return next
+        }),
+      1000
+    )
     return () => clearInterval(timer)
   }, [retryAfter])
 
@@ -251,7 +270,9 @@ function RecoveryDialog({ open, onOpenChange }) {
         setMessage('Too many wrong attempts — recovery is locked for 5 minutes.')
       } else {
         setRemainingAttempts(outcome.remainingAttempts)
-        setMessage(`Wrong PIN. ${outcome.remainingAttempts} attempt${outcome.remainingAttempts === 1 ? '' : 's'} left.`)
+        setMessage(
+          `Wrong PIN. ${outcome.remainingAttempts} attempt${outcome.remainingAttempts === 1 ? '' : 's'} left.`
+        )
       }
     } catch (error) {
       setMessage(error.message)
@@ -265,7 +286,9 @@ function RecoveryDialog({ open, onOpenChange }) {
       await navigator.clipboard.writeText(text)
       setCopied(key)
       setTimeout(() => setCopied(null), 1400)
-    } catch { /* clipboard may be unavailable */ }
+    } catch {
+      /* clipboard may be unavailable */
+    }
   }
 
   return (
@@ -291,15 +314,23 @@ function RecoveryDialog({ open, onOpenChange }) {
                 className="dialog-content glass fixed left-1/2 top-1/2 z-[80] w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-[rgb(var(--surface))] p-4 shadow-2xl outline-none"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><KeyRound size={15} /></div>
+                  <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]">
+                    <KeyRound size={15} />
+                  </div>
                   <div>
-                    <DialogPrimitive.Title className="text-sm font-extrabold">Recover credentials</DialogPrimitive.Title>
+                    <DialogPrimitive.Title className="text-sm font-extrabold">
+                      Recover credentials
+                    </DialogPrimitive.Title>
                     <DialogPrimitive.Description className="text-xs text-[rgb(var(--muted))]">
                       Enter the recovery PIN to see the stored login.
                     </DialogPrimitive.Description>
                   </div>
                   <DialogPrimitive.Close asChild>
-                    <button type="button" aria-label="Close credential recovery" className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.5)] hover:text-[rgb(var(--text))]">
+                    <button
+                      type="button"
+                      aria-label="Close credential recovery"
+                      className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.5)] hover:text-[rgb(var(--text))]"
+                    >
                       <X size={15} />
                     </button>
                   </DialogPrimitive.Close>
@@ -307,11 +338,21 @@ function RecoveryDialog({ open, onOpenChange }) {
 
                 {result ? (
                   <div className="mt-3 space-y-1.5">
-                    {[['Username', result.username, 'user'], ['Password', result.password || 'not recorded', 'pass']].map(([label, value, key]) => (
-                      <div key={key} className="flex items-center gap-2 rounded-xl border bg-[rgb(var(--canvas)/.6)] p-2.5">
+                    {[
+                      ['Username', result.username, 'user'],
+                      ['Password', result.password || 'not recorded', 'pass']
+                    ].map(([label, value, key]) => (
+                      <div
+                        key={key}
+                        className="flex items-center gap-2 rounded-xl border bg-[rgb(var(--canvas)/.6)] p-2.5"
+                      >
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">{label}</p>
-                          <p className="truncate font-mono text-xs" title={value}>{value}</p>
+                          <p className="text-xs font-extrabold uppercase tracking-wider text-[rgb(var(--muted))]">
+                            {label}
+                          </p>
+                          <p className="truncate font-mono text-xs" title={value}>
+                            {value}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -329,7 +370,8 @@ function RecoveryDialog({ open, onOpenChange }) {
                   </div>
                 ) : status && !status.pinSet ? (
                   <p className="mt-3 rounded-xl border bg-nord-13/10 p-2.5 text-2xs leading-relaxed text-[#8b6e1c]">
-                    No recovery PIN has been set yet. Sign in normally and set one in <b>Settings → General</b> to enable recovery.
+                    No recovery PIN has been set yet. Sign in normally and set one in{' '}
+                    <b>Settings → General</b> to enable recovery.
                   </p>
                 ) : (
                   <form onSubmit={submit} className="mt-3 space-y-2">
@@ -344,8 +386,22 @@ function RecoveryDialog({ open, onOpenChange }) {
                       value={pin}
                       onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
                     />
-                    {message && <p className={`text-xs leading-snug ${locked ? 'text-nord-11' : 'text-[rgb(var(--muted))]'}`}>{message}{locked && retryAfter ? ` Try again in ${Math.floor(retryAfter / 60)}:${String(retryAfter % 60).padStart(2, '0')}.` : ''}</p>}
-                    {remainingAttempts !== null && !locked && <p className="text-xs text-[rgb(var(--muted))]">{remainingAttempts} attempt{remainingAttempts === 1 ? '' : 's'} remaining before a 5-minute lock.</p>}
+                    {message && (
+                      <p
+                        className={`text-xs leading-snug ${locked ? 'text-nord-11' : 'text-[rgb(var(--muted))]'}`}
+                      >
+                        {message}
+                        {locked && retryAfter
+                          ? ` Try again in ${Math.floor(retryAfter / 60)}:${String(retryAfter % 60).padStart(2, '0')}.`
+                          : ''}
+                      </p>
+                    )}
+                    {remainingAttempts !== null && !locked && (
+                      <p className="text-xs text-[rgb(var(--muted))]">
+                        {remainingAttempts} attempt{remainingAttempts === 1 ? '' : 's'} remaining before a
+                        5-minute lock.
+                      </p>
+                    )}
                     <Button disabled={locked || busy || pin.length < 4} className="w-full">
                       {busy ? 'Checking…' : 'Reveal credentials'}
                     </Button>
@@ -374,15 +430,24 @@ export default function LoginPage() {
   const [authPhase, setAuthPhase] = useState('idle')
   const [recoverOpen, setRecoverOpen] = useState(false)
 
-  useEffect(() => { if (hydrated && user) router.replace('/dashboard') }, [hydrated, user, router])
-  useEffect(() => { if (reduceMotion) setIntroComplete(true) }, [reduceMotion])
+  useEffect(() => {
+    if (hydrated && user) router.replace('/dashboard')
+  }, [hydrated, user, router])
+  useEffect(() => {
+    if (reduceMotion) setIntroComplete(true)
+  }, [reduceMotion])
 
   // Prefill the last successfully signed-in credentials when they were saved.
   useEffect(() => {
-    getApi().auth.rememberedCredentials?.().then((saved) => {
-      if (!saved?.username) return
-      setForm({ username: saved.username, password: saved.password, remember: true })
-    }).catch(() => { /* prefill is best-effort */ })
+    getApi()
+      .auth.rememberedCredentials?.()
+      .then((saved) => {
+        if (!saved?.username) return
+        setForm({ username: saved.username, password: saved.password, remember: true })
+      })
+      .catch(() => {
+        /* prefill is best-effort */
+      })
   }, [])
 
   const finishIntro = useCallback(() => setIntroComplete(true), [])
@@ -396,7 +461,8 @@ export default function LoginPage() {
     }
 
     setAuthPhase('checking')
-    const authentication = getApi().auth.login(form)
+    const authentication = getApi()
+      .auth.login(form)
       .then((authenticatedUser) => ({ authenticatedUser }))
       .catch((error) => ({ error }))
 
@@ -413,9 +479,13 @@ export default function LoginPage() {
 
     // Only a successful sign-in is remembered, and only while the checkbox
     // is ticked; unchecking it clears any previously saved credentials.
-    getApi().auth.rememberCredentials?.(
-      form.remember ? { username: form.username.trim(), password: form.password } : {}
-    ).catch(() => { /* remember-me is best-effort */ })
+    getApi()
+      .auth.rememberCredentials?.(
+        form.remember ? { username: form.username.trim(), password: form.password } : {}
+      )
+      .catch(() => {
+        /* remember-me is best-effort */
+      })
 
     setAuthPhase('success')
     await wait(reduceMotion ? 180 : 850)
@@ -475,7 +545,12 @@ export default function LoginPage() {
               width: introComplete ? 60 : 82,
               height: introComplete ? 60 : 82
             }}
-            transition={{ opacity: { duration: 0.75 }, scale: { duration: 0.8, ease: 'easeOut' }, width: { duration: 0.55 }, height: { duration: 0.55 } }}
+            transition={{
+              opacity: { duration: 0.75 },
+              scale: { duration: 0.8, ease: 'easeOut' },
+              width: { duration: 0.55 },
+              height: { duration: 0.55 }
+            }}
             className="relative"
           >
             <motion.span
@@ -497,7 +572,11 @@ export default function LoginPage() {
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0, fontSize: introComplete ? 24 : 29 }}
-            transition={{ opacity: { delay: 0.72, duration: 0.68 }, y: { delay: 0.72, duration: 0.68 }, fontSize: { duration: 0.55 } }}
+            transition={{
+              opacity: { delay: 0.72, duration: 0.68 },
+              y: { delay: 0.72, duration: 0.68 },
+              fontSize: { duration: 0.55 }
+            }}
             className="mt-5 font-extrabold tracking-tight"
           >
             Welcome to <span className="gradient-text">Hyper Family</span>
@@ -536,8 +615,13 @@ export default function LoginPage() {
                 transition={{ delay: 0.3 }}
                 className="group relative block"
               >
-                <span className="field-label transition-colors group-focus-within:text-[rgb(var(--primary))]">Username</span>
-                <User className="absolute bottom-3.5 left-3.5 text-[rgb(var(--muted))] transition-colors group-focus-within:text-[rgb(var(--primary))]" size={17} />
+                <span className="field-label transition-colors group-focus-within:text-[rgb(var(--primary))]">
+                  Username
+                </span>
+                <User
+                  className="absolute bottom-3.5 left-3.5 text-[rgb(var(--muted))] transition-colors group-focus-within:text-[rgb(var(--primary))]"
+                  size={17}
+                />
                 <Input
                   autoFocus
                   autoComplete="username"
@@ -554,8 +638,13 @@ export default function LoginPage() {
                 transition={{ delay: 0.4 }}
                 className="group relative block"
               >
-                <span className="field-label transition-colors group-focus-within:text-[rgb(var(--primary))]">Password</span>
-                <LockKeyhole className="absolute bottom-3.5 left-3.5 text-[rgb(var(--muted))] transition-colors group-focus-within:text-[rgb(var(--primary))]" size={17} />
+                <span className="field-label transition-colors group-focus-within:text-[rgb(var(--primary))]">
+                  Password
+                </span>
+                <LockKeyhole
+                  className="absolute bottom-3.5 left-3.5 text-[rgb(var(--muted))] transition-colors group-focus-within:text-[rgb(var(--primary))]"
+                  size={17}
+                />
                 <Input
                   autoComplete="current-password"
                   disabled={isAuthenticating}
@@ -589,10 +678,20 @@ export default function LoginPage() {
                 Remember this account on this device
               </motion.label>
 
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.52 }}>
-                <Button disabled={isAuthenticating} className="login-button group mt-1 h-12 w-full overflow-hidden">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.52 }}
+              >
+                <Button
+                  disabled={isAuthenticating}
+                  className="login-button group mt-1 h-12 w-full overflow-hidden"
+                >
                   <span className="relative z-10">Sign in securely</span>
-                  <ArrowRight className="login-button-icon relative z-10 transition-transform duration-300 group-hover:translate-x-1" size={17} />
+                  <ArrowRight
+                    className="login-button-icon relative z-10 transition-transform duration-300 group-hover:translate-x-1"
+                    size={17}
+                  />
                 </Button>
               </motion.div>
             </motion.form>

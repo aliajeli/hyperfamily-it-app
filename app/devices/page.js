@@ -2,7 +2,18 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Building2, Download, FileDown, FileUp, Plus, RefreshCw, Route, Server, Trash2, Warehouse } from 'lucide-react'
+import {
+  Building2,
+  Download,
+  FileDown,
+  FileUp,
+  Plus,
+  RefreshCw,
+  Route,
+  Server,
+  Trash2,
+  Warehouse
+} from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchForm from '@/components/devices/BranchForm'
@@ -42,7 +53,9 @@ function DevicesPageInner() {
   }
 
   const searchParams = useSearchParams()
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   // Deep links from the global search palette: /devices?branch=<id> or ?device=<id>
   useEffect(() => {
@@ -57,8 +70,18 @@ function DevicesPageInner() {
   }, [searchParams, devices, branches])
 
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) || null
-  const branchDevices = useMemo(() => devices.filter((device) => device.branch_id === selectedBranchId), [devices, selectedBranchId])
-  const deviceCounts = useMemo(() => devices.reduce((counts, device) => ({ ...counts, [device.branch_id]: (counts[device.branch_id] || 0) + 1 }), {}), [devices])
+  const branchDevices = useMemo(
+    () => devices.filter((device) => device.branch_id === selectedBranchId),
+    [devices, selectedBranchId]
+  )
+  const deviceCounts = useMemo(
+    () =>
+      devices.reduce(
+        (counts, device) => ({ ...counts, [device.branch_id]: (counts[device.branch_id] || 0) + 1 }),
+        {}
+      ),
+    [devices]
+  )
   const monitoredCount = branchDevices.filter((device) => device.is_dashboard_visible).length
   const hasRouter = branchDevices.some((device) => device.device_type === 'Router')
 
@@ -79,7 +102,9 @@ function DevicesPageInner() {
           device_type: dialog.type || dialog.value?.device_type
         }
         const result = await getApi().devices.save(payload)
-        toast.success(dialog.value ? `${result.name} changes saved` : `${result.name} added to ${selectedBranch.name}`)
+        toast.success(
+          dialog.value ? `${result.name} changes saved` : `${result.name} added to ${selectedBranch.name}`
+        )
         setDialog(null)
         await load(selectedBranch.id)
       }
@@ -93,7 +118,8 @@ function DevicesPageInner() {
   const removeBranch = async (branch) => {
     const ok = await confirm({
       title: `Delete ${branch.name}?`,
-      description: 'The branch and every device recorded against it are permanently removed. This cannot be undone.',
+      description:
+        'The branch and every device recorded against it are permanently removed. This cannot be undone.',
       confirmLabel: 'Delete branch'
     })
     if (!ok) return
@@ -101,7 +127,9 @@ function DevicesPageInner() {
       await getApi().branches.remove(branch.id)
       toast.success('Branch deleted')
       await load()
-    } catch (error) { toast.error(error.message) }
+    } catch (error) {
+      toast.error(error.message)
+    }
   }
 
   const removeDevice = async (device) => {
@@ -115,7 +143,9 @@ function DevicesPageInner() {
       await getApi().devices.remove(device.id)
       toast.success('Device deleted')
       await load(selectedBranchId)
-    } catch (error) { toast.error(error.message) }
+    } catch (error) {
+      toast.error(error.message)
+    }
   }
 
   /**
@@ -135,10 +165,14 @@ function DevicesPageInner() {
     if (!ok) return
     try {
       const result = await getApi().branches.removeAll()
-      toast.success(`Directory cleared — ${result?.branchCount ?? branches.length} branches and ${result?.deviceCount ?? devices.length} devices removed`)
+      toast.success(
+        `Directory cleared — ${result?.branchCount ?? branches.length} branches and ${result?.deviceCount ?? devices.length} devices removed`
+      )
       setSelectedBranchId(null)
       await load(null)
-    } catch (error) { toast.error(error.message) }
+    } catch (error) {
+      toast.error(error.message)
+    }
   }
 
   const changeDashboardVisibility = async (device, isDashboardVisible) => {
@@ -151,7 +185,7 @@ function DevicesPageInner() {
         ...device,
         is_dashboard_visible: isDashboardVisible
       })
-      setDevices((current) => current.map((item) => item.id === updated.id ? updated : item))
+      setDevices((current) => current.map((item) => (item.id === updated.id ? updated : item)))
     } catch (error) {
       toast.error(`Dashboard visibility was not changed: ${error.message}`)
     } finally {
@@ -185,7 +219,9 @@ function DevicesPageInner() {
         result.devices_added ? `${result.devices_added} devices added` : null,
         result.devices_updated ? `${result.devices_updated} devices updated` : null,
         result.switch_ports_imported ? `${result.switch_ports_imported} switch ports` : null
-      ].filter(Boolean).join(' · ')
+      ]
+        .filter(Boolean)
+        .join(' · ')
       toast.success('Directory imported', { description: summary || 'The workbook contained no new rows.' })
       await load(selectedBranchId)
     } catch (error) {
@@ -201,7 +237,9 @@ function DevicesPageInner() {
     try {
       const result = await getApi().directory.export()
       if (result?.canceled) return
-      toast.success('Directory exported', { description: `${result.branches} branches · ${result.devices} devices — ${result.path}` })
+      toast.success('Directory exported', {
+        description: `${result.branches} branches · ${result.devices} devices — ${result.path}`
+      })
     } catch (error) {
       toast.error('Export failed', { description: error.message, duration: 12000 })
     } finally {
@@ -219,17 +257,19 @@ function DevicesPageInner() {
     setDialog({ kind: 'device', step: 'form', type: device.device_type, value: device })
   }
 
-  const dialogTitle = dialog?.kind === 'branch'
-    ? `${dialog.value ? 'Edit' : 'Add'} branch`
-    : dialog?.step === 'type'
-      ? 'Choose a device type'
-      : `${dialog?.value ? 'Edit' : 'Add'} ${dialog?.type || 'device'}`
+  const dialogTitle =
+    dialog?.kind === 'branch'
+      ? `${dialog.value ? 'Edit' : 'Add'} branch`
+      : dialog?.step === 'type'
+        ? 'Choose a device type'
+        : `${dialog?.value ? 'Edit' : 'Add'} ${dialog?.type || 'device'}`
 
-  const dialogDescription = dialog?.kind === 'branch'
-    ? 'Define branch identity, Warehouse Code, network links, and responsible contacts.'
-    : dialog?.step === 'type'
-      ? 'Choose the equipment type. A branch can contain only one Router.'
-      : 'Every saved device needs a Device Name. Review the information and save your changes.'
+  const dialogDescription =
+    dialog?.kind === 'branch'
+      ? 'Define branch identity, Warehouse Code, network links, and responsible contacts.'
+      : dialog?.step === 'type'
+        ? 'Choose the equipment type. A branch can contain only one Router.'
+        : 'Every saved device needs a Device Name. Review the information and save your changes.'
 
   return (
     <AppShell>
@@ -237,20 +277,49 @@ function DevicesPageInner() {
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <h1 className="text-lg font-black tracking-tight">Branches &amp; Devices</h1>
-            <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">Manage branch and equipment records, then connect to any device straight from the list.</p>
+            <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">
+              Manage branch and equipment records, then connect to any device straight from the list.
+            </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</Button>
-            <Button size="sm" variant="secondary" onClick={downloadTemplate} disabled={Boolean(directoryBusy)} title="Save a blank workbook with one sheet per device type">
-              <FileDown size={14} className={directoryBusy === 'template' ? 'animate-pulse' : ''} />Template
+            <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}>
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
             </Button>
-            <Button size="sm" variant="secondary" onClick={exportDirectory} disabled={Boolean(directoryBusy)} title="Save the full directory as a workbook that any workstation can import as-is">
-              <Download size={14} className={directoryBusy === 'export' ? 'animate-pulse' : ''} />Export
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={downloadTemplate}
+              disabled={Boolean(directoryBusy)}
+              title="Save a blank workbook with one sheet per device type"
+            >
+              <FileDown size={14} className={directoryBusy === 'template' ? 'animate-pulse' : ''} />
+              Template
             </Button>
-            <Button size="sm" variant="secondary" onClick={importDirectory} disabled={Boolean(directoryBusy)} title="Import branches and devices from a filled-in template">
-              <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />Import
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={exportDirectory}
+              disabled={Boolean(directoryBusy)}
+              title="Save the full directory as a workbook that any workstation can import as-is"
+            >
+              <Download size={14} className={directoryBusy === 'export' ? 'animate-pulse' : ''} />
+              Export
             </Button>
-            <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}><Plus size={14} />Add branch</Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={importDirectory}
+              disabled={Boolean(directoryBusy)}
+              title="Import branches and devices from a filled-in template"
+            >
+              <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />
+              Import
+            </Button>
+            <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}>
+              <Plus size={14} />
+              Add branch
+            </Button>
             <Button
               size="sm"
               variant="danger"
@@ -259,20 +328,31 @@ function DevicesPageInner() {
               title="Permanently delete every branch and device"
               aria-label="Delete all branches and devices"
             >
-              <Trash2 size={14} />Delete all
+              <Trash2 size={14} />
+              Delete all
             </Button>
           </div>
         </div>
 
         {loading ? (
-          <><Skeleton className="h-20" /><Skeleton className="h-[560px]" /></>
+          <>
+            <Skeleton className="h-20" />
+            <Skeleton className="h-[560px]" />
+          </>
         ) : (
           <>
             <Card className="overflow-hidden p-2.5">
               <div className="flex min-w-0 items-center gap-2.5">
                 <div className="flex shrink-0 items-center gap-2 border-r pr-2.5">
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><Building2 size={14} /></span>
-                  <span><b className="block text-2xs">Branches</b><small className="block text-2xs text-[rgb(var(--muted))]">{branches.length} locations</small></span>
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]">
+                    <Building2 size={14} />
+                  </span>
+                  <span>
+                    <b className="block text-2xs">Branches</b>
+                    <small className="block text-2xs text-[rgb(var(--muted))]">
+                      {branches.length} locations
+                    </small>
+                  </span>
                 </div>
                 <BranchList
                   branches={branches}
@@ -290,17 +370,33 @@ function DevicesPageInner() {
                 <>
                   <div className="flex flex-col justify-between gap-2 border-b bg-gradient-to-r from-[rgb(var(--primary)/.09)] via-[rgb(var(--surface)/.68)] to-[rgb(var(--secondary)/.07)] px-3.5 py-2.5 sm:flex-row sm:items-center">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[rgb(var(--primary))] text-white"><Server size={14} /></span>
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[rgb(var(--primary-strong))] text-white">
+                        <Server size={14} />
+                      </span>
                       <div className="min-w-0">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                          <h2 className="truncate text-xs font-black tracking-[0.025em]">{selectedBranch.name}</h2>
-                          <span className="rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-2xs font-bold">{selectedBranch.code}</span>
-                          <span className="flex items-center gap-1 rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-2xs font-bold"><Warehouse size={8} />{selectedBranch.warehouse_code || 'Warehouse code not set'}</span>
+                          <h2 className="truncate text-xs font-black tracking-[0.025em]">
+                            {selectedBranch.name}
+                          </h2>
+                          <span className="rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-2xs font-bold">
+                            {selectedBranch.code}
+                          </span>
+                          <span className="flex items-center gap-1 rounded-md bg-[rgb(var(--surface)/.78)] px-1.5 py-0.5 font-mono text-2xs font-bold">
+                            <Warehouse size={8} />
+                            {selectedBranch.warehouse_code || 'Warehouse code not set'}
+                          </span>
                         </div>
-                        <p className="mt-0.5 truncate text-2xs text-[rgb(var(--muted))]">{branchDevices.length} devices · {monitoredCount} on Dashboard · {selectedBranch.link1 || 'No primary link'}{selectedBranch.manager_name ? ` · ${selectedBranch.manager_name}` : ''}</p>
+                        <p className="mt-0.5 truncate text-2xs text-[rgb(var(--muted))]">
+                          {branchDevices.length} devices · {monitoredCount} on Dashboard ·{' '}
+                          {selectedBranch.link1 || 'No primary link'}
+                          {selectedBranch.manager_name ? ` · ${selectedBranch.manager_name}` : ''}
+                        </p>
                       </div>
                     </div>
-                    <Button size="sm" onClick={openAddDevice}><Plus size={14} />Add device</Button>
+                    <Button size="sm" onClick={openAddDevice}>
+                      <Plus size={14} />
+                      Add device
+                    </Button>
                   </div>
 
                   <div className="p-2.5 sm:p-3">
@@ -318,9 +414,14 @@ function DevicesPageInner() {
               ) : (
                 <div className="grid min-h-[400px] place-items-center p-8 text-center">
                   <div>
-                    <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]"><Route size={23} /></div>
+                    <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]">
+                      <Route size={23} />
+                    </div>
                     <h2 className="mt-3 text-base font-black">Start with a branch</h2>
-                    <p className="mx-auto mt-1 max-w-md text-xs text-[rgb(var(--muted))]">Create the first branch with the labeled Add branch button above before adding equipment.</p>
+                    <p className="mx-auto mt-1 max-w-md text-xs text-[rgb(var(--muted))]">
+                      Create the first branch with the labeled Add branch button above before adding
+                      equipment.
+                    </p>
                   </div>
                 </div>
               )}
@@ -330,7 +431,9 @@ function DevicesPageInner() {
 
         <Dialog
           open={Boolean(dialog)}
-          onOpenChange={(open) => { if (!open && !saving) setDialog(null) }}
+          onOpenChange={(open) => {
+            if (!open && !saving) setDialog(null)
+          }}
           title={dialogTitle}
           description={dialogDescription}
           className={dialog?.kind === 'device' ? 'max-w-6xl' : 'max-w-3xl'}
@@ -338,7 +441,11 @@ function DevicesPageInner() {
           {dialog?.kind === 'branch' ? (
             <BranchForm value={dialog.value} onSubmit={save} saving={saving} />
           ) : dialog?.kind === 'device' && selectedBranch && dialog.step === 'type' ? (
-            <DeviceTypePicker branch={selectedBranch} unavailableTypes={hasRouter ? ['Router'] : []} onSelect={(type) => setDialog({ ...dialog, step: 'form', type })} />
+            <DeviceTypePicker
+              branch={selectedBranch}
+              unavailableTypes={hasRouter ? ['Router'] : []}
+              onSelect={(type) => setDialog({ ...dialog, step: 'form', type })}
+            />
           ) : dialog?.kind === 'device' && selectedBranch ? (
             <DeviceForm
               key={`${dialog.value?.id || 'new'}-${dialog.type}`}
@@ -357,5 +464,9 @@ function DevicesPageInner() {
 }
 
 export default function DevicesPage() {
-  return <Suspense fallback={null}><DevicesPageInner /></Suspense>
+  return (
+    <Suspense fallback={null}>
+      <DevicesPageInner />
+    </Suspense>
+  )
 }

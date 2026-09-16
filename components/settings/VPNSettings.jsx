@@ -1,9 +1,27 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { FolderOpen, Shield, CheckCircle2, AlertTriangle, Download, RotateCcw, Save, Loader2 } from 'lucide-react'
+import {
+  FolderOpen,
+  Shield,
+  CheckCircle2,
+  AlertTriangle,
+  Download,
+  RotateCcw,
+  Save,
+  Loader2
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Input, Label } from '@/components/ui'
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Input,
+  Label
+} from '@/components/ui'
 import { getApi } from '@/lib/api'
 
 /**
@@ -35,7 +53,9 @@ export default function VPNSettings({ settings, onSaved }) {
     }
   }, [])
 
-  useEffect(() => { detect() }, [detect])
+  useEffect(() => {
+    detect()
+  }, [detect])
 
   // An empty path means "detect automatically", which is the normal state.
   const auto = !path.trim()
@@ -80,16 +100,22 @@ export default function VPNSettings({ settings, onSaved }) {
     <div className="grid gap-3 xl:grid-cols-[1fr_300px]">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm"><Shield size={15} />FortiClient VPN</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Shield size={15} />
+            FortiClient VPN
+          </CardTitle>
           <CardDescription className="text-2xs">
-            The app only needs to know which program to launch. Signing in, the gateway profile and two-factor codes are all handled inside the FortiClient window.
+            The app only needs to know which program to launch. Signing in, the gateway profile and two-factor
+            codes are all handled inside the FortiClient window.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2.5">
           <label className="block">
             <Label>
               Executable path
-              <span className="ml-1 font-normal text-[rgb(var(--muted))]">{auto ? '(detected automatically)' : '(chosen manually)'}</span>
+              <span className="ml-1 font-normal text-[rgb(var(--muted))]">
+                {auto ? '(detected automatically)' : '(chosen manually)'}
+              </span>
             </Label>
             <div className="flex gap-2">
               <Input
@@ -98,14 +124,24 @@ export default function VPNSettings({ settings, onSaved }) {
                 placeholder={probe?.path || 'C:\\Program Files\\Fortinet\\FortiClient\\FortiClient.exe'}
                 value={path}
                 onChange={(event) => setPath(event.target.value)}
-                onBlur={() => { if ((settings.forticlient_path || '') !== path.trim()) persist(path.trim()) }}
+                onBlur={() => {
+                  if ((settings.forticlient_path || '') !== path.trim()) persist(path.trim())
+                }}
               />
-              <Button type="button" variant="secondary" size="icon" onClick={browse} aria-label="Browse for the FortiClient executable">
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                onClick={browse}
+                aria-label="Browse for the FortiClient executable"
+              >
                 <FolderOpen size={16} />
               </Button>
             </div>
             {auto && probe?.path && (
-              <span className="mt-1.5 block break-all font-mono text-xs text-[rgb(var(--muted))]">Using {probe.path}</span>
+              <span className="mt-1.5 block break-all font-mono text-xs text-[rgb(var(--muted))]">
+                Using {probe.path}
+              </span>
             )}
           </label>
 
@@ -115,7 +151,8 @@ export default function VPNSettings({ settings, onSaved }) {
               {saving ? 'Saving…' : 'Save path'}
             </Button>
             <Button type="button" size="sm" variant="secondary" onClick={useDetected} disabled={checking}>
-              <RotateCcw size={14} />Detect automatically
+              <RotateCcw size={14} />
+              Detect automatically
             </Button>
           </div>
         </CardContent>
@@ -125,19 +162,26 @@ export default function VPNSettings({ settings, onSaved }) {
         <Card className="p-3">
           {checking ? (
             <div className="flex items-center gap-2 text-2xs text-[rgb(var(--muted))]">
-              <Loader2 size={15} className="animate-spin" />Looking for FortiClient…
+              <Loader2 size={15} className="animate-spin" />
+              Looking for FortiClient…
             </div>
           ) : effectivePath ? (
             <div className="flex items-start gap-2">
-              <div className="rounded-lg bg-nord-14/20 p-1.5 text-[#66834e]"><CheckCircle2 size={15} /></div>
+              <div className="rounded-lg bg-nord-14/20 p-1.5 text-[#66834e]">
+                <CheckCircle2 size={15} />
+              </div>
               <div className="min-w-0">
                 <b className="text-2xs">FortiClient ready</b>
-                <p className="mt-0.5 break-all font-mono text-xs leading-relaxed text-[rgb(var(--muted))]">{effectivePath}</p>
+                <p className="mt-0.5 break-all font-mono text-xs leading-relaxed text-[rgb(var(--muted))]">
+                  {effectivePath}
+                </p>
               </div>
             </div>
           ) : (
             <div className="flex items-start gap-2">
-              <div className="rounded-lg bg-nord-13/20 p-1.5 text-[#8b6e1c]"><AlertTriangle size={15} /></div>
+              <div className="rounded-lg bg-nord-13/20 p-1.5 text-[#8b6e1c]">
+                <AlertTriangle size={15} />
+              </div>
               <div className="min-w-0">
                 <b className="text-2xs">FortiClient not found</b>
                 <p className="mt-0.5 text-xs leading-relaxed text-[rgb(var(--muted))]">
@@ -148,9 +192,14 @@ export default function VPNSettings({ settings, onSaved }) {
                   variant="secondary"
                   size="sm"
                   className="mt-1.5"
-                  onClick={() => getApi().app.openExternal(probe?.downloadUrl || 'https://www.fortinet.com/support/product-downloads#vpn')}
+                  onClick={() =>
+                    getApi().app.openExternal(
+                      probe?.downloadUrl || 'https://www.fortinet.com/support/product-downloads#vpn'
+                    )
+                  }
                 >
-                  <Download size={13} />Get FortiClient
+                  <Download size={13} />
+                  Get FortiClient
                 </Button>
               </div>
             </div>
@@ -158,7 +207,8 @@ export default function VPNSettings({ settings, onSaved }) {
         </Card>
 
         <p className="px-1 text-xs leading-relaxed text-[rgb(var(--muted))]">
-          The VPN button in the header launches this program and turns green on its own as soon as a tunnel appears. Click it again to disconnect.
+          The VPN button in the header launches this program and turns green on its own as soon as a tunnel
+          appears. Click it again to disconnect.
         </p>
       </div>
     </div>

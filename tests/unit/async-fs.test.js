@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const { withTimeout, existsAsync, probeAsync, statAsync } = require('../electron/services/async-fs')
+const { withTimeout, existsAsync, probeAsync, statAsync } = require('../../electron/services/async-fs')
 
 /**
  * These guard the fix for the reported freeze: every filesystem touch that can
@@ -22,7 +22,9 @@ test('withTimeout rejects a promise that never settles', async () => {
 test('withTimeout keeps the event loop responsive while it waits', async () => {
   // If the wait were synchronous this timer could not fire before it ends.
   let ticked = false
-  setTimeout(() => { ticked = true }, 30)
+  setTimeout(() => {
+    ticked = true
+  }, 30)
   await assert.rejects(withTimeout(new Promise(() => {}), 150, 'stalled'), /stalled/)
   assert.equal(ticked, true)
 })
@@ -51,5 +53,8 @@ test('probeAsync separates "not there" from "could not reach it"', async () => {
 })
 
 test('statAsync rejects with a clear message instead of blocking forever', async () => {
-  await assert.rejects(statAsync(path.join(os.tmpdir(), 'definitely-missing-file')), (error) => error.code === 'ENOENT' || /Timed out/.test(error.message))
+  await assert.rejects(
+    statAsync(path.join(os.tmpdir(), 'definitely-missing-file')),
+    (error) => error.code === 'ENOENT' || /Timed out/.test(error.message)
+  )
 })

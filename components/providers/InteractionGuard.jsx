@@ -41,14 +41,16 @@ const CONTENT_SELECTOR = [
 ].join(',')
 
 /** Full-screen scrims Radix leaves behind. Invisible, but they eat every click. */
-const OVERLAY_SELECTOR = '.dialog-overlay,.dashboard-dialog-overlay,[data-radix-dialog-overlay],[data-radix-alert-dialog-overlay]'
+const OVERLAY_SELECTOR =
+  '.dialog-overlay,.dashboard-dialog-overlay,[data-radix-dialog-overlay],[data-radix-alert-dialog-overlay]'
 
 /**
  * Any dialog content in the document, *including* one that is mid-close.
  * A closing dialog is still React's business, so the guard must keep its hands
  * off it — an overlay only counts as orphaned when no content exists at all.
  */
-const ANY_CONTENT = '[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-radix-popper-content-wrapper]'
+const ANY_CONTENT =
+  '[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-radix-popper-content-wrapper]'
 
 const layerOpen = () => Boolean(document.querySelector(CONTENT_SELECTOR))
 
@@ -108,7 +110,10 @@ export default function InteractionGuard() {
     let pending = null
     const scheduleCheck = () => {
       if (pending) return
-      pending = setTimeout(() => { pending = null; releaseIfStuck() }, 50)
+      pending = setTimeout(() => {
+        pending = null
+        releaseIfStuck()
+      }, 50)
     }
 
     // One registration only: calling observe() twice on the same node replaces

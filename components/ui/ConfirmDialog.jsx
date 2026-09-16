@@ -24,7 +24,7 @@ export function ConfirmProvider({ children }) {
   const resolver = React.useRef(null)
 
   const confirm = React.useCallback((options) => {
-    const settings = typeof options === 'string' ? { description: options } : (options || {})
+    const settings = typeof options === 'string' ? { description: options } : options || {}
     return new Promise((resolve) => {
       resolver.current = resolve
       setRequest({
@@ -49,7 +49,12 @@ export function ConfirmProvider({ children }) {
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}
-      <DialogPrimitive.Root open={Boolean(request)} onOpenChange={(open) => { if (!open) settle(false) }}>
+      <DialogPrimitive.Root
+        open={Boolean(request)}
+        onOpenChange={(open) => {
+          if (!open) settle(false)
+        }}
+      >
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="dialog-overlay fixed inset-0 z-[60] bg-nord-0/55 backdrop-blur-sm" />
           <DialogPrimitive.Content
@@ -64,24 +69,38 @@ export function ConfirmProvider({ children }) {
             }}
           >
             <div className="flex gap-3.5">
-              <div className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-xl',
-                request?.destructive ? 'bg-nord-11/12 text-nord-11' : 'bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]')}>
+              <div
+                className={cn(
+                  'grid h-11 w-11 shrink-0 place-items-center rounded-xl',
+                  request?.destructive
+                    ? 'bg-nord-11/12 text-nord-11'
+                    : 'bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]'
+                )}
+              >
                 <AlertTriangle size={21} />
               </div>
               <div className="min-w-0 flex-1">
-                <DialogPrimitive.Title className="text-base font-bold">{request?.title}</DialogPrimitive.Title>
-                {request?.description
-                  ? <DialogPrimitive.Description className="mt-1.5 text-sm leading-relaxed text-[rgb(var(--muted))]">{request.description}</DialogPrimitive.Description>
-                  : null}
+                <DialogPrimitive.Title className="text-base font-bold">
+                  {request?.title}
+                </DialogPrimitive.Title>
+                {request?.description ? (
+                  <DialogPrimitive.Description className="mt-1.5 text-sm leading-relaxed text-[rgb(var(--muted))]">
+                    {request.description}
+                  </DialogPrimitive.Description>
+                ) : null}
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <Button data-confirm-cancel variant="ghost" size="sm" onClick={() => settle(false)}>{request?.cancelLabel}</Button>
+              <Button data-confirm-cancel variant="ghost" size="sm" onClick={() => settle(false)}>
+                {request?.cancelLabel}
+              </Button>
               <Button
                 size="sm"
                 className={request?.destructive ? 'bg-nord-11 text-white hover:bg-nord-11/90' : undefined}
                 onClick={() => settle(true)}
-              >{request?.confirmLabel}</Button>
+              >
+                {request?.confirmLabel}
+              </Button>
             </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
@@ -97,7 +116,12 @@ export function ConfirmProvider({ children }) {
 export function useConfirm() {
   const context = React.useContext(ConfirmContext)
   return React.useMemo(
-    () => context || ((options) => Promise.resolve(window.confirm(typeof options === 'string' ? options : options?.description || 'Are you sure?'))),
+    () =>
+      context ||
+      ((options) =>
+        Promise.resolve(
+          window.confirm(typeof options === 'string' ? options : options?.description || 'Are you sure?')
+        )),
     [context]
   )
 }

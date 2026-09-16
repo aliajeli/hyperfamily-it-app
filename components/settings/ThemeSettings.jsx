@@ -43,21 +43,31 @@ export default function ThemeSettings({ settings, onSaved }) {
   const [mode, setMode] = useState('all')
   const [busy, setBusy] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [custom, setCustom] = useState(() => ({ ...defaultCustomColors(), ...(parseCustomColors(settings.theme_custom) || {}) }))
+  const [custom, setCustom] = useState(() => ({
+    ...defaultCustomColors(),
+    ...(parseCustomColors(settings.theme_custom) || {})
+  }))
   const [dirty, setDirty] = useState(false)
 
   const isCustomActive = settings.theme === CUSTOM_THEME_ID
   const customTheme = useMemo(() => buildCustomTheme(custom), [custom])
 
   // Abandoning an unsaved experiment must not leave the app in those colours.
-  useEffect(() => () => {
-    if (dirty) applyTheme(settings.theme || THEMES[0].id, parseCustomColors(settings.theme_custom))
-    // The cleanup intentionally reads the values captured at unmount time.
-  }, [dirty, settings.theme, settings.theme_custom])
+  useEffect(
+    () => () => {
+      if (dirty) applyTheme(settings.theme || THEMES[0].id, parseCustomColors(settings.theme_custom))
+      // The cleanup intentionally reads the values captured at unmount time.
+    },
+    [dirty, settings.theme, settings.theme_custom]
+  )
 
-  const visible = useMemo(() => THEMES.filter((theme) => (
-    (family === 'all' || theme.family === family) && (mode === 'all' || theme.mode === mode)
-  )), [family, mode])
+  const visible = useMemo(
+    () =>
+      THEMES.filter(
+        (theme) => (family === 'all' || theme.family === family) && (mode === 'all' || theme.mode === mode)
+      ),
+    [family, mode]
+  )
 
   const persist = async (patch, label, revert) => {
     try {
@@ -127,20 +137,26 @@ export default function ThemeSettings({ settings, onSaved }) {
       className={cn(
         'rounded-lg px-2 py-0.5 text-2xs font-bold transition',
         active
-          ? 'bg-[rgb(var(--primary))] text-white shadow-sm'
+          ? 'bg-[rgb(var(--primary-strong))] text-white shadow-sm'
           : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.5)] hover:text-[rgb(var(--text))]'
       )}
-    >{label}</button>
+    >
+      {label}
+    </button>
   )
 
   return (
     <div className="space-y-2.5">
       <div className="flex flex-col gap-2 rounded-xl border bg-[rgb(var(--surface)/.42)] px-2.5 py-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
-          <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><Palette size={15} /></div>
+          <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]">
+            <Palette size={15} />
+          </div>
           <div>
             <h2 className="text-sm font-extrabold">Appearance</h2>
-            <p className="text-xs text-[rgb(var(--muted))]">{THEMES.length} palettes plus your own custom theme. Applied instantly.</p>
+            <p className="text-xs text-[rgb(var(--muted))]">
+              {THEMES.length} palettes plus your own custom theme. Applied instantly.
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -150,8 +166,24 @@ export default function ThemeSettings({ settings, onSaved }) {
           </div>
           <div className="flex items-center gap-0.5 rounded-lg border bg-[rgb(var(--surface)/.6)] p-0.5">
             {filterButton('Any', mode === 'all', () => setMode('all'), 'any')}
-            {filterButton(<span className="flex items-center gap-1"><Sun size={11} />Light</span>, mode === 'light', () => setMode('light'), 'light')}
-            {filterButton(<span className="flex items-center gap-1"><Moon size={11} />Dark</span>, mode === 'dark', () => setMode('dark'), 'dark')}
+            {filterButton(
+              <span className="flex items-center gap-1">
+                <Sun size={11} />
+                Light
+              </span>,
+              mode === 'light',
+              () => setMode('light'),
+              'light'
+            )}
+            {filterButton(
+              <span className="flex items-center gap-1">
+                <Moon size={11} />
+                Dark
+              </span>,
+              mode === 'dark',
+              () => setMode('dark'),
+              'dark'
+            )}
           </div>
           <Button
             type="button"
@@ -159,7 +191,8 @@ export default function ThemeSettings({ settings, onSaved }) {
             variant={isCustomActive ? 'default' : 'secondary'}
             onClick={() => setDialogOpen(true)}
           >
-            <Wand2 size={14} />Custom theme
+            <Wand2 size={14} />
+            Custom theme
           </Button>
         </div>
       </div>
@@ -191,7 +224,7 @@ export default function ThemeSettings({ settings, onSaved }) {
                   initial={{ scale: 0, rotate: -90 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={spring}
-                  className="absolute right-1 top-1 z-10 grid h-4 w-4 place-items-center rounded-full bg-[rgb(var(--primary))] text-white shadow"
+                  className="absolute right-1 top-1 z-10 grid h-4 w-4 place-items-center rounded-full bg-[rgb(var(--primary-strong))] text-white shadow"
                 >
                   <Check size={9} strokeWidth={3} />
                 </motion.span>
@@ -207,7 +240,9 @@ export default function ThemeSettings({ settings, onSaved }) {
                 <span className="rounded-[4px]" style={{ background: `rgb(${theme.accent})` }} />
               </span>
               <span className="flex items-center gap-0.5 px-0.5 pb-0.5 pt-1">
-                <b className="min-w-0 flex-1 truncate text-xs" title={theme.name}>{theme.name}</b>
+                <b className="min-w-0 flex-1 truncate text-xs" title={theme.name}>
+                  {theme.name}
+                </b>
                 <span className="shrink-0 text-[rgb(var(--muted))]" title={`${theme.family} · ${theme.mode}`}>
                   {theme.mode === 'dark' ? <Moon size={7} /> : <Sun size={7} />}
                 </span>
@@ -219,7 +254,8 @@ export default function ThemeSettings({ settings, onSaved }) {
 
       {!visible.length && (
         <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed p-6 text-xs text-[rgb(var(--muted))]">
-          <Sparkles size={14} />No theme matches these filters.
+          <Sparkles size={14} />
+          No theme matches these filters.
         </p>
       )}
 
@@ -246,17 +282,28 @@ export default function ThemeSettings({ settings, onSaved }) {
                   className="dialog-content glass fixed left-1/2 top-1/2 z-[80] w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-[rgb(var(--surface))] p-3.5 shadow-2xl outline-none"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]"><Wand2 size={15} /></div>
+                    <div className="rounded-lg bg-[rgb(var(--primary)/.14)] p-1.5 text-[rgb(var(--primary))]">
+                      <Wand2 size={15} />
+                    </div>
                     <div>
-                      <DialogPrimitive.Title className="text-sm font-extrabold">Custom theme</DialogPrimitive.Title>
+                      <DialogPrimitive.Title className="text-sm font-extrabold">
+                        Custom theme
+                      </DialogPrimitive.Title>
                       <DialogPrimitive.Description className="text-xs text-[rgb(var(--muted))]">
                         Every change previews live behind this window.
                       </DialogPrimitive.Description>
                     </div>
                     {isCustomActive && !dirty && (
-                      <span className="flex items-center gap-1 rounded-full bg-nord-14/20 px-1.5 py-0.5 text-xs font-extrabold uppercase text-[#66834e]"><Check size={9} strokeWidth={3} />Active</span>
+                      <span className="flex items-center gap-1 rounded-full bg-nord-14/20 px-1.5 py-0.5 text-xs font-extrabold uppercase text-[#66834e]">
+                        <Check size={9} strokeWidth={3} />
+                        Active
+                      </span>
                     )}
-                    {dirty && <span className="rounded-full bg-nord-13/25 px-1.5 py-0.5 text-xs font-extrabold uppercase text-[#8b6e1c]">Unsaved</span>}
+                    {dirty && (
+                      <span className="rounded-full bg-nord-13/25 px-1.5 py-0.5 text-xs font-extrabold uppercase text-[#8b6e1c]">
+                        Unsaved
+                      </span>
+                    )}
                     <DialogPrimitive.Close asChild>
                       <button
                         type="button"
@@ -273,7 +320,11 @@ export default function ThemeSettings({ settings, onSaved }) {
                       const detail = THEME_VAR_DETAILS[key] || { label: key, hint: '' }
                       const hex = tripletToHex(custom[key])
                       return (
-                        <label key={key} className="flex items-center gap-2 rounded-lg border bg-[rgb(var(--canvas)/.6)] p-1.5" title={detail.hint}>
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 rounded-lg border bg-[rgb(var(--canvas)/.6)] p-1.5"
+                          title={detail.hint}
+                        >
                           <input
                             type="color"
                             aria-label={`${detail.label} colour`}
@@ -283,7 +334,9 @@ export default function ThemeSettings({ settings, onSaved }) {
                           />
                           <span className="min-w-0">
                             <b className="block truncate text-xs leading-tight">{detail.label}</b>
-                            <span className="block font-mono text-xs uppercase text-[rgb(var(--muted))]">{hex}</span>
+                            <span className="block font-mono text-xs uppercase text-[rgb(var(--muted))]">
+                              {hex}
+                            </span>
                           </span>
                         </label>
                       )
@@ -298,12 +351,23 @@ export default function ThemeSettings({ settings, onSaved }) {
                       type="button"
                       size="sm"
                       variant="secondary"
-                      onClick={() => startFrom(findTheme(settings.theme === CUSTOM_THEME_ID ? THEMES[0].id : settings.theme))}
+                      onClick={() =>
+                        startFrom(
+                          findTheme(settings.theme === CUSTOM_THEME_ID ? THEMES[0].id : settings.theme)
+                        )
+                      }
                     >
-                      <RotateCcw size={14} />Reset
+                      <RotateCcw size={14} />
+                      Reset
                     </Button>
-                    <Button type="button" size="sm" onClick={(event) => saveCustom(event)} disabled={busy === CUSTOM_THEME_ID}>
-                      <Save size={14} />{busy === CUSTOM_THEME_ID ? 'Saving…' : 'Save & apply'}
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={(event) => saveCustom(event)}
+                      disabled={busy === CUSTOM_THEME_ID}
+                    >
+                      <Save size={14} />
+                      {busy === CUSTOM_THEME_ID ? 'Saving…' : 'Save & apply'}
                     </Button>
                   </div>
                 </motion.div>

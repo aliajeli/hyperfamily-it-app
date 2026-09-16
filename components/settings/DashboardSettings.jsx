@@ -56,16 +56,23 @@ function Choice({ selected, icon: Icon, title, description, onClick }) {
           : 'bg-[rgb(var(--surface)/.48)] hover:border-[rgb(var(--primary)/.3)] hover:bg-[rgb(var(--surface)/.8)]'
       }`}
     >
-      <span aria-hidden="true" className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[rgb(var(--primary)/.1)] blur-2xl transition-transform duration-500 group-hover:scale-150" />
+      <span
+        aria-hidden="true"
+        className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[rgb(var(--primary)/.1)] blur-2xl transition-transform duration-500 group-hover:scale-150"
+      />
       <div className="relative flex items-start gap-2.5">
-        <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-all duration-300 group-hover:rotate-[-5deg] group-hover:scale-105 ${selected ? 'bg-[rgb(var(--primary))] text-white shadow-md' : 'bg-[rgb(var(--border)/.5)] text-[rgb(var(--muted))]'}`}>
+        <div
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-all duration-300 group-hover:rotate-[-5deg] group-hover:scale-105 ${selected ? 'bg-[rgb(var(--primary))] text-white shadow-md' : 'bg-[rgb(var(--border)/.5)] text-[rgb(var(--muted))]'}`}
+        >
           <Icon size={15} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-extrabold tracking-[0.025em]">{title}</p>
           <p className="mt-0.5 text-xs leading-[1.35] text-[rgb(var(--muted))]">{description}</p>
         </div>
-        <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-all duration-300 ${selected ? 'scale-100 border-[rgb(var(--primary))] bg-[rgb(var(--primary))] text-white' : 'scale-90 text-transparent'}`}>
+        <span
+          className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-all duration-300 ${selected ? 'scale-100 border-[rgb(var(--primary))] bg-[rgb(var(--primary-strong))] text-white' : 'scale-90 text-transparent'}`}
+        >
           <Check size={12} strokeWidth={3} />
         </span>
       </div>
@@ -76,8 +83,10 @@ function Choice({ selected, icon: Icon, title, description, onClick }) {
 export default function DashboardSettings({ settings, onSaved }) {
   const setGlobalSettings = useSettingsStore((state) => state.setSettings)
   const [dashboard, setDashboard] = useState({
-    dashboard_branch_mode: settings.dashboard_branch_mode === 'always_compact' ? 'always_compact' : 'compact_over_four',
-    dashboard_branch_details_view: settings.dashboard_branch_details_view === 'side_panel' ? 'side_panel' : 'modal'
+    dashboard_branch_mode:
+      settings.dashboard_branch_mode === 'always_compact' ? 'always_compact' : 'compact_over_four',
+    dashboard_branch_details_view:
+      settings.dashboard_branch_details_view === 'side_panel' ? 'side_panel' : 'modal'
   })
   const [busy, setBusy] = useState(false)
 
@@ -106,7 +115,8 @@ export default function DashboardSettings({ settings, onSaved }) {
           <div>
             <CardTitle className="text-sm">Dashboard branch experience</CardTitle>
             <CardDescription className="mt-0.5 text-2xs leading-snug">
-              Choose when branch cards become compact and how their complete equipment view opens. Changes apply to the Dashboard page.
+              Choose when branch cards become compact and how their complete equipment view opens. Changes
+              apply to the Dashboard page.
             </CardDescription>
           </div>
         </div>
@@ -120,7 +130,12 @@ export default function DashboardSettings({ settings, onSaved }) {
                   height regardless of how long their descriptions wrap. */}
               <div className="grid flex-1 auto-rows-fr gap-2 sm:grid-cols-2">
                 {branchModes.map((option) => (
-                  <Choice key={option.value} {...option} selected={dashboard.dashboard_branch_mode === option.value} onClick={() => setDashboard({ ...dashboard, dashboard_branch_mode: option.value })} />
+                  <Choice
+                    key={option.value}
+                    {...option}
+                    selected={dashboard.dashboard_branch_mode === option.value}
+                    onClick={() => setDashboard({ ...dashboard, dashboard_branch_mode: option.value })}
+                  />
                 ))}
               </div>
             </fieldset>
@@ -128,12 +143,22 @@ export default function DashboardSettings({ settings, onSaved }) {
               <legend className="field-label">Equipment view style</legend>
               <div className="grid flex-1 auto-rows-fr gap-2 sm:grid-cols-2">
                 {detailViews.map((option) => (
-                  <Choice key={option.value} {...option} selected={dashboard.dashboard_branch_details_view === option.value} onClick={() => setDashboard({ ...dashboard, dashboard_branch_details_view: option.value })} />
+                  <Choice
+                    key={option.value}
+                    {...option}
+                    selected={dashboard.dashboard_branch_details_view === option.value}
+                    onClick={() =>
+                      setDashboard({ ...dashboard, dashboard_branch_details_view: option.value })
+                    }
+                  />
                 ))}
               </div>
             </fieldset>
           </div>
-          <Button disabled={busy}><Save size={14} />{busy ? 'Saving…' : 'Save Dashboard experience'}</Button>
+          <Button disabled={busy}>
+            <Save size={14} />
+            {busy ? 'Saving…' : 'Save Dashboard experience'}
+          </Button>
         </form>
       </CardContent>
     </Card>

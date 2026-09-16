@@ -37,14 +37,20 @@ function candidateFolders(app) {
   const folders = [
     'HyperFamily Branch Monitor', // canonical (v2.0.20)
     'hyperfamily-branch-monitor', // package-name variant
-    'hyperfamily'                 // legacy variant
+    'hyperfamily' // legacy variant
   ]
   const roots = []
-  try { roots.push(app.getPath('appData')) } catch { /* best-effort */ }
+  try {
+    roots.push(app.getPath('appData'))
+  } catch {
+    /* best-effort */
+  }
   try {
     const local = app.getPath('localAppData')
     if (local !== roots[0]) roots.push(local)
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
   const out = []
   for (const root of roots) {
     if (!root) continue
@@ -66,7 +72,9 @@ function fallbackKey(dirs) {
     try {
       const key = fs.readFileSync(path.join(dir, FALLBACK_KEY_FILE))
       if (key.length === 32) return key
-    } catch { /* try the next folder */ }
+    } catch {
+      /* try the next folder */
+    }
   }
   return null
 }
@@ -83,7 +91,9 @@ function decryptValue(payload, dirs) {
     const [, iv, tag, encrypted] = text.split(':')
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'))
     decipher.setAuthTag(Buffer.from(tag, 'base64'))
-    return Buffer.concat([decipher.update(Buffer.from(encrypted, 'base64')), decipher.final()]).toString('utf8')
+    return Buffer.concat([decipher.update(Buffer.from(encrypted, 'base64')), decipher.final()]).toString(
+      'utf8'
+    )
   }
   return text
 }
@@ -124,14 +134,17 @@ function createRecoverySession(app) {
     const encrypted = encryptValue(payload, state.dirs)
     try {
       fs.writeFileSync(state.found.file, encrypted, { mode: 0o600 })
-    } catch { /* the lock state stays in memory; reveal still works on success */ }
+    } catch {
+      /* the lock state stays in memory; reveal still works on success */
+    }
   }
 
   function load() {
     state.dirs = candidateFolders(app)
     const found = findCredentialsFile(app)
     if (!found) {
-      state.error = 'No saved credentials were found on this computer. Open the HyperFamily application once (it refreshes this file at every start), then run recovery again.'
+      state.error =
+        'No saved credentials were found on this computer. Open the HyperFamily application once (it refreshes this file at every start), then run recovery again.'
       return
     }
     state.found = found
@@ -161,23 +174,42 @@ function createRecoverySession(app) {
   function verify(pin) {
     if (state.error) return { ok: false, error: state.error }
     const data = state.data || {}
-    if (!data.pinHash) return { ok: false, error: 'No recovery PIN has been set. Sign in to the application and set one in Settings → General, then run recovery again.' }
+    if (!data.pinHash)
+      return {
+        ok: false,
+        error:
+          'No recovery PIN has been set. Sign in to the application and set one in Settings → General, then run recovery again.'
+      }
 
     const now = Date.now()
     const lockedUntil = Number(data.lockedUntil) || 0
-    if (lockedUntil > now) return { ok: false, locked: true, retryAfterMs: lockedUntil - now, attemptsLeft: 0 }
+    if (lockedUntil > now)
+      return { ok: false, locked: true, retryAfterMs: lockedUntil - now, attemptsLeft: 0 }
 
     if (!verifyPinHash(pin, data.pinHash)) {
       const attempts = (Number(data.attempts) || 0) + 1
       const lock = attempts >= MAX_ATTEMPTS
       state.data = { ...data, attempts: lock ? 0 : attempts, lockedUntil: lock ? now + LOCK_MS : 0 }
-      try { persist() } catch (error) { return { ok: false, error: `Could not update the lock state (${error.message}).` } }
-      return { ok: false, locked: lock, retryAfterMs: lock ? LOCK_MS : 0, attemptsLeft: lock ? 0 : MAX_ATTEMPTS - attempts }
+      try {
+        persist()
+      } catch (error) {
+        return { ok: false, error: `Could not update the lock state (${error.message}).` }
+      }
+      return {
+        ok: false,
+        locked: lock,
+        retryAfterMs: lock ? LOCK_MS : 0,
+        attemptsLeft: lock ? 0 : MAX_ATTEMPTS - attempts
+      }
     }
 
     // Correct: reset the counters and reveal the credentials.
     state.data = { ...data, attempts: 0, lockedUntil: 0 }
-    try { persist() } catch { /* revealing still works even if the reset cannot be written */ }
+    try {
+      persist()
+    } catch {
+      /* revealing still works even if the reset cannot be written */
+    }
     return { ok: true, username: data.username || '', password: data.password || null }
   }
 

@@ -4,10 +4,10 @@
 
 Security fixes are applied to the latest release line.
 
-| Version | Supported |
-| --- | --- |
-| Latest stable release (3.0.x) | Yes |
-| Older releases | Upgrade to the latest stable release |
+| Version                       | Supported                            |
+| ----------------------------- | ------------------------------------ |
+| Latest stable release (3.0.x) | Yes                                  |
+| Older releases                | Upgrade to the latest stable release |
 
 ## Reporting a vulnerability
 

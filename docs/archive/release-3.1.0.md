@@ -29,14 +29,14 @@ removed**:
 Updates used to look at stable releases only. There are now two checkboxes in
 **About → Application updates → Update channel**:
 
-| Choice | What it offers |
-| --- | --- |
-| **Main release** | Published stable releases only. |
+| Choice           | What it offers                                  |
+| ---------------- | ----------------------------------------------- |
+| **Main release** | Published stable releases only.                 |
 | **Beta release** | The newest release, including beta prereleases. |
 
 - The choice is stored per installation and survives restarts.
 - **Switching back from beta:** a beta install that selects **Main release** is
-  offered the newest stable version even when its number is *lower* than the
+  offered the newest stable version even when its number is _lower_ than the
   installed beta. This is an intentional, clearly-labelled downgrade — the About
   page shows an amber notice before you download it.
 - Switching the channel cancels any download belonging to the other channel

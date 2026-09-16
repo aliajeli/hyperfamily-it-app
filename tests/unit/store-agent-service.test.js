@@ -4,10 +4,24 @@ const fs = require('fs')
 const fsp = require('fs/promises')
 const path = require('path')
 const os = require('os')
-const { StoreAgentService, validateSnapshot, hashFile } = require('../electron/services/store-agent.service')
-const { AgentControl, AGENT_EXE } = require('../electron/services/agent-control.service')
+const {
+  StoreAgentService,
+  validateSnapshot,
+  hashFile
+} = require('../../electron/services/store-agent.service')
+const { AgentControl, AGENT_EXE } = require('../../electron/services/agent-control.service')
 
-const snapshot = (patch = {}) => ({ protocolVersion: 1, agentVersion: '3.0.1-beta.6', instanceId: 'fixture', pid: 123, sequence: 1, generatedAt: new Date().toISOString(), state: 'running', programs: [{ name: 'Store Commerce', version: '9.52' }], ...patch })
+const snapshot = (patch = {}) => ({
+  protocolVersion: 1,
+  agentVersion: '3.0.1-beta.6',
+  instanceId: 'fixture',
+  pid: 123,
+  sequence: 1,
+  generatedAt: new Date().toISOString(),
+  state: 'running',
+  programs: [{ name: 'Store Commerce', version: '9.52' }],
+  ...patch
+})
 function fixture(t, overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-import-'))
   t.after(() => fs.rmSync(root, { force: true, recursive: true }))
@@ -20,22 +34,45 @@ function fixture(t, overrides = {}) {
     query: async () => ({ exists: state !== 'Missing', state }),
     assertOwnedService: async () => {},
     secureDirectories: async () => {},
-    stop: async () => { calls.push('stop'); state = state === 'Missing' ? 'Missing' : 'Stopped' },
-    configure: async (_host, exists) => { calls.push(exists ? 'config' : 'create'); state = 'Stopped' },
+    stop: async () => {
+      calls.push('stop')
+      state = state === 'Missing' ? 'Missing' : 'Stopped'
+    },
+    configure: async (_host, exists) => {
+      calls.push(exists ? 'config' : 'create')
+      state = 'Stopped'
+    },
     start: async (host) => {
-      calls.push('start'); state = 'Running'
+      calls.push('start')
+      state = 'Running'
       fs.mkdirSync(target(host, 'data'), { recursive: true })
       fs.writeFileSync(target(host, 'data/inventory.json'), JSON.stringify(snapshot()))
     },
-    remove: async () => { calls.push('remove'); state = 'Missing' }
+    remove: async () => {
+      calls.push('remove')
+      state = 'Missing'
+    }
   }
   const service = new StoreAgentService({
-    platform: 'linux', sourcePath: source, agentPathMapper: target, control,
+    platform: 'linux',
+    sourcePath: source,
+    agentPathMapper: target,
+    control,
     reach: async (host) => ({ status: 'online', host }),
     smb: { withHost: async (_host, _credentials, task) => task() },
     ...overrides
   })
-  return { service, root, source, target, control, calls, setState: (next) => { state = next } }
+  return {
+    service,
+    root,
+    source,
+    target,
+    control,
+    calls,
+    setState: (next) => {
+      state = next
+    }
+  }
 }
 const checkout = { id: 1, name: 'Checkout 1', hostname: 'CO-01' }
 
@@ -92,7 +129,10 @@ test('failed new service startup rolls back the previous binary and restarts it'
   f.setState('Running')
   const start = f.control.start
   let starts = 0
-  f.control.start = async (host) => { if (++starts === 1) throw new Error('start failed'); return start(host) }
+  f.control.start = async (host) => {
+    if (++starts === 1) throw new Error('start failed')
+    return start(host)
+  }
   const result = await f.service.importOne(checkout)
   assert.equal(result.ok, false)
   assert.match(result.error, /start failed/)
@@ -117,14 +157,20 @@ test('missing/stopped services or stale heartbeat never expose old version data'
   f.setState('Stopped')
   assert.equal((await f.service.inspect('CO-01')).running, false)
   f.setState('Running')
-  fs.writeFileSync(f.target('CO-01', 'data/inventory.json'), JSON.stringify(snapshot({ generatedAt: '2000-01-01T00:00:00Z' })))
+  fs.writeFileSync(
+    f.target('CO-01', 'data/inventory.json'),
+    JSON.stringify(snapshot({ generatedAt: '2000-01-01T00:00:00Z' }))
+  )
   assert.equal((await f.service.inspect('CO-01')).running, false)
 })
 
 test('unreadable registry is distinct from agent liveness; malformed/oversized data is rejected', async (t) => {
   const f = fixture(t)
   await f.service.importOne(checkout)
-  fs.writeFileSync(f.target('CO-01', 'data/inventory.json'), JSON.stringify(snapshot({ inventoryError: 'denied', programs: [] })))
+  fs.writeFileSync(
+    f.target('CO-01', 'data/inventory.json'),
+    JSON.stringify(snapshot({ inventoryError: 'denied', programs: [] }))
+  )
   const data = await f.service.inspect('CO-01')
   assert.equal(data.running, true)
   assert.equal(data.inventoryError, 'denied')
@@ -135,18 +181,33 @@ test('unreadable registry is distinct from agent liveness; malformed/oversized d
 })
 
 test('protocol and timestamp checks reject incompatible, future and invalid inventory', () => {
-  for (const patch of [{ protocolVersion: 2 }, { pid: 0 }, { programs: [null] }, { generatedAt: 'invalid' }, { generatedAt: new Date(Date.now() + 150000).toISOString() }]) {
+  for (const patch of [
+    { protocolVersion: 2 },
+    { pid: 0 },
+    { programs: [null] },
+    { generatedAt: 'invalid' },
+    { generatedAt: new Date(Date.now() + 150000).toISOString() }
+  ]) {
     assert.throws(() => validateSnapshot(JSON.stringify(snapshot(patch))))
   }
   assert.equal(validateSnapshot(JSON.stringify(snapshot())).programs[0].version, '9.52')
 })
 
 test('batch is serial and continues after an offline target fails', async (t) => {
-  const f = fixture(t, { reach: async (host) => ({ status: host === 'offline' ? 'offline' : 'online', host }) })
-  const result = await f.service.importAll([checkout, { id: 2, hostname: 'offline' }, { id: 3, hostname: 'CO-03' }])
+  const f = fixture(t, {
+    reach: async (host) => ({ status: host === 'offline' ? 'offline' : 'online', host })
+  })
+  const result = await f.service.importAll([
+    checkout,
+    { id: 2, hostname: 'offline' },
+    { id: 3, hostname: 'CO-03' }
+  ])
   assert.equal(result.ok, 2)
   assert.equal(result.failed, 1)
-  assert.deepEqual(result.results.map((row) => row.checkoutId), [1, 2, 3])
+  assert.deepEqual(
+    result.results.map((row) => row.checkoutId),
+    [1, 2, 3]
+  )
 })
 
 /* --------------------------------------------------------------------------
@@ -179,7 +240,14 @@ test('stopping a run rolls the checkout back and reports a cancellation', async 
     if (options?.signal?.aborted) return Promise.reject(new Error('aborted'))
     return new Promise((_resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('timer')), ms)
-      options?.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted')) }, { once: true })
+      options?.signal?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer)
+          reject(new Error('aborted'))
+        },
+        { once: true }
+      )
     })
   }
   const result = await f.service.importOne(checkout, { runId: 'run-1' })
@@ -192,10 +260,19 @@ test('stopping a run rolls the checkout back and reports a cancellation', async 
   // and rollback must NOT remove it — it only restarts what was running.
   assert.equal(fs.readFileSync(f.target('CO-01', AGENT_EXE), 'utf8'), 'old-agent')
   assert.deepEqual(f.calls, ['stop', 'config', 'start', 'stop', 'start'])
-  assert.ok(result.steps.some((entry) => entry.step === 'rollback'), 'the rollback must be part of the reported steps')
-  assert.ok(result.steps.some((entry) => entry.step === 'cancelled' || entry.step === 'failed'), 'the run must end with an explicit outcome step')
+  assert.ok(
+    result.steps.some((entry) => entry.step === 'rollback'),
+    'the rollback must be part of the reported steps'
+  )
+  assert.ok(
+    result.steps.some((entry) => entry.step === 'cancelled' || entry.step === 'failed'),
+    'the run must end with an explicit outcome step'
+  )
   assert.equal(fs.existsSync(f.target('CO-01', 'import.lock')), false, 'the import lock must be released')
-  assert.ok(!fs.readdirSync(f.target('CO-01')).some((name) => name.endsWith('.new') || name.endsWith('.previous')), 'no staging or backup file may survive')
+  assert.ok(
+    !fs.readdirSync(f.target('CO-01')).some((name) => name.endsWith('.new') || name.endsWith('.previous')),
+    'no staging or backup file may survive'
+  )
   assert.deepEqual(f.service.activeRuns(), [], 'a settled run must be released')
 })
 
@@ -212,19 +289,32 @@ test('stopping a batch skips the checkouts that had not started yet', async (t) 
     if (options?.signal?.aborted) return Promise.reject(new Error('aborted'))
     return new Promise((_resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('timer')), ms)
-      options?.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted')) }, { once: true })
+      options?.signal?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer)
+          reject(new Error('aborted'))
+        },
+        { once: true }
+      )
     })
   }
   // concurrency: 1 pins the pool to the old one-at-a-time behaviour, so the
   // in-flight/skipped split after a Stop stays deterministic (with the default
   // pool of 3, several checkouts are legitimately in flight at once).
-  const summary = await f.service.importAll([checkout, { id: 2, name: 'Checkout 2', hostname: 'CO-02' }], { runId: 'batch-1', concurrency: 1 })
+  const summary = await f.service.importAll([checkout, { id: 2, name: 'Checkout 2', hostname: 'CO-02' }], {
+    runId: 'batch-1',
+    concurrency: 1
+  })
   assert.equal(summary.total, 2)
   assert.equal(summary.ok, 0)
   assert.equal(summary.cancelled, 1, 'the checkout in flight is reported as stopped')
   assert.equal(summary.skipped, 1, 'the checkout that had not started is reported as skipped')
   assert.equal(summary.cancelledByOperator, true)
-  assert.deepEqual(summary.results.map((row) => row.checkoutId), [1, 2])
+  assert.deepEqual(
+    summary.results.map((row) => row.checkoutId),
+    [1, 2]
+  )
   assert.equal(summary.results[0].cancelled, true)
   assert.notEqual(summary.results[0].skipped, true, 'the checkout in flight was rolled back, not skipped')
   assert.equal(summary.results[1].skipped, true)
@@ -236,13 +326,22 @@ test('cancelling an unknown or finished run is a safe no-op', async (t) => {
   assert.deepEqual(f.service.cancel('never-existed'), { cancelled: false, active: false })
   const result = await f.service.importOne(checkout, { runId: 'finished-1' })
   assert.equal(result.ok, true, result.error)
-  assert.deepEqual(f.service.cancel('finished-1'), { cancelled: false, active: false }, 'a settled run is no longer cancellable')
+  assert.deepEqual(
+    f.service.cancel('finished-1'),
+    { cancelled: false, active: false },
+    'a settled run is no longer cancellable'
+  )
 })
 
 test('same-target concurrent imports and existing cross-workstation locks are rejected', async (t) => {
   const f = fixture(t)
   let release
-  f.service.copy = async (src, dest) => { await new Promise((resolve) => { release = resolve }); await fsp.copyFile(src, dest) }
+  f.service.copy = async (src, dest) => {
+    await new Promise((resolve) => {
+      release = resolve
+    })
+    await fsp.copyFile(src, dest)
+  }
   const first = f.service.importOne(checkout)
   // Wait on an observable test event, not a wall-clock guess.
   while (!release) await new Promise((resolve) => setImmediate(resolve))
@@ -261,7 +360,9 @@ test('invalid host, missing bundled agent and service-name collision are safe fa
   const f = fixture(t)
   assert.equal((await f.service.importOne({ hostname: 'host;command' })).ok, false)
   f.setState('Running')
-  f.control.assertOwnedService = async () => { throw new Error('unrelated service') }
+  f.control.assertOwnedService = async () => {
+    throw new Error('unrelated service')
+  }
   assert.match((await f.service.importOne(checkout)).error, /unrelated service/)
   assert.deepEqual(f.calls, [])
   fs.unlinkSync(f.source)
@@ -270,7 +371,12 @@ test('invalid host, missing bundled agent and service-name collision are safe fa
 
 test('service configuration uses fixed binary, automatic startup and the LocalSystem account', async () => {
   const calls = []
-  const control = new AgentControl({ sc: async (host, args) => { calls.push({ host, args }); return { code: 0, stdout: '' } } })
+  const control = new AgentControl({
+    sc: async (host, args) => {
+      calls.push({ host, args })
+      return { code: 0, stdout: '' }
+    }
+  })
   await control.configure('172.18.168.33', false)
   const command = calls[0].args
   assert.equal(command[0], 'create')
@@ -282,30 +388,38 @@ test('service configuration uses fixed binary, automatic startup and the LocalSy
 })
 
 test('SCM error 1060 means missing without evaluating Windows PowerShell properties', async () => {
-  const control = new AgentControl({ sc: async () => ({ code: 1060 }), runPs: () => assert.fail('Missing service should not reach PowerShell') })
+  const control = new AgentControl({
+    sc: async () => ({ code: 1060 }),
+    runPs: () => assert.fail('Missing service should not reach PowerShell')
+  })
   assert.deepEqual(await control.query('CO-01'), { exists: false, state: 'Missing' })
 })
 
 test('Windows PowerShell query does not assume .NET Core ServiceController.StartType', async () => {
   const control = new AgentControl({
     sc: async () => ({ code: 0 }),
-    runPs: async (script) => { assert.doesNotMatch(script, /\.StartType/); return '{"exists":true,"state":"Running"}' }
+    runPs: async (script) => {
+      assert.doesNotMatch(script, /\.StartType/)
+      return '{"exists":true,"state":"Running"}'
+    }
   })
   assert.equal((await control.query('CO-01')).state, 'Running')
 })
 
 test('agent ACL setup uses framework APIs without PSModulePath-dependent Set-Acl autoload', async () => {
-  const control = new AgentControl({ runPs: async (script) => {
-    assert.doesNotMatch(script, /Set-Acl/)
-    assert.match(script, /DirectoryInfo\(\$path\)\)\.SetAccessControl/)
-    assert.match(script, /FileInfo\(\$exe\)\)\.SetAccessControl/)
-    // LocalService (S-1-5-19) must have no access: the SYSTEM agent would
-    // otherwise execute command files any LocalService process could plant.
-    assert.doesNotMatch(script, /S-1-5-19/)
-    assert.match(script, /S-1-5-18/)
-    assert.match(script, /S-1-5-32-544/)
-    assert.match(script, /FullControl/)
-  } })
+  const control = new AgentControl({
+    runPs: async (script) => {
+      assert.doesNotMatch(script, /Set-Acl/)
+      assert.match(script, /DirectoryInfo\(\$path\)\)\.SetAccessControl/)
+      assert.match(script, /FileInfo\(\$exe\)\)\.SetAccessControl/)
+      // LocalService (S-1-5-19) must have no access: the SYSTEM agent would
+      // otherwise execute command files any LocalService process could plant.
+      assert.doesNotMatch(script, /S-1-5-19/)
+      assert.match(script, /S-1-5-18/)
+      assert.match(script, /S-1-5-32-544/)
+      assert.match(script, /FullControl/)
+    }
+  })
   await control.secureDirectories('CO-01')
 })
 
@@ -324,22 +438,39 @@ for (const phase of ['compare-hash', 'verify-copy', 'verify-running']) {
     }
     // The dialog renders a fixed pipeline, so several transfers now report
     // under one step key (compare / copy / heartbeat) instead of one key each.
-    const pipelineStep = { 'compare-hash': 'compare', 'verify-copy': 'copy', 'verify-running': 'heartbeat' }[phase]
-    f.service.hash = (file, options = {}) => hashFile(file, options.label?.startsWith(labels[phase]) ? {
-      ...options, idleTimeoutMs: 40, maxDurationMs: 1000,
-      createReadStream: () => new Readable({ read() {} })
-    } : options)
+    const pipelineStep = { 'compare-hash': 'compare', 'verify-copy': 'copy', 'verify-running': 'heartbeat' }[
+      phase
+    ]
+    f.service.hash = (file, options = {}) =>
+      hashFile(
+        file,
+        options.label?.startsWith(labels[phase])
+          ? {
+              ...options,
+              idleTimeoutMs: 40,
+              maxDurationMs: 1000,
+              createReadStream: () => new Readable({ read() {} })
+            }
+          : options
+      )
     const result = await f.service.importOne(checkout)
     assert.equal(result.ok, false)
     assert.equal(result.code, 'AGENT_TRANSFER_IDLE_TIMEOUT')
     assert.match(result.error, /CO-01/)
     assert.ok(result.error.includes(labels[phase]))
-    assert.ok(events.some((entry) => entry.step === pipelineStep), `no ${pipelineStep} step was reported`)
-    assert.ok(events.some((entry) => entry.step === pipelineStep && entry.status === 'running'), 'the stalled phase must be visible as running')
+    assert.ok(
+      events.some((entry) => entry.step === pipelineStep),
+      `no ${pipelineStep} step was reported`
+    )
+    assert.ok(
+      events.some((entry) => entry.step === pipelineStep && entry.status === 'running'),
+      'the stalled phase must be visible as running'
+    )
     assert.equal(fs.readFileSync(f.target('CO-01', AGENT_EXE), 'utf8'), 'old-agent')
     assert.equal(fs.existsSync(f.target('CO-01', 'import.lock')), false)
     assert.ok(!fs.readdirSync(f.target('CO-01')).some((name) => name.endsWith('.new')))
-    if (phase !== 'verify-running') assert.deepEqual(f.calls, [], 'Comparison/staging must not stop the previous service')
+    if (phase !== 'verify-running')
+      assert.deepEqual(f.calls, [], 'Comparison/staging must not stop the previous service')
     else assert.ok(result.steps.some((entry) => entry.step === 'rollback'))
   })
 }
@@ -361,40 +492,74 @@ test('progress samples are coalesced in the retained import log', async (t) => {
   const f = fixture(t)
   const hash = f.service.hash
   f.service.hash = async (file, options) => {
-    for (let bytes = 1; bytes < 100; bytes++) options?.onProgress?.({ bytes, totalBytes: 100, elapsedMs: 1000, bytesPerSecond: bytes })
+    for (let bytes = 1; bytes < 100; bytes++)
+      options?.onProgress?.({ bytes, totalBytes: 100, elapsedMs: 1000, bytesPerSecond: bytes })
     return hash(file, options)
   }
   const result = await f.service.importOne(checkout)
   assert.equal(result.ok, true, result.error)
-  assert.ok(result.steps.filter((entry) => entry.progress).length < 10, 'Do not accumulate thousands of progress samples per checkout')
+  assert.ok(
+    result.steps.filter((entry) => entry.progress).length < 10,
+    'Do not accumulate thousands of progress samples per checkout'
+  )
 })
 
 test('WAN: a slowly trickling heartbeat read completes; only a stalled link fails', async () => {
   const { Readable } = require('stream')
-  const { readWithIdleDeadline } = require('../electron/services/store-agent.service')
+  const { readWithIdleDeadline } = require('../../electron/services/store-agent.service')
   const parts = ['{"alpha":"', 'bravo","n":', '42}']
-  const trickle = () => Readable.from((async function* () {
-    for (const part of parts) { await new Promise((r) => setTimeout(r, 30)); yield Buffer.from(part) }
-  })())
-  const read = await readWithIdleDeadline('unused', { idleTimeoutMs: 250, maxReadMs: 5000, createReadStream: trickle })
+  const trickle = () =>
+    Readable.from(
+      (async function* () {
+        for (const part of parts) {
+          await new Promise((r) => setTimeout(r, 30))
+          yield Buffer.from(part)
+        }
+      })()
+    )
+  const read = await readWithIdleDeadline('unused', {
+    idleTimeoutMs: 250,
+    maxReadMs: 5000,
+    createReadStream: trickle
+  })
   assert.equal(read.toString('utf8'), parts.join(''))
 
-  const stalled = () => Readable.from((async function* () {
-    yield Buffer.from('partial')
-    await new Promise((r) => setTimeout(r, 5000))
-    yield Buffer.from('never')
-  })())
-  await assert.rejects(readWithIdleDeadline('unused', { idleTimeoutMs: 100, maxReadMs: 3000, createReadStream: stalled }), /no data/i)
+  const stalled = () =>
+    Readable.from(
+      (async function* () {
+        yield Buffer.from('partial')
+        await new Promise((r) => setTimeout(r, 5000))
+        yield Buffer.from('never')
+      })()
+    )
+  await assert.rejects(
+    readWithIdleDeadline('unused', { idleTimeoutMs: 100, maxReadMs: 3000, createReadStream: stalled }),
+    /no data/i
+  )
 })
 
 test('WAN: continuous but endless trickle still hits the absolute read ceiling', async () => {
   const { Readable } = require('stream')
-  const { readWithIdleDeadline } = require('../electron/services/store-agent.service')
-  const endless = () => Readable.from((async function* () {
-    for (;;) { await new Promise((r) => setTimeout(r, 10)); yield Buffer.alloc(1024) }
-  })())
+  const { readWithIdleDeadline } = require('../../electron/services/store-agent.service')
+  const endless = () =>
+    Readable.from(
+      (async function* () {
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 10))
+          yield Buffer.alloc(1024)
+        }
+      })()
+    )
   // Bytes keep arriving (idle never trips), size cap fires first here.
-  await assert.rejects(readWithIdleDeadline('unused', { idleTimeoutMs: 250, maxReadMs: 60000, maxBytes: 4096, createReadStream: endless }), /too large/)
+  await assert.rejects(
+    readWithIdleDeadline('unused', {
+      idleTimeoutMs: 250,
+      maxReadMs: 60000,
+      maxBytes: 4096,
+      createReadStream: endless
+    }),
+    /too large/
+  )
 })
 
 test('WAN: waitForHeartbeat keeps polling until a late heartbeat appears', async (t) => {
@@ -404,7 +569,8 @@ test('WAN: waitForHeartbeat keeps polling until a late heartbeat appears', async
   fs.mkdirSync(f.target('CO-01'), { recursive: true })
   fs.writeFileSync(f.target('CO-01', AGENT_EXE), 'new-agent-binary')
   const wanted = await hashFile(f.source)
-  f.service.inspect = async () => (++polls >= 3 ? { running: true, agentVersion: 'x' } : { running: false, reason: 'no fresh inventory yet' })
+  f.service.inspect = async () =>
+    ++polls >= 3 ? { running: true, agentVersion: 'x' } : { running: false, reason: 'no fresh inventory yet' }
   const heartbeat = await f.service.waitForHeartbeat('CO-01', wanted, {})
   assert.equal(heartbeat.running, true)
   assert.equal(polls, 4) // two failed polls, one running, one post-hash freshness re-check
@@ -413,14 +579,23 @@ test('WAN: waitForHeartbeat keeps polling until a late heartbeat appears', async
 test('WAN: heartbeat wait honours its window and reports the slow-VPN guidance', async () => {
   let fakeNow = 0
   const service = new StoreAgentService({
-    platform: 'linux', agentPathMapper: () => '', heartbeatWaitMs: 30000, heartbeatPollMs: 1,
-    delay: async () => { fakeNow += 1000 }, now: () => fakeNow,
+    platform: 'linux',
+    agentPathMapper: () => '',
+    heartbeatWaitMs: 30000,
+    heartbeatPollMs: 1,
+    delay: async () => {
+      fakeNow += 1000
+    },
+    now: () => fakeNow,
     reach: async (host) => ({ status: 'online', host }),
     smb: { withHost: async (_h, _c, task) => task() }
   })
   service.inspect = async () => ({ running: false, reason: 'still starting' })
   const waits = []
-  await assert.rejects(service.waitForHeartbeat('CO-99', 'deadbeef', {}, (elapsed, reason) => waits.push([elapsed, reason])), /slow VPN/)
+  await assert.rejects(
+    service.waitForHeartbeat('CO-99', 'deadbeef', {}, (elapsed, reason) => waits.push([elapsed, reason])),
+    /slow VPN/
+  )
   assert.ok(waits.length >= 30)
 })
 
@@ -428,5 +603,9 @@ test('agent staleness window accepts remote-slow heartbeats but rejects dead one
   const now = Date.now()
   const fresh90 = snapshot({ generatedAt: new Date(now - 90000).toISOString() })
   assert.equal(validateSnapshot(JSON.stringify(fresh90), now).programs[0].name, 'Store Commerce')
-  assert.throws(() => validateSnapshot(JSON.stringify(snapshot({ generatedAt: new Date(now - 121000).toISOString() })), now), /stale/)
+  assert.throws(
+    () =>
+      validateSnapshot(JSON.stringify(snapshot({ generatedAt: new Date(now - 121000).toISOString() })), now),
+    /stale/
+  )
 })

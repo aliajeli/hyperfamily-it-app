@@ -22,16 +22,29 @@ const HOST_PATTERN = /^[a-zA-Z0-9._-]{1,253}$/
 /** Runs a command, always resolving, never hanging longer than `timeoutMs`. */
 function run(command, args, timeoutMs = 20000) {
   return new Promise((resolve) => {
-    execFile(command, args, { timeout: timeoutMs, windowsHide: true, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }, (error, stdout = '', stderr = '') => {
-      resolve({ ok: !error, code: error?.code ?? 0, stdout: String(stdout), stderr: String(stderr), timedOut: Boolean(error?.killed) })
-    })
+    execFile(
+      command,
+      args,
+      { timeout: timeoutMs, windowsHide: true, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 },
+      (error, stdout = '', stderr = '') => {
+        resolve({
+          ok: !error,
+          code: error?.code ?? 0,
+          stdout: String(stdout),
+          stderr: String(stderr),
+          timedOut: Boolean(error?.killed)
+        })
+      }
+    )
   })
 }
 
 /** `okcs` + `administrator` → `okcs\administrator`; a domain already typed into the username wins. */
 function qualifyUser(domain, username) {
   const user = String(username || '').trim()
-  const dom = String(domain || '').trim().replace(/\\+$/, '')
+  const dom = String(domain || '')
+    .trim()
+    .replace(/\\+$/, '')
   if (!user) return ''
   if (user.includes('\\') || user.includes('@')) return user
   return dom ? `${dom}\\${user}` : user
@@ -55,7 +68,10 @@ class SmbSessionManager {
   }
 
   #normalizeHost(host) {
-    const clean = String(host || '').trim().replace(/^\\+/, '').replace(/[\\/].*$/, '')
+    const clean = String(host || '')
+      .trim()
+      .replace(/^\\+/, '')
+      .replace(/[\\/].*$/, '')
     if (!clean || !HOST_PATTERN.test(clean)) throw new Error(`Invalid host name “${host}”`)
     return clean
   }
@@ -65,14 +81,21 @@ class SmbSessionManager {
     // Drop whatever session Windows may already hold for this server —
     // otherwise `net use` fails with 1219 (multiple connections not allowed).
     await this.exec('net', ['use', `\\\\${host}\\IPC$`, '/delete', '/y'], 15000)
-    const result = await this.exec('net', ['use', `\\\\${host}\\IPC$`, credentials.password, `/user:${user}`, '/persistent:no'], 25000)
+    const result = await this.exec(
+      'net',
+      ['use', `\\\\${host}\\IPC$`, credentials.password, `/user:${user}`, '/persistent:no'],
+      25000
+    )
     if (!result.ok) {
       const message = (result.stderr || result.stdout || '').replace(/\s+/g, ' ').trim()
       if (result.timedOut) throw new Error(`Timed out opening an SMB session to ${host}`)
       if (/1326|logon failure|user name or password/i.test(message)) {
-        throw new Error(`${host} rejected the credentials for ${user} — check Settings → Store App → Target access`)
+        throw new Error(
+          `${host} rejected the credentials for ${user} — check Settings → Store App → Target access`
+        )
       }
-      if (/1219/.test(message)) throw new Error(`${host} already has a session with different credentials; sign out of it and retry`)
+      if (/1219/.test(message))
+        throw new Error(`${host} already has a session with different credentials; sign out of it and retry`)
       throw new Error(`Could not open an SMB session to ${host} — ${message || 'net use failed'}`)
     }
   }
@@ -117,15 +140,27 @@ class SmbSessionManager {
     await this.#connect(clean, credentials)
     const probe = await this.exec('cmd', ['/c', 'dir', `\\\\${clean}\\C$`], 20000)
     await this.exec('net', ['use', `\\\\${clean}\\IPC$`, '/delete', '/y'], 15000)
-    if (!probe.ok) throw new Error(`Signed in to ${clean} but the C$ admin share is not reachable — is the account a local administrator there?`)
-    return { ok: true, host: clean, user: qualifyUser(credentials.domain, credentials.username), durationMs: Date.now() - startedAt }
+    if (!probe.ok)
+      throw new Error(
+        `Signed in to ${clean} but the C$ admin share is not reachable — is the account a local administrator there?`
+      )
+    return {
+      ok: true,
+      host: clean,
+      user: qualifyUser(credentials.domain, credentials.username),
+      durationMs: Date.now() - startedAt
+    }
   }
 
   /** Releases every session this process opened (called on app quit). */
   async releaseAll() {
     const hosts = [...this.sessions.keys()]
     this.sessions.clear()
-    await Promise.all(hosts.map((host) => this.exec('net', ['use', `\\\\${host}\\IPC$`, '/delete', '/y'], 10000).catch(() => {})))
+    await Promise.all(
+      hosts.map((host) =>
+        this.exec('net', ['use', `\\\\${host}\\IPC$`, '/delete', '/y'], 10000).catch(() => {})
+      )
+    )
   }
 }
 

@@ -5,7 +5,7 @@ const {
   updaterFlags,
   evaluateChannelUpdate,
   isPrereleaseVersion
-} = require('../electron/services/update-channel')
+} = require('../../electron/services/update-channel')
 
 const stable300 = { tag_name: 'v3.0.0', prerelease: false, draft: false }
 const beta10 = { tag_name: 'v3.0.1-beta.10', prerelease: true, draft: false }
@@ -36,26 +36,42 @@ test('updater flags: beta allows prereleases, main allows downgrade only from a 
 })
 
 test('main channel only ever sees stable releases', () => {
-  const result = evaluateChannelUpdate({ releases: [beta10, stable300], channel: 'main', currentVersion: '3.0.0' })
+  const result = evaluateChannelUpdate({
+    releases: [beta10, stable300],
+    channel: 'main',
+    currentVersion: '3.0.0'
+  })
   assert.equal(result.latestVersion, '3.0.0')
   assert.equal(result.hasUpdate, false)
   assert.equal(result.release.prerelease, false)
 })
 
 test('beta channel picks the newest release including prereleases', () => {
-  const result = evaluateChannelUpdate({ releases: [stable300, beta9, beta10], channel: 'beta', currentVersion: '3.0.1-beta.9' })
+  const result = evaluateChannelUpdate({
+    releases: [stable300, beta9, beta10],
+    channel: 'beta',
+    currentVersion: '3.0.1-beta.9'
+  })
   assert.equal(result.latestVersion, '3.0.1-beta.10')
   assert.equal(result.hasUpdate, true)
   assert.equal(result.isDowngrade, false)
 })
 
 test('beta channel with a fresh install and no newer build reports no update', () => {
-  const result = evaluateChannelUpdate({ releases: [stable300, beta10], channel: 'beta', currentVersion: '3.0.1-beta.10' })
+  const result = evaluateChannelUpdate({
+    releases: [stable300, beta10],
+    channel: 'beta',
+    currentVersion: '3.0.1-beta.10'
+  })
   assert.equal(result.hasUpdate, false)
 })
 
 test('beta install on the main channel is offered the newest stable even though it is lower', () => {
-  const result = evaluateChannelUpdate({ releases: [stable300, beta10], channel: 'main', currentVersion: '3.0.1-beta.10' })
+  const result = evaluateChannelUpdate({
+    releases: [stable300, beta10],
+    channel: 'main',
+    currentVersion: '3.0.1-beta.10'
+  })
   assert.equal(result.latestVersion, '3.0.0')
   assert.equal(result.hasUpdate, true)
   assert.equal(result.isDowngrade, true)
@@ -68,6 +84,12 @@ test('drafts are invisible on every channel', () => {
 })
 
 test('empty release lists never count as an update', () => {
-  assert.equal(evaluateChannelUpdate({ releases: [], channel: 'main', currentVersion: '3.0.1-beta.10' }).hasUpdate, false)
-  assert.equal(evaluateChannelUpdate({ releases: null, channel: 'beta', currentVersion: '3.0.0' }).release, null)
+  assert.equal(
+    evaluateChannelUpdate({ releases: [], channel: 'main', currentVersion: '3.0.1-beta.10' }).hasUpdate,
+    false
+  )
+  assert.equal(
+    evaluateChannelUpdate({ releases: null, channel: 'beta', currentVersion: '3.0.0' }).release,
+    null
+  )
 })

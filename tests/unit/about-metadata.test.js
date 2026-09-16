@@ -1,15 +1,15 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const pkg = require('../package.json')
-const lock = require('../package-lock.json')
-const stack = require('../lib/technology-stack.json')
+const pkg = require('../../package.json')
+const lock = require('../../package-lock.json')
+const stack = require('../../lib/technology-stack.json')
 
 test('release manifests have one consistent version', () => {
   assert.equal(pkg.version, lock.version)
   assert.equal(pkg.version, lock.packages[''].version)
-  assert.equal(pkg.version, require('../electron/recovery/package.json').version)
-  assert.equal(pkg.version, require('../electron/recovery/package-lock.json').version)
-  assert.equal(pkg.version, require('../electron/recovery/package-lock.json').packages[''].version)
+  assert.equal(pkg.version, require('../../electron/recovery/package.json').version)
+  assert.equal(pkg.version, require('../../electron/recovery/package-lock.json').version)
+  assert.equal(pkg.version, require('../../electron/recovery/package-lock.json').packages[''].version)
 })
 
 test('About credits have unique, complete metadata and valid dependency references', () => {
@@ -23,10 +23,23 @@ test('About credits have unique, complete metadata and valid dependency referenc
     // Every tile is a link to the technology's own site, so a missing or
     // non-HTTPS address would either dead-end the click or open it in-app.
     assert.match(String(entry.url), /^https:\/\/[^\s]+$/, `${entry.name} needs an https home page`)
-    if (entry.package) assert.ok(pkg.dependencies[entry.package] || pkg.devDependencies[entry.package], `unknown package ${entry.package}`)
-    if (entry.showMajor) assert.match(pkg.dependencies[entry.package] || pkg.devDependencies[entry.package], /\d+/)
+    if (entry.package)
+      assert.ok(
+        pkg.dependencies[entry.package] || pkg.devDependencies[entry.package],
+        `unknown package ${entry.package}`
+      )
+    if (entry.showMajor)
+      assert.match(pkg.dependencies[entry.package] || pkg.devDependencies[entry.package], /\d+/)
   }
-  for (const name of ['React', 'Node.js', 'Radix UI', 'React Hook Form + Zod', 'C++17 / Win32', 'electron-updater', 'CMake / MSVC']) {
+  for (const name of [
+    'React',
+    'Node.js',
+    'Radix UI',
+    'React Hook Form + Zod',
+    'C++17 / Win32',
+    'electron-updater',
+    'CMake / MSVC'
+  ]) {
     assert.ok(names.has(name), `missing production credit ${name}`)
   }
   assert.equal(names.has('shadcn/ui'), false)

@@ -20,7 +20,8 @@ export default function DashboardPage() {
   const pageCount = Math.max(1, Math.ceil(branches.length / BRANCHES_PER_PAGE))
   const currentPage = Math.min(page, pageCount)
   const pageBranches = branches.slice((currentPage - 1) * BRANCHES_PER_PAGE, currentPage * BRANCHES_PER_PAGE)
-  const compactBranches = settings.dashboard_branch_mode === 'always_compact' || branches.length > BRANCHES_PER_PAGE
+  const compactBranches =
+    settings.dashboard_branch_mode === 'always_compact' || branches.length > BRANCHES_PER_PAGE
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) || null
   const detailsView = settings.dashboard_branch_details_view === 'side_panel' ? 'side_panel' : 'modal'
 
@@ -29,18 +30,31 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-[1920px] space-y-3 text-base-ui">
         <div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <motion.h1 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="mr-1 text-lg font-extrabold tracking-[0.015em]">Network at a glance</motion.h1>
+            <motion.h1
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="mr-1 text-lg font-extrabold tracking-[0.015em]"
+            >
+              Network at a glance
+            </motion.h1>
             <div className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-[rgb(var(--muted))]">
               <Clock3 size={11} className={generatedAt ? 'text-[rgb(var(--primary))]' : 'animate-spin'} />
-              {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : 'Connecting to monitor…'}
+              {generatedAt
+                ? `Updated ${new Date(generatedAt).toLocaleTimeString()}`
+                : 'Connecting to monitor…'}
             </div>
           </div>
-          <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">Live health and Router latency across every store. Select a branch title to see all monitored equipment.</p>
+          <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">
+            Live health and Router latency across every store. Select a branch title to see all monitored
+            equipment.
+          </p>
         </div>
 
         {!generatedAt ? (
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-            {[0, 1, 2, 3].map((item) => <Skeleton key={item} className={compactBranches ? 'h-[250px]' : 'h-[620px]'} />)}
+            {[0, 1, 2, 3].map((item) => (
+              <Skeleton key={item} className={compactBranches ? 'h-[250px]' : 'h-[620px]'} />
+            ))}
           </div>
         ) : branches.length ? (
           <>
@@ -64,7 +78,12 @@ export default function DashboardPage() {
             </motion.div>
 
             {pageCount > 1 && (
-              <motion.nav initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center gap-2 pt-1" aria-label="Dashboard branch pages">
+              <motion.nav
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center justify-center gap-2 pt-1"
+                aria-label="Dashboard branch pages"
+              >
                 <motion.button
                   type="button"
                   whileHover={{ x: -2, scale: 1.06 }}
@@ -76,7 +95,9 @@ export default function DashboardPage() {
                 >
                   <ChevronLeft size={14} />
                 </motion.button>
-                <span className="min-w-20 text-center text-xs font-semibold text-[rgb(var(--muted))]">Page {currentPage} of {pageCount}</span>
+                <span className="min-w-20 text-center text-xs font-semibold text-[rgb(var(--muted))]">
+                  Page {currentPage} of {pageCount}
+                </span>
                 <motion.button
                   type="button"
                   whileHover={{ x: 2, scale: 1.06 }}
@@ -92,7 +113,11 @@ export default function DashboardPage() {
             )}
           </>
         ) : (
-          <EmptyState icon={<Building2 />} title="No branches yet" description="Create the first branch, then add its network devices." />
+          <EmptyState
+            icon={<Building2 />}
+            title="No branches yet"
+            description="Create the first branch, then add its network devices."
+          />
         )}
       </div>
 

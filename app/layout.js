@@ -1,6 +1,12 @@
 import './globals.css'
 import AppProviders from '@/components/providers/AppProviders'
-import { THEMES, THEME_VARS, THEME_STORAGE_KEY, CUSTOM_THEME_ID, CUSTOM_THEME_STORAGE_KEY } from '@/lib/themes'
+import {
+  THEMES,
+  THEME_VARS,
+  THEME_STORAGE_KEY,
+  CUSTOM_THEME_ID,
+  CUSTOM_THEME_STORAGE_KEY
+} from '@/lib/themes'
 import { FONT_GROUPS, MONO_FONTS, TYPOGRAPHY_STORAGE_KEY, UI_FONTS } from '@/lib/typography'
 
 export const metadata = {
@@ -15,10 +21,7 @@ export const metadata = {
  * theme and only switched after the user was authenticated.
  */
 const BOOT_THEMES = Object.fromEntries(
-  THEMES.map((theme) => [
-    theme.id,
-    { m: theme.mode, v: THEME_VARS.map((key) => theme[key]) }
-  ])
+  THEMES.map((theme) => [theme.id, { m: theme.mode, v: THEME_VARS.map((key) => theme[key]) }])
 )
 
 /**
@@ -30,7 +33,12 @@ const BOOT_FONTS = {
   ui: Object.fromEntries(UI_FONTS.filter((font) => font.id).map((font) => [font.id, font.stack])),
   mono: Object.fromEntries(MONO_FONTS.map((font) => [font.id, font.stack]))
 }
-const BOOT_GROUPS = FONT_GROUPS.map((group) => ({ i: group.id, v: group.variable, s: group.sizeVariable, m: group.id === 'mono' }))
+const BOOT_GROUPS = FONT_GROUPS.map((group) => ({
+  i: group.id,
+  v: group.variable,
+  s: group.sizeVariable,
+  m: group.id === 'mono'
+}))
 
 /**
  * Runs before the first paint: restores the theme and the typography the user
@@ -57,6 +65,11 @@ name=${JSON.stringify(CUSTOM_THEME_ID)};}
 if(!t)t=(id&&T[id])||T[${JSON.stringify(THEMES[0].id)}];
 if(!t)return;
 for(var i=0;i<K.length;i++)r.style.setProperty('--'+K[i],t.v[i]);
+var P=String(t.v[K.indexOf('primary')]||'191 97 106').split(/\\s+/).map(Number),s=1;
+var lu=function(x){x=(Number(x)||0)/255;return x<=0.03928?x/12.92:Math.pow((x+0.055)/1.055,2.4)};
+while(1.05/(0.2126*lu(P[0]*s)+0.7152*lu(P[1]*s)+0.0722*lu(P[2]*s)+0.05)<4.6&&s>0.2)s-=0.01;
+r.style.setProperty('--primary-strong',Math.round(P[0]*s)+' '+Math.round(P[1]*s)+' '+Math.round(P[2]*s));
+r.style.setProperty('--danger-strong','178 90 99');
 r.style.colorScheme=t.m;r.dataset.theme=name;r.dataset.colorMode=t.m;
 }catch(e){}
 try{
@@ -78,7 +91,9 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
-      <body><AppProviders>{children}</AppProviders></body>
+      <body>
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   )
 }

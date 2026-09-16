@@ -21,7 +21,10 @@ export default function AppProviders({ children }) {
         setSettings(settings)
         // The saved setting wins, but a profile without one keeps whatever the
         // pre-paint boot script already restored instead of snapping back.
-        applyTheme(settings.theme || readRememberedTheme() || 'aurora', parseCustomColors(settings.theme_custom))
+        applyTheme(
+          settings.theme || readRememberedTheme() || 'aurora',
+          parseCustomColors(settings.theme_custom)
+        )
         // Fonts and interface scale live in the same settings row; cache them
         // so the next launch applies them before the first paint.
         applyTypography(settings)
@@ -36,7 +39,10 @@ export default function AppProviders({ children }) {
     load()
     const reload = () => load()
     window.addEventListener('hyperfamily:data-changed', reload)
-    return () => { alive = false; window.removeEventListener('hyperfamily:data-changed', reload) }
+    return () => {
+      alive = false
+      window.removeEventListener('hyperfamily:data-changed', reload)
+    }
   }, [setSettings])
 
   // Uniform viewport scale in the browser preview: the layout is designed
@@ -56,9 +62,11 @@ export default function AppProviders({ children }) {
     return () => window.removeEventListener('resize', apply)
   }, [])
 
-  return <ConfirmProvider>
-    <InteractionGuard />
-    {children}
-    <Toaster richColors position="bottom-right" closeButton />
-  </ConfirmProvider>
+  return (
+    <ConfirmProvider>
+      <InteractionGuard />
+      {children}
+      <Toaster richColors position="bottom-right" closeButton />
+    </ConfirmProvider>
+  )
 }

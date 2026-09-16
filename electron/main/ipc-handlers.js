@@ -1,319 +1,707 @@
 const { ipcMain, dialog, shell, app } = require('electron')
 const fs = require('fs')
-const { createImportTemplate, exportDirectory, exportInventory, importDirectory } = require('../services/excel.service')
+const {
+  createImportTemplate,
+  exportDirectory,
+  exportInventory,
+  importDirectory
+} = require('../services/excel.service')
 const { openDeviceWebview, broadcastPalette } = require('./webview-window')
 const { STORE_COMMERCE_PROGRAM } = require('../services/store-update.service')
 
 function friendlyError(error) {
-  if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE') && String(error.message).includes('devices.branch_id')) return new Error('Only one Router can be defined for each branch')
-  if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE')) return new Error('That name, Branch Code, Warehouse Code, or device identity already exists')
-  if (String(error.code).includes('SQLITE_CONSTRAINT_FOREIGNKEY')) return new Error('The selected related record no longer exists')
+  if (
+    String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE') &&
+    String(error.message).includes('devices.branch_id')
+  )
+    return new Error('Only one Router can be defined for each branch')
+  if (String(error.code).includes('SQLITE_CONSTRAINT_UNIQUE'))
+    return new Error('That name, Branch Code, Warehouse Code, or device identity already exists')
+  if (String(error.code).includes('SQLITE_CONSTRAINT_FOREIGNKEY'))
+    return new Error('The selected related record no longer exists')
   return error instanceof Error ? error : new Error(String(error))
 }
 
-function registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, getWindow }) {
+function registerIpcHandlers({
+  database,
+  remoteService,
+  vpnService,
+  terminalService,
+  updateService,
+  storeUpdateService,
+  storeInstallService,
+  getWindow
+}) {
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
-    if (!(url.startsWith('app://hyperfamily/') || url.startsWith('http://localhost:3000'))) throw new Error('Untrusted IPC sender')
+    if (!(url.startsWith('app://hyperfamily/') || url.startsWith('http://localhost:3000')))
+      throw new Error('Untrusted IPC sender')
   }
-  const secure = (handler) => async (event, ...args) => {
-    trusted(event)
-    if (!sessions.has(event.sender.id)) throw new Error('Authentication required')
-    try { return await handler(event, ...args) } catch (error) { throw friendlyError(error) }
-  }
-  const open = (handler) => async (event, ...args) => {
-    trusted(event)
-    try { return await handler(event, ...args) } catch (error) { throw friendlyError(error) }
-  }
+  const secure =
+    (handler) =>
+    async (event, ...args) => {
+      trusted(event)
+      if (!sessions.has(event.sender.id)) throw new Error('Authentication required')
+      try {
+        return await handler(event, ...args)
+      } catch (error) {
+        throw friendlyError(error)
+      }
+    }
+  const open =
+    (handler) =>
+    async (event, ...args) => {
+      trusted(event)
+      try {
+        return await handler(event, ...args)
+      } catch (error) {
+        throw friendlyError(error)
+      }
+    }
 
   // Credential recovery is available BEFORE sign-in, so these use `open`
   // (trusted sender) rather than `secure` (authenticated session).
-  ipcMain.handle('auth:recover-status', open(() => database.recoveryStatus()))
-  ipcMain.handle('auth:recover', open((_event, payload) => database.verifyRecoveryPin(payload?.pin)))
-  ipcMain.handle('auth:set-recovery-pin', secure((event, payload) => database.setRecoveryPin(sessions.get(event.sender.id).id, payload?.pin)))
+  ipcMain.handle(
+    'auth:recover-status',
+    open(() => database.recoveryStatus())
+  )
+  ipcMain.handle(
+    'auth:recover',
+    open((_event, payload) => database.verifyRecoveryPin(payload?.pin))
+  )
+  ipcMain.handle(
+    'auth:set-recovery-pin',
+    secure((event, payload) => database.setRecoveryPin(sessions.get(event.sender.id).id, payload?.pin))
+  )
 
   // Remember-me is also pre-login: the login page saves the credentials only
   // AFTER a successful sign-in and reads them back to prefill the form.
-  ipcMain.handle('auth:remember-credentials', open((_event, payload) => database.saveRememberedCredentials(payload)))
-  ipcMain.handle('auth:remembered-credentials', open(() => database.getRememberedCredentials()))
+  ipcMain.handle(
+    'auth:remember-credentials',
+    open((_event, payload) => database.saveRememberedCredentials(payload))
+  )
+  ipcMain.handle(
+    'auth:remembered-credentials',
+    open(() => database.getRememberedCredentials())
+  )
 
-  ipcMain.handle('auth:login', open((event, payload) => {
-    const user = database.authenticate(payload?.username, payload?.password)
-    if (!user) throw new Error('Invalid username or password')
-    sessions.set(event.sender.id, user)
-    event.sender.once('destroyed', () => sessions.delete(event.sender.id))
-    return user
-  }))
-  ipcMain.handle('auth:status', open((event) => ({ authenticated: sessions.has(event.sender.id), user: sessions.get(event.sender.id) || null })))
-  ipcMain.handle('auth:logout', open((event) => {
-    const session = sessions.get(event.sender.id)
-    sessions.delete(event.sender.id)
-    database.audit(session?.username || 'System', 'LOGOUT', 'Application', 'Local logout')
-    return { success: true }
-  }))
-  ipcMain.handle('auth:update-credentials', secure((event, payload) => {
-    const session = sessions.get(event.sender.id)
-    const updatedUser = database.updateCredentials(session.id, payload)
-    sessions.set(event.sender.id, updatedUser)
-    return updatedUser
-  }))
-  ipcMain.handle('auth:change-password', secure((event, payload) => {
-    const session = sessions.get(event.sender.id)
-    const updatedUser = database.updateCredentials(session.id, { ...payload, newUsername: session.username })
-    sessions.set(event.sender.id, updatedUser)
-    return { success: true }
-  }))
+  ipcMain.handle(
+    'auth:login',
+    open((event, payload) => {
+      const user = database.authenticate(payload?.username, payload?.password)
+      if (!user) throw new Error('Invalid username or password')
+      sessions.set(event.sender.id, user)
+      event.sender.once('destroyed', () => sessions.delete(event.sender.id))
+      return user
+    })
+  )
+  ipcMain.handle(
+    'auth:status',
+    open((event) => ({
+      authenticated: sessions.has(event.sender.id),
+      user: sessions.get(event.sender.id) || null
+    }))
+  )
+  ipcMain.handle(
+    'auth:logout',
+    open((event) => {
+      const session = sessions.get(event.sender.id)
+      sessions.delete(event.sender.id)
+      database.audit(session?.username || 'System', 'LOGOUT', 'Application', 'Local logout')
+      return { success: true }
+    })
+  )
+  ipcMain.handle(
+    'auth:update-credentials',
+    secure((event, payload) => {
+      const session = sessions.get(event.sender.id)
+      const updatedUser = database.updateCredentials(session.id, payload)
+      sessions.set(event.sender.id, updatedUser)
+      return updatedUser
+    })
+  )
+  ipcMain.handle(
+    'auth:change-password',
+    secure((event, payload) => {
+      const session = sessions.get(event.sender.id)
+      const updatedUser = database.updateCredentials(session.id, {
+        ...payload,
+        newUsername: session.username
+      })
+      sessions.set(event.sender.id, updatedUser)
+      return { success: true }
+    })
+  )
 
-  ipcMain.handle('branches:list', secure(() => database.listBranches()))
-  ipcMain.handle('branches:save', secure((event, payload) => database.saveBranch(payload, sessions.get(event.sender.id).username)))
-  ipcMain.handle('branches:remove', secure((event, id) => database.deleteBranch(id, sessions.get(event.sender.id).username)))
-  ipcMain.handle('branches:remove-all', secure((event) => database.deleteAllBranchesAndDevices(sessions.get(event.sender.id).username)))
-  ipcMain.handle('devices:list', secure(() => database.listDevices()))
-  ipcMain.handle('devices:save', secure((event, payload) => database.saveDevice(payload, sessions.get(event.sender.id).username)))
-  ipcMain.handle('devices:remove', secure((event, id) => database.deleteDevice(id, sessions.get(event.sender.id).username)))
-  ipcMain.handle('monitor:snapshot', secure(() => { const settings = database.getSettings(); return database.getMonitorSnapshot(settings.ping_history_count || 30) }))
+  ipcMain.handle(
+    'branches:list',
+    secure(() => database.listBranches())
+  )
+  ipcMain.handle(
+    'branches:save',
+    secure((event, payload) => database.saveBranch(payload, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'branches:remove',
+    secure((event, id) => database.deleteBranch(id, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'branches:remove-all',
+    secure((event) => database.deleteAllBranchesAndDevices(sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'devices:list',
+    secure(() => database.listDevices())
+  )
+  ipcMain.handle(
+    'devices:save',
+    secure((event, payload) => database.saveDevice(payload, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'devices:remove',
+    secure((event, id) => database.deleteDevice(id, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'monitor:snapshot',
+    secure(() => {
+      const settings = database.getSettings()
+      return database.getMonitorSnapshot(settings.ping_history_count || 30)
+    })
+  )
 
-  ipcMain.handle('settings:get', secure(() => database.getSettings()))
-  ipcMain.handle('settings:save', secure((event, patch) => database.saveSettings(patch, sessions.get(event.sender.id).username)))
-  ipcMain.handle('credentials:list', secure(() => database.listCredentials()))
-  ipcMain.handle('credentials:reveal', secure((_event, id) => database.revealCredential(id)))
-  ipcMain.handle('credentials:save', secure((event, payload) => database.saveCredential(payload, sessions.get(event.sender.id).username)))
-  ipcMain.handle('credentials:remove', secure((event, id) => database.deleteCredential(id, sessions.get(event.sender.id).username)))
+  ipcMain.handle(
+    'settings:get',
+    secure(() => database.getSettings())
+  )
+  ipcMain.handle(
+    'settings:save',
+    secure((event, patch) => database.saveSettings(patch, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'credentials:list',
+    secure(() => database.listCredentials())
+  )
+  ipcMain.handle(
+    'credentials:reveal',
+    secure((_event, id) => database.revealCredential(id))
+  )
+  ipcMain.handle(
+    'credentials:save',
+    secure((event, payload) => database.saveCredential(payload, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'credentials:remove',
+    secure((event, id) => database.deleteCredential(id, sessions.get(event.sender.id).username))
+  )
   // Must return the unified { types, devices } shape. Returning the legacy
   // types-only map made every per-device assignment invisible after a reload,
   // and the next save then wrote that empty set back — silently erasing them.
-  ipcMain.handle('credentials:mappings', secure(() => database.getCredentialMap()))
-  ipcMain.handle('credentials:credential-map', secure(() => database.getCredentialMap()))
-  ipcMain.handle('credentials:for-device', secure((_event, deviceId) => database.listCredentialsForDevice(deviceId)))
-  ipcMain.handle('credentials:save-mappings', secure((event, mappings) => database.saveMappings(mappings, sessions.get(event.sender.id).username)))
+  ipcMain.handle(
+    'credentials:mappings',
+    secure(() => database.getCredentialMap())
+  )
+  ipcMain.handle(
+    'credentials:credential-map',
+    secure(() => database.getCredentialMap())
+  )
+  ipcMain.handle(
+    'credentials:for-device',
+    secure((_event, deviceId) => database.listCredentialsForDevice(deviceId))
+  )
+  ipcMain.handle(
+    'credentials:save-mappings',
+    secure((event, mappings) => database.saveMappings(mappings, sessions.get(event.sender.id).username))
+  )
   // Simplified assignment flow: one device (or one whole type) at a time.
-  ipcMain.handle('credentials:assign-device', secure((event, payload) =>
-    database.setDeviceCredential(payload?.deviceId, payload?.credentialId ?? null, sessions.get(event.sender.id).username)))
-  ipcMain.handle('credentials:assign-type', secure((event, payload) =>
-    database.setTypeCredential(payload?.deviceType, payload?.credentialId ?? null, sessions.get(event.sender.id).username)))
-  ipcMain.handle('credentials:overview', secure(() => database.listDeviceCredentialOverview()))
+  ipcMain.handle(
+    'credentials:assign-device',
+    secure((event, payload) =>
+      database.setDeviceCredential(
+        payload?.deviceId,
+        payload?.credentialId ?? null,
+        sessions.get(event.sender.id).username
+      )
+    )
+  )
+  ipcMain.handle(
+    'credentials:assign-type',
+    secure((event, payload) =>
+      database.setTypeCredential(
+        payload?.deviceType,
+        payload?.credentialId ?? null,
+        sessions.get(event.sender.id).username
+      )
+    )
+  )
+  ipcMain.handle(
+    'credentials:overview',
+    secure(() => database.listDeviceCredentialOverview())
+  )
 
-  ipcMain.handle('inventory:list', secure(() => database.listInventory()))
-  ipcMain.handle('inventory:export', secure((_event, filters) => exportInventory(database, filters || {})))
+  ipcMain.handle(
+    'inventory:list',
+    secure(() => database.listInventory())
+  )
+  ipcMain.handle(
+    'inventory:export',
+    secure((_event, filters) => exportInventory(database, filters || {}))
+  )
   // Directory import: the operator downloads a template, fills one sheet per
   // device type, then imports it back. Both open a native file dialog.
-  ipcMain.handle('directory:template', secure((event) => createImportTemplate(database, null, sessions.get(event.sender.id).username)))
-  ipcMain.handle('directory:import', secure((event) => importDirectory(database, null, sessions.get(event.sender.id).username)))
+  ipcMain.handle(
+    'directory:template',
+    secure((event) => createImportTemplate(database, null, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'directory:import',
+    secure((event) => importDirectory(database, null, sessions.get(event.sender.id).username))
+  )
   // Writes the current directory into the exact workbook layout the importer
   // reads, so the file can be imported on another workstation as-is.
-  ipcMain.handle('directory:export', secure((event) => exportDirectory(database, null, sessions.get(event.sender.id).username)))
-  ipcMain.handle('remote:connect', secure(async (event, payload) => {
-    const result = await remoteService.connect(payload, sessions.get(event.sender.id).username)
-    // iLO and NVR open inside a themed application window rather than an
-    // external browser, so the credential can be injected into the login form.
-    if (result?.webview) {
-      // Auto sign-in is a global preference; the renderer only supplies the palette.
-      const autologin = database.getSettings().webview_autologin !== false
-      return openDeviceWebview({ ...result.webview, palette: payload?.palette || {}, autologin }, getWindow())
-    }
-    return result
-  }))
-  ipcMain.handle('remote:probe', secure(() => remoteService.probe()))
+  ipcMain.handle(
+    'directory:export',
+    secure((event) => exportDirectory(database, null, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'remote:connect',
+    secure(async (event, payload) => {
+      const result = await remoteService.connect(payload, sessions.get(event.sender.id).username)
+      // iLO and NVR open inside a themed application window rather than an
+      // external browser, so the credential can be injected into the login form.
+      if (result?.webview) {
+        // Auto sign-in is a global preference; the renderer only supplies the palette.
+        const autologin = database.getSettings().webview_autologin !== false
+        return openDeviceWebview(
+          { ...result.webview, palette: payload?.palette || {}, autologin },
+          getWindow()
+        )
+      }
+      return result
+    })
+  )
+  ipcMain.handle(
+    'remote:probe',
+    secure(() => remoteService.probe())
+  )
   // The theme is applied by the renderer before anybody signs in (the login
   // screen is themed too), so this one carries no private data and must stay
   // outside the authentication guard — otherwise every launch logged
   // "Error invoking remote method 'remote:palette': Authentication required".
-  ipcMain.handle('remote:palette', open((_event, palette) => { broadcastPalette(palette || {}); return true }))
+  ipcMain.handle(
+    'remote:palette',
+    open((_event, palette) => {
+      broadcastPalette(palette || {})
+      return true
+    })
+  )
 
-  ipcMain.handle('terminal:targets', secure(() => terminalService.targets()))
-  ipcMain.handle('terminal:open', secure((event, payload) => terminalService.open(payload || {}, event.sender, sessions.get(event.sender.id).username)))
-  ipcMain.handle('terminal:write', secure((event, payload) => terminalService.write(payload?.sessionId, payload?.data ?? '', event.sender)))
-  ipcMain.handle('terminal:resize', secure((event, payload) => terminalService.resize(payload?.sessionId, payload || {}, event.sender)))
-  ipcMain.handle('terminal:close', secure((event, sessionId) => { terminalService.owned(sessionId, event.sender); return terminalService.close(sessionId, 'Closed by the operator') }))
+  ipcMain.handle(
+    'terminal:targets',
+    secure(() => terminalService.targets())
+  )
+  ipcMain.handle(
+    'terminal:open',
+    secure((event, payload) =>
+      terminalService.open(payload || {}, event.sender, sessions.get(event.sender.id).username)
+    )
+  )
+  ipcMain.handle(
+    'terminal:write',
+    secure((event, payload) => terminalService.write(payload?.sessionId, payload?.data ?? '', event.sender))
+  )
+  ipcMain.handle(
+    'terminal:resize',
+    secure((event, payload) => terminalService.resize(payload?.sessionId, payload || {}, event.sender))
+  )
+  ipcMain.handle(
+    'terminal:close',
+    secure((event, sessionId) => {
+      terminalService.owned(sessionId, event.sender)
+      return terminalService.close(sessionId, 'Closed by the operator')
+    })
+  )
 
-  ipcMain.handle('snippets:list', secure(() => database.listSnippets()))
-  ipcMain.handle('snippets:save', secure((event, payload) => database.saveSnippet(payload, sessions.get(event.sender.id).username)))
-  ipcMain.handle('snippets:remove', secure((event, id) => database.deleteSnippet(id, sessions.get(event.sender.id).username)))
+  ipcMain.handle(
+    'snippets:list',
+    secure(() => database.listSnippets())
+  )
+  ipcMain.handle(
+    'snippets:save',
+    secure((event, payload) => database.saveSnippet(payload, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'snippets:remove',
+    secure((event, id) => database.deleteSnippet(id, sessions.get(event.sender.id).username))
+  )
 
-  ipcMain.handle('notes:list', secure(() => database.listNotes()))
-  ipcMain.handle('notes:save', secure((event, payload) => database.saveNote(payload, sessions.get(event.sender.id).username)))
-  ipcMain.handle('notes:remove', secure((event, id) => database.deleteNote(id, sessions.get(event.sender.id).username)))
+  ipcMain.handle(
+    'notes:list',
+    secure(() => database.listNotes())
+  )
+  ipcMain.handle(
+    'notes:save',
+    secure((event, payload) => database.saveNote(payload, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'notes:remove',
+    secure((event, id) => database.deleteNote(id, sessions.get(event.sender.id).username))
+  )
 
-  ipcMain.handle('vpn:status', secure(() => vpnService.getStatus()))
-  ipcMain.handle('vpn:probe', secure(() => vpnService.probe()))
-  ipcMain.handle('vpn:connect', secure((event, mode) => vpnService.connect(mode, sessions.get(event.sender.id).username)))
-  ipcMain.handle('vpn:disconnect', secure((event) => vpnService.disconnect(sessions.get(event.sender.id).username)))
+  ipcMain.handle(
+    'vpn:status',
+    secure(() => vpnService.getStatus())
+  )
+  ipcMain.handle(
+    'vpn:probe',
+    secure(() => vpnService.probe())
+  )
+  ipcMain.handle(
+    'vpn:connect',
+    secure((event, mode) => vpnService.connect(mode, sessions.get(event.sender.id).username))
+  )
+  ipcMain.handle(
+    'vpn:disconnect',
+    secure((event) => vpnService.disconnect(sessions.get(event.sender.id).username))
+  )
   // Reports the untouched gateway reply so a misbehaving portal can be identified.
-  ipcMain.handle('vpn:diagnose', secure(() => vpnService.diagnose()))
-  ipcMain.handle('update:channel:get', secure(() => updateService.channelState()))
-  ipcMain.handle('update:channel:set', secure((event, channel) => {
-    const state = updateService.setChannel(channel)
-    // Persisted as an application setting so the preference survives restarts.
-    database.saveSettings({ update_channel: state.channel }, sessions.get(event.sender.id)?.username || 'Admin')
-    return state
-  }))
-  ipcMain.handle('update:check', secure(() => updateService.check()))
+  ipcMain.handle(
+    'vpn:diagnose',
+    secure(() => vpnService.diagnose())
+  )
+  ipcMain.handle(
+    'update:channel:get',
+    secure(() => updateService.channelState())
+  )
+  ipcMain.handle(
+    'update:channel:set',
+    secure((event, channel) => {
+      const state = updateService.setChannel(channel)
+      // Persisted as an application setting so the preference survives restarts.
+      database.saveSettings(
+        { update_channel: state.channel },
+        sessions.get(event.sender.id)?.username || 'Admin'
+      )
+      return state
+    })
+  )
+  ipcMain.handle(
+    'update:check',
+    secure(() => updateService.check())
+  )
   // Lets the About page restore the Download/Install button after navigation.
-  ipcMain.handle('update:state', secure(() => updateService.state()))
-  ipcMain.handle('update:download', secure(() => updateService.download()))
-  ipcMain.handle('update:pause', secure(() => updateService.pause()))
-  ipcMain.handle('update:resume', secure(() => updateService.resume()))
-  ipcMain.handle('update:stop', secure(() => updateService.stop()))
-  ipcMain.handle('update:install', secure(() => updateService.install()))
-  ipcMain.handle('audit:list', secure((_event, limit) => database.listAudit(limit)))
+  ipcMain.handle(
+    'update:state',
+    secure(() => updateService.state())
+  )
+  ipcMain.handle(
+    'update:download',
+    secure(() => updateService.download())
+  )
+  ipcMain.handle(
+    'update:pause',
+    secure(() => updateService.pause())
+  )
+  ipcMain.handle(
+    'update:resume',
+    secure(() => updateService.resume())
+  )
+  ipcMain.handle(
+    'update:stop',
+    secure(() => updateService.stop())
+  )
+  ipcMain.handle(
+    'update:install',
+    secure(() => updateService.install())
+  )
+  ipcMain.handle(
+    'audit:list',
+    secure((_event, limit) => database.listAudit(limit))
+  )
 
-  ipcMain.handle('dialog:select-file', secure(async (_event, options = {}) => {
-    const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select file', properties: ['openFile'], filters: Array.isArray(options.filters) ? options.filters : [] })
-    return result.canceled ? null : result.filePaths[0]
-  }))
+  ipcMain.handle(
+    'dialog:select-file',
+    secure(async (_event, options = {}) => {
+      const result = await dialog.showOpenDialog(getWindow(), {
+        title: options.title || 'Select file',
+        properties: ['openFile'],
+        filters: Array.isArray(options.filters) ? options.filters : []
+      })
+      return result.canceled ? null : result.filePaths[0]
+    })
+  )
   // Multi-file and folder variants underpin the version checker's copy tool.
-  ipcMain.handle('dialog:select-files', secure(async (_event, options = {}) => {
-    const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select files', properties: ['openFile', 'multiSelections'], filters: Array.isArray(options.filters) ? options.filters : [] })
-    return result.canceled ? [] : result.filePaths
-  }))
-  ipcMain.handle('dialog:select-directory', secure(async (_event, options = {}) => {
-    const result = await dialog.showOpenDialog(getWindow(), { title: options.title || 'Select folder', properties: ['openDirectory', 'createDirectory'] })
-    return result.canceled ? null : result.filePaths[0]
-  }))
+  ipcMain.handle(
+    'dialog:select-files',
+    secure(async (_event, options = {}) => {
+      const result = await dialog.showOpenDialog(getWindow(), {
+        title: options.title || 'Select files',
+        properties: ['openFile', 'multiSelections'],
+        filters: Array.isArray(options.filters) ? options.filters : []
+      })
+      return result.canceled ? [] : result.filePaths
+    })
+  )
+  ipcMain.handle(
+    'dialog:select-directory',
+    secure(async (_event, options = {}) => {
+      const result = await dialog.showOpenDialog(getWindow(), {
+        title: options.title || 'Select folder',
+        properties: ['openDirectory', 'createDirectory']
+      })
+      return result.canceled ? null : result.filePaths[0]
+    })
+  )
 
   // Update Store App: Store Commerce version sweeps and file deployments.
   // `secure` is required because these run on machines reachable over SMB.
-  ipcMain.handle('store-update:import-agent', secure(async (event, payload) => {
-    const result = await storeUpdateService.agent.importOne(payload?.checkout || {}, { runId: payload?.runId })
-    database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT', result.name || result.host || 'checkout', result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : (result.cancelled ? 'Stopped by the operator; the previous agent was restored' : result.error))
-    return result
-  }))
-  ipcMain.handle('store-update:import-agent-all', secure(async (event, payload) => {
-    const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
-    if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be imported in one run')
-    const summary = await storeUpdateService.agent.importAll(checkouts, { runId: payload?.runId })
-    for (const result of summary.results) {
+  ipcMain.handle(
+    'store-update:import-agent',
+    secure(async (event, payload) => {
+      const result = await storeUpdateService.agent.importOne(payload?.checkout || {}, {
+        runId: payload?.runId
+      })
       database.audit(
         sessions.get(event.sender.id).username,
         'AGENT_IMPORT',
         result.name || result.host || 'checkout',
-        result.ok ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running` : (result.cancelled ? (result.skipped ? 'Skipped after the operator stopped the batch' : 'Stopped by the operator; the previous agent was restored') : result.error)
+        result.ok
+          ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running`
+          : result.cancelled
+            ? 'Stopped by the operator; the previous agent was restored'
+            : result.error
       )
-    }
-    return summary
-  }))
+      return result
+    })
+  )
+  ipcMain.handle(
+    'store-update:import-agent-all',
+    secure(async (event, payload) => {
+      const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
+      if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be imported in one run')
+      const summary = await storeUpdateService.agent.importAll(checkouts, { runId: payload?.runId })
+      for (const result of summary.results) {
+        database.audit(
+          sessions.get(event.sender.id).username,
+          'AGENT_IMPORT',
+          result.name || result.host || 'checkout',
+          result.ok
+            ? `SHA-256 ${result.sha256}; copied=${result.copied}; service running`
+            : result.cancelled
+              ? result.skipped
+                ? 'Skipped after the operator stopped the batch'
+                : 'Stopped by the operator; the previous agent was restored'
+              : result.error
+        )
+      }
+      return summary
+    })
+  )
   /**
    * Stop button of the Import Agent dialog. Cancelling is always safe: the
    * importer aborts the in-flight transfer, rolls the checkout back and reports
    * the run as cancelled. Stopping a run that already settled is a no-op.
    */
-  ipcMain.handle('store-update:cancel-agent-import', secure(async (event, payload) => {
-    const state = storeUpdateService.agent.cancel(payload?.runId)
-    if (state.cancelled) {
-      database.audit(sessions.get(event.sender.id).username, 'AGENT_IMPORT_CANCEL', String(payload?.runId || '—'), 'Operator stopped a running agent import')
-    }
-    return state
-  }))
-  ipcMain.handle('store-update:version', secure((_event, payload) => storeUpdateService.checkOneCached(payload?.checkout || {})))
+  ipcMain.handle(
+    'store-update:cancel-agent-import',
+    secure(async (event, payload) => {
+      const state = storeUpdateService.agent.cancel(payload?.runId)
+      if (state.cancelled) {
+        database.audit(
+          sessions.get(event.sender.id).username,
+          'AGENT_IMPORT_CANCEL',
+          String(payload?.runId || '—'),
+          'Operator stopped a running agent import'
+        )
+      }
+      return state
+    })
+  )
+  ipcMain.handle(
+    'store-update:version',
+    secure((_event, payload) => storeUpdateService.checkOneCached(payload?.checkout || {}))
+  )
   // Cached answers from the startup sweep and earlier rechecks — opening the
   // Store App page reads this instead of scanning every checkout again.
-  ipcMain.handle('store-update:version-cache', secure(() => storeUpdateService.getCachedVersions()))
+  ipcMain.handle(
+    'store-update:version-cache',
+    secure(() => storeUpdateService.getCachedVersions())
+  )
   // Diagnostic: the full Programs and Features list of one checkout, so the
   // operator can see how the product is really named there.
-  ipcMain.handle('store-update:installed', secure(async (event, payload) => {
-    const result = await storeUpdateService.listInstalledOn(payload?.checkout || {})
-    database.audit(sessions.get(event.sender.id).username, 'STORE_LIST_INSTALLED', result.label, `${result.total} program(s) read from ${result.source}`)
-    return result
-  }))
-  ipcMain.handle('store-update:versions', secure(async (event, payload) => {
-    const results = await storeUpdateService.checkMany(Array.isArray(payload?.checkouts) ? payload.checkouts : [])
-    database.audit(sessions.get(event.sender.id).username, 'STORE_VERSION_SWEEP', `${results.length} checkout(s)`, `Program: ${STORE_COMMERCE_PROGRAM} (read by local agent from Programs and Features)`)
-    return results
-  }))
+  ipcMain.handle(
+    'store-update:installed',
+    secure(async (event, payload) => {
+      const result = await storeUpdateService.listInstalledOn(payload?.checkout || {})
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'STORE_LIST_INSTALLED',
+        result.label,
+        `${result.total} program(s) read from ${result.source}`
+      )
+      return result
+    })
+  )
+  ipcMain.handle(
+    'store-update:versions',
+    secure(async (event, payload) => {
+      const results = await storeUpdateService.checkMany(
+        Array.isArray(payload?.checkouts) ? payload.checkouts : []
+      )
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'STORE_VERSION_SWEEP',
+        `${results.length} checkout(s)`,
+        `Program: ${STORE_COMMERCE_PROGRAM} (read by local agent from Programs and Features)`
+      )
+      return results
+    })
+  )
   // Settings → Target access: proves the stored domain account can open the
   // admin share of one checkout before an operator relies on it in a sweep.
-  ipcMain.handle('store-update:test-access', secure(async (event, payload) => {
-    const settings = database.getSettings()
-    const host = String(payload?.host || '').trim()
-    if (!host) throw new Error('Enter the hostname or IP of a checkout to test against')
-    const credentials = {
-      domain: String(payload?.domain ?? settings.target_domain ?? '').trim(),
-      username: String(payload?.username ?? settings.target_admin_user ?? '').trim(),
-      password: payload?.password ? String(payload.password) : String(settings.target_admin_password || '')
-    }
-    const result = await storeUpdateService.smb.test(host, credentials)
-    database.audit(sessions.get(event.sender.id).username, 'TARGET_ACCESS_TEST', host, `Signed in as ${result.user} in ${result.durationMs} ms`)
-    return result
-  }))
-  ipcMain.handle('store-update:deploy', secure(async (event, payload) => {
-    const result = await storeUpdateService.deployOne(payload?.checkout || {}, {
-      source: String(payload?.source || ''),
-      destinationPath: String(payload?.destinationPath || ''),
-      runId: payload?.runId || `single-${Date.now()}`,
-      stamp: payload?.stamp
+  ipcMain.handle(
+    'store-update:test-access',
+    secure(async (event, payload) => {
+      const settings = database.getSettings()
+      const host = String(payload?.host || '').trim()
+      if (!host) throw new Error('Enter the hostname or IP of a checkout to test against')
+      const credentials = {
+        domain: String(payload?.domain ?? settings.target_domain ?? '').trim(),
+        username: String(payload?.username ?? settings.target_admin_user ?? '').trim(),
+        password: payload?.password ? String(payload.password) : String(settings.target_admin_password || '')
+      }
+      const result = await storeUpdateService.smb.test(host, credentials)
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'TARGET_ACCESS_TEST',
+        host,
+        `Signed in as ${result.user} in ${result.durationMs} ms`
+      )
+      return result
     })
-    database.audit(
-      sessions.get(event.sender.id).username,
-      'STORE_DEPLOY_ONE',
-      `${payload?.checkout?.name || payload?.checkout?.hostname || 'checkout'} — ${result.ok ? 'OK' : 'FAILED'}`,
-      `${result.error || `Deployed ${result.bytes ?? 0} bytes in ${result.durationMs} ms`}${result.backup ? `; backup: ${result.backup}` : ''}`
-    )
-    return result
-  }))
-  ipcMain.handle('store-update:deploy-all', secure(async (event, payload) => {
-    const summary = await storeUpdateService.deployAll(Array.isArray(payload?.checkouts) ? payload.checkouts : [], {
-      source: String(payload?.source || ''),
-      destinationPath: String(payload?.destinationPath || '')
+  )
+  ipcMain.handle(
+    'store-update:deploy',
+    secure(async (event, payload) => {
+      const result = await storeUpdateService.deployOne(payload?.checkout || {}, {
+        source: String(payload?.source || ''),
+        destinationPath: String(payload?.destinationPath || ''),
+        runId: payload?.runId || `single-${Date.now()}`,
+        stamp: payload?.stamp
+      })
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'STORE_DEPLOY_ONE',
+        `${payload?.checkout?.name || payload?.checkout?.hostname || 'checkout'} — ${result.ok ? 'OK' : 'FAILED'}`,
+        `${result.error || `Deployed ${result.bytes ?? 0} bytes in ${result.durationMs} ms`}${result.backup ? `; backup: ${result.backup}` : ''}`
+      )
+      return result
     })
-    database.audit(
-      sessions.get(event.sender.id).username,
-      'STORE_DEPLOY_ALL',
-      `${summary.ok}/${summary.total} checkout(s) updated`,
-      `File: ${String(payload?.source || '').split(/[\\/]/).pop() || '—'} → ${String(payload?.destinationPath || '—')} (${summary.durationMs} ms)`
-    )
-    return summary
-  }))
+  )
+  ipcMain.handle(
+    'store-update:deploy-all',
+    secure(async (event, payload) => {
+      const summary = await storeUpdateService.deployAll(
+        Array.isArray(payload?.checkouts) ? payload.checkouts : [],
+        {
+          source: String(payload?.source || ''),
+          destinationPath: String(payload?.destinationPath || '')
+        }
+      )
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'STORE_DEPLOY_ALL',
+        `${summary.ok}/${summary.total} checkout(s) updated`,
+        `File: ${
+          String(payload?.source || '')
+            .split(/[\\/]/)
+            .pop() || '—'
+        } → ${String(payload?.destinationPath || '—')} (${summary.durationMs} ms)`
+      )
+      return summary
+    })
+  )
   // Update Store Commerce: the guided install pipeline (close → verify →
   // installer install → version) driven through the checkout's agent.
-  ipcMain.handle('store-update:install-one', secure(async (event, payload) => {
-    const result = await storeInstallService.installOne(payload?.checkout || {}, {
-      destinationPath: String(payload?.destinationPath || ''),
-      runId: payload?.runId
+  ipcMain.handle(
+    'store-update:install-one',
+    secure(async (event, payload) => {
+      const result = await storeInstallService.installOne(payload?.checkout || {}, {
+        destinationPath: String(payload?.destinationPath || ''),
+        runId: payload?.runId
+      })
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'STORE_INSTALL_ONE',
+        `${payload?.checkout?.name || payload?.checkout?.hostname || 'checkout'} — ${result.ok ? 'OK' : result.cancelled ? 'STOPPED' : 'FAILED'}`,
+        result.ok
+          ? `Exit code ${result.exitCode}; Store Commerce ${result.versionBefore || '?'} → ${result.version || '?'}`
+          : result.error || 'Install failed'
+      )
+      return result
     })
-    database.audit(
-      sessions.get(event.sender.id).username,
-      'STORE_INSTALL_ONE',
-      `${payload?.checkout?.name || payload?.checkout?.hostname || 'checkout'} — ${result.ok ? 'OK' : result.cancelled ? 'STOPPED' : 'FAILED'}`,
-      result.ok
-        ? `Exit code ${result.exitCode}; Store Commerce ${result.versionBefore || '?'} → ${result.version || '?'}`
-        : (result.error || 'Install failed')
-    )
-    return result
-  }))
-  ipcMain.handle('store-update:install-all', secure(async (event, payload) => {
-    const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
-    if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be updated in one run')
-    const summary = await storeInstallService.installAll(checkouts, {
-      destinationPath: String(payload?.destinationPath || ''),
-      runId: payload?.runId
+  )
+  ipcMain.handle(
+    'store-update:install-all',
+    secure(async (event, payload) => {
+      const checkouts = Array.isArray(payload?.checkouts) ? payload.checkouts : []
+      if (checkouts.length > 2000) throw new Error('At most 2000 checkouts can be updated in one run')
+      const summary = await storeInstallService.installAll(checkouts, {
+        destinationPath: String(payload?.destinationPath || ''),
+        runId: payload?.runId
+      })
+      database.audit(
+        sessions.get(event.sender.id).username,
+        'STORE_INSTALL_ALL',
+        `${summary.ok}/${summary.total} checkout(s) updated`,
+        `Store Commerce installer install (${summary.durationMs} ms)`
+      )
+      return summary
     })
-    database.audit(
-      sessions.get(event.sender.id).username,
-      'STORE_INSTALL_ALL',
-      `${summary.ok}/${summary.total} checkout(s) updated`,
-      `Store Commerce installer install (${summary.durationMs} ms)`
-    )
-    return summary
-  }))
+  )
   /** Stop button of the Update Store Commerce dialog; safe after the run settled. */
-  ipcMain.handle('store-update:cancel-install', secure(async (event, payload) => {
-    const state = storeInstallService.cancel(payload?.runId)
-    if (state.cancelled) {
-      database.audit(sessions.get(event.sender.id).username, 'STORE_INSTALL_CANCEL', String(payload?.runId || '—'), 'Operator stopped a running Store Commerce update')
-    }
-    return state
-  }))
-  ipcMain.handle('app:info', secure(() => ({ version: app.getVersion(), platform: `${process.platform} ${process.arch}`, dataPath: app.getPath('userData'), databasePath: database.filePath })))
-  ipcMain.handle('app:open-external', secure(async (_event, value) => {
-    const url = new URL(value)
-    if (!['https:', 'mailto:'].includes(url.protocol)) throw new Error('Only HTTPS and email links are allowed')
-    await shell.openExternal(url.toString())
-    return { success: true }
-  }))
-  ipcMain.handle('app:path-exists', secure((_event, value) => fs.existsSync(String(value || ''))))
+  ipcMain.handle(
+    'store-update:cancel-install',
+    secure(async (event, payload) => {
+      const state = storeInstallService.cancel(payload?.runId)
+      if (state.cancelled) {
+        database.audit(
+          sessions.get(event.sender.id).username,
+          'STORE_INSTALL_CANCEL',
+          String(payload?.runId || '—'),
+          'Operator stopped a running Store Commerce update'
+        )
+      }
+      return state
+    })
+  )
+  ipcMain.handle(
+    'app:info',
+    secure(() => ({
+      version: app.getVersion(),
+      platform: `${process.platform} ${process.arch}`,
+      dataPath: app.getPath('userData'),
+      databasePath: database.filePath
+    }))
+  )
+  ipcMain.handle(
+    'app:open-external',
+    secure(async (_event, value) => {
+      const url = new URL(value)
+      if (!['https:', 'mailto:'].includes(url.protocol))
+        throw new Error('Only HTTPS and email links are allowed')
+      await shell.openExternal(url.toString())
+      return { success: true }
+    })
+  )
+  ipcMain.handle(
+    'app:path-exists',
+    secure((_event, value) => fs.existsSync(String(value || '')))
+  )
 
-  return () => { ipcMain.removeHandler('auth:login') }
+  return () => {
+    ipcMain.removeHandler('auth:login')
+  }
 }
 
 module.exports = { registerIpcHandlers }

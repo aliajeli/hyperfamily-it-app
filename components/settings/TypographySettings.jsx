@@ -6,9 +6,17 @@ import { toast } from 'sonner'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent, Select } from '@/components/ui'
 import { getApi } from '@/lib/api'
 import {
-  FONT_GROUPS, MONO_FONTS, UI_FONTS,
-  applyTypography, fontStack, normalizeScale, pxForScale, pxOptionsFor,
-  rememberTypography, scaleForPx, typographySnapshot
+  FONT_GROUPS,
+  MONO_FONTS,
+  UI_FONTS,
+  applyTypography,
+  fontStack,
+  normalizeScale,
+  pxForScale,
+  pxOptionsFor,
+  rememberTypography,
+  scaleForPx,
+  typographySnapshot
 } from '@/lib/typography'
 import { useSettingsStore } from '@/stores/settings.store'
 
@@ -40,7 +48,9 @@ export default function TypographySettings({ settings, onSaved }) {
 
   // Preview live: every edit is applied to the document immediately so the
   // operator judges the result on the real interface, not on a sample string.
-  useEffect(() => { applyTypography(form) }, [form])
+  useEffect(() => {
+    applyTypography(form)
+  }, [form])
 
   const update = (key, value) => setForm((previous) => ({ ...previous, [key]: value }))
   // Deliberately NOT memoised: `appliedRef` changes on save without causing a
@@ -71,9 +81,13 @@ export default function TypographySettings({ settings, onSaved }) {
     <div className="space-y-2.5">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm"><Type size={15} />Font groups</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Type size={15} />
+            Font groups
+          </CardTitle>
           <CardDescription className="text-xs">
-            Every piece of text belongs to one of these five groups. Changes apply to the whole application immediately; press Save to keep them after a restart.
+            Every piece of text belongs to one of these five groups. Changes apply to the whole application
+            immediately; press Save to keep them after a restart.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-1.5">
@@ -89,23 +103,35 @@ export default function TypographySettings({ settings, onSaved }) {
             const familyValue = form[familyKey] || (group.id === 'mono' ? 'ui-monospace' : '')
             const stack = fontStack(familyValue, catalogue)
             const stored = typographySnapshot(appliedRef.current)
-            const changed = String(form[sizeKey] ?? '') !== String(stored[sizeKey] ?? '')
-              || String(form[familyKey] ?? '') !== String(stored[familyKey] ?? '')
+            const changed =
+              String(form[sizeKey] ?? '') !== String(stored[sizeKey] ?? '') ||
+              String(form[familyKey] ?? '') !== String(stored[familyKey] ?? '')
 
             return (
               /* The controls column is deliberately roomy so the default
                  values ("Default Font", "24px (default)") never truncate. */
-              <div key={group.id} className={`grid items-center gap-2 rounded-lg border p-1.5 lg:grid-cols-[7rem_minmax(0,1fr)_19rem] ${changed ? 'border-[rgb(var(--primary)/.45)]' : ''}`}>
+              <div
+                key={group.id}
+                className={`grid items-center gap-2 rounded-lg border p-1.5 lg:grid-cols-[7rem_minmax(0,1fr)_19rem] ${changed ? 'border-[rgb(var(--primary)/.45)]' : ''}`}
+              >
                 <div className="min-w-0">
                   <b className="text-2xs">{group.label}</b>
-                  <span className="block truncate text-2xs leading-snug text-[rgb(var(--muted))]" title={group.description}>{group.description}</span>
+                  <span
+                    className="block truncate text-2xs leading-snug text-[rgb(var(--muted))]"
+                    title={group.description}
+                  >
+                    {group.description}
+                  </span>
                 </div>
 
                 {/* The sample is sized in raw pixels on purpose: it must show
                     the chosen size itself, not the group scale applied twice. */}
                 <div
                   className="min-w-0 truncate rounded-md bg-[rgb(var(--canvas))] px-2 py-1"
-                  style={{ fontFamily: stack || undefined, fontSize: `${(group.id === 'mono' ? 12 : 14) * (size / 100)}px` }}
+                  style={{
+                    fontFamily: stack || undefined,
+                    fontSize: `${(group.id === 'mono' ? 12 : 14) * (size / 100)}px`
+                  }}
                   title={group.sample}
                 >
                   {group.sample}
@@ -120,7 +146,11 @@ export default function TypographySettings({ settings, onSaved }) {
                       onChange={(event) => update(familyKey, event.target.value)}
                       className="h-7 text-2xs"
                     >
-                      {catalogue.map((font) => <option key={font.id || 'default'} value={font.id}>{font.label}</option>)}
+                      {catalogue.map((font) => (
+                        <option key={font.id || 'default'} value={font.id}>
+                          {font.label}
+                        </option>
+                      ))}
                     </Select>
                   </label>
                   <label className="w-[8.5rem] shrink-0">
@@ -133,7 +163,11 @@ export default function TypographySettings({ settings, onSaved }) {
                     >
                       {pxOptionsFor(group.id).map((px) => {
                         const isDefault = px === pxForScale(group.id, 100)
-                        return <option key={px} value={px}>{isDefault ? `${px}px (default)` : `${px}px`}</option>
+                        return (
+                          <option key={px} value={px}>
+                            {isDefault ? `${px}px (default)` : `${px}px`}
+                          </option>
+                        )
                       })}
                     </Select>
                   </label>
@@ -145,8 +179,14 @@ export default function TypographySettings({ settings, onSaved }) {
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={save} disabled={saving || !dirty}><Save size={14} />{saving ? 'Saving…' : 'Save typography'}</Button>
-        <Button size="sm" variant="ghost" onClick={reset} disabled={saving}><RotateCcw size={14} />Reset to defaults</Button>
+        <Button size="sm" onClick={save} disabled={saving || !dirty}>
+          <Save size={14} />
+          {saving ? 'Saving…' : 'Save typography'}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={reset} disabled={saving}>
+          <RotateCcw size={14} />
+          Reset to defaults
+        </Button>
         <span className="text-2xs text-[rgb(var(--muted))]">
           {dirty ? 'Unsaved changes are already visible in the application.' : 'Everything shown is saved.'}
         </span>

@@ -20,11 +20,20 @@ const SC_TIMEOUT_MS = 45000
 
 function runSc(host, args, allowed = []) {
   return new Promise((resolve, reject) => {
-    execFile('sc.exe', [`\\\\${normalizeHost(host)}`, ...args], { timeout: SC_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' }, (error, stdout = '', stderr = '') => {
-      if (error && !allowed.includes(Number(error.code))) {
-        reject(new Error(`Agent service control failed on ${host} — ${String(stderr || stdout || 'Allow Remote Service Management and check Target access administrator permissions').trim()}`))
-      } else resolve({ code: Number(error?.code || 0), stdout: String(stdout) })
-    })
+    execFile(
+      'sc.exe',
+      [`\\\\${normalizeHost(host)}`, ...args],
+      { timeout: SC_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' },
+      (error, stdout = '', stderr = '') => {
+        if (error && !allowed.includes(Number(error.code))) {
+          reject(
+            new Error(
+              `Agent service control failed on ${host} — ${String(stderr || stdout || 'Allow Remote Service Management and check Target access administrator permissions').trim()}`
+            )
+          )
+        } else resolve({ code: Number(error?.code || 0), stdout: String(stdout) })
+      }
+    )
   })
 }
 
@@ -61,7 +70,9 @@ try {
     if (result.code === 1060) return
     // Refuse to repurpose an unrelated pre-existing service with the same name.
     if (!/^\s*[^:\r\n]+:\s*"?C:\\Agent\\HyperFamilyStoreAgent\.exe"?\s*$/im.test(result.stdout)) {
-      throw new Error('An existing HyperFamilyStoreAgent service points outside the expected agent executable; it was not changed')
+      throw new Error(
+        'An existing HyperFamilyStoreAgent service points outside the expected agent executable; it was not changed'
+      )
     }
   }
 
@@ -119,12 +130,33 @@ if (Test-Path -LiteralPath $exe) {
     // LocalSystem is required: the agent closes Store Commerce processes that
     // belong to other sessions and runs the Store Commerce installer, which
     // writes to C:\Program Files. LocalService can do neither.
-    await this.sc(host, [exists ? 'config' : 'create', SERVICE_NAME,
-      'binPath=', `"${AGENT_PATH}"`, 'start=', 'auto', 'type=', 'own',
-      'obj=', 'LocalSystem',
-      'DisplayName=', 'HyperFamily Store Inventory Agent'])
-    await this.sc(host, ['description', SERVICE_NAME, 'Store Commerce update agent for HyperFamily Branch Monitor: inventory, Store Commerce close and installer execution.'])
-    await this.sc(host, ['failure', SERVICE_NAME, 'reset=', '86400', 'actions=', 'restart/5000/restart/15000/restart/60000'])
+    await this.sc(host, [
+      exists ? 'config' : 'create',
+      SERVICE_NAME,
+      'binPath=',
+      `"${AGENT_PATH}"`,
+      'start=',
+      'auto',
+      'type=',
+      'own',
+      'obj=',
+      'LocalSystem',
+      'DisplayName=',
+      'HyperFamily Store Inventory Agent'
+    ])
+    await this.sc(host, [
+      'description',
+      SERVICE_NAME,
+      'Store Commerce update agent for HyperFamily Branch Monitor: inventory, Store Commerce close and installer execution.'
+    ])
+    await this.sc(host, [
+      'failure',
+      SERVICE_NAME,
+      'reset=',
+      '86400',
+      'actions=',
+      'restart/5000/restart/15000/restart/60000'
+    ])
   }
 
   async start(host) {
@@ -132,7 +164,9 @@ if (Test-Path -LiteralPath $exe) {
     await this.waitFor(host, 'Running')
   }
 
-  async remove(host) { await this.sc(host, ['delete', SERVICE_NAME], [1060]) }
+  async remove(host) {
+    await this.sc(host, ['delete', SERVICE_NAME], [1060])
+  }
 }
 
 module.exports = { AgentControl, SERVICE_NAME, AGENT_EXE, AGENT_PATH, normalizeHost }

@@ -82,7 +82,9 @@ class UpdateService {
     })
     // Errors are not forwarded raw any more: download() decides whether the
     // fallback can still rescue the update before the user is told anything.
-    autoUpdater.on('error', (error) => { this.lastUpdaterError = error })
+    autoUpdater.on('error', (error) => {
+      this.lastUpdaterError = error
+    })
   }
 
   /** The shape every idle/reset status uses, so no field can go missing. */
@@ -200,8 +202,16 @@ class UpdateService {
     this.channel = normalizeChannel(channel, app.getVersion())
     this.applyChannelFlags()
 
-    try { this.cancellationToken?.cancel() } catch { /* token may be gone */ }
-    try { this.fallbackAbort?.abort() } catch { /* no fallback running */ }
+    try {
+      this.cancellationToken?.cancel()
+    } catch {
+      /* token may be gone */
+    }
+    try {
+      this.fallbackAbort?.abort()
+    } catch {
+      /* no fallback running */
+    }
     this.cancellationToken = null
     this.fallbackAbort = null
     this.paused = false
@@ -232,8 +242,16 @@ class UpdateService {
     if (this.status.paused) return this.state()
     if (!this.status.downloading) throw new Error('No download is running')
     this.paused = true
-    try { this.cancellationToken?.cancel() } catch { /* token may be gone */ }
-    try { this.fallbackAbort?.abort() } catch { /* no fallback running */ }
+    try {
+      this.cancellationToken?.cancel()
+    } catch {
+      /* token may be gone */
+    }
+    try {
+      this.fallbackAbort?.abort()
+    } catch {
+      /* no fallback running */
+    }
     this.status.paused = true
     this.status.downloading = false
     this.emit({ type: 'paused', percent: this.status.percent })
@@ -252,8 +270,16 @@ class UpdateService {
   /** Cancels the download entirely and returns to the idle state. */
   async stop() {
     this.paused = false
-    try { this.cancellationToken?.cancel() } catch { /* token may be gone */ }
-    try { this.fallbackAbort?.abort() } catch { /* no fallback running */ }
+    try {
+      this.cancellationToken?.cancel()
+    } catch {
+      /* token may be gone */
+    }
+    try {
+      this.fallbackAbort?.abort()
+    } catch {
+      /* no fallback running */
+    }
     this.cancellationToken = null
     this.fallbackAbort = null
     this.status = { ...UpdateService.idleStatus() }
@@ -265,7 +291,15 @@ class UpdateService {
     const currentVersion = app.getVersion()
     const channel = this.channel
     const response = await fetch(`${RELEASES_API}?per_page=20`, { headers: REQUEST_HEADERS })
-    if (response.status === 404) return { currentVersion, channel, latestVersion: currentVersion, hasUpdate: false, isDowngrade: false, releaseNotes: 'No published release found yet.' }
+    if (response.status === 404)
+      return {
+        currentVersion,
+        channel,
+        latestVersion: currentVersion,
+        hasUpdate: false,
+        isDowngrade: false,
+        releaseNotes: 'No published release found yet.'
+      }
     if (!response.ok) throw new Error(`GitHub update check failed (${response.status})`)
 
     // The channel decides what competes: main only sees stable releases, beta
@@ -274,20 +308,35 @@ class UpdateService {
     // from beta is a deliberate downgrade, never a silent "you are current".
     const releases = await response.json()
     const evaluation = evaluateChannelUpdate({ releases, channel, currentVersion })
-    if (!evaluation.release) return { currentVersion, channel, latestVersion: currentVersion, hasUpdate: false, isDowngrade: false, releaseNotes: 'No published release found yet.' }
+    if (!evaluation.release)
+      return {
+        currentVersion,
+        channel,
+        latestVersion: currentVersion,
+        hasUpdate: false,
+        isDowngrade: false,
+        releaseNotes: 'No published release found yet.'
+      }
 
     // A tag can carry more than one release when a publish run races with
     // itself, and the installer may sit on either of them. Merge every
     // release sharing the picked tag so the .exe is found regardless of
     // which one it was attached to.
     const { release, latestVersion, hasUpdate, isDowngrade } = evaluation
-    const sameTag = (Array.isArray(releases) ? releases : []).filter((item) => item && item.tag_name === release.tag_name)
+    const sameTag = (Array.isArray(releases) ? releases : []).filter(
+      (item) => item && item.tag_name === release.tag_name
+    )
     const assets = sameTag.flatMap((item) => item.assets || [])
     const installer = assets.find((item) => item.name.toLowerCase().endsWith('.exe'))
     const notes = sameTag.map((item) => item.body).find(Boolean) || ''
 
     this.latestInstaller = installer
-      ? { url: installer.browser_download_url, name: installer.name, size: installer.size, version: latestVersion }
+      ? {
+          url: installer.browser_download_url,
+          name: installer.name,
+          size: installer.size,
+          version: latestVersion
+        }
       : null
 
     // Remember the size so the progress bar has a total even before the first
@@ -320,10 +369,23 @@ class UpdateService {
 
     this.paused = false
     const knownTotal = this.latestInstaller?.size || this.status.total || 0
-    this.status = { ...UpdateService.idleStatus(), downloading: true, total: knownTotal, remaining: knownTotal }
+    this.status = {
+      ...UpdateService.idleStatus(),
+      downloading: true,
+      total: knownTotal,
+      remaining: knownTotal
+    }
     this.resetRate(0)
     this.lastUpdaterError = null
-    this.emit({ type: 'progress', percent: 0, transferred: 0, total: knownTotal, remaining: knownTotal, bytesPerSecond: 0, etaSeconds: null })
+    this.emit({
+      type: 'progress',
+      percent: 0,
+      transferred: 0,
+      total: knownTotal,
+      remaining: knownTotal,
+      bytesPerSecond: 0,
+      etaSeconds: null
+    })
 
     try {
       const result = await this.downloadWithUpdater()
@@ -355,7 +417,9 @@ class UpdateService {
     // Re-apply in case the channel (or app version) changed since construction.
     this.applyChannelFlags()
     let updaterError = null
-    const onError = (error) => { updaterError = error }
+    const onError = (error) => {
+      updaterError = error
+    }
     autoUpdater.on('error', onError)
     try {
       const checkResult = await autoUpdater.checkForUpdates()
@@ -367,7 +431,10 @@ class UpdateService {
       // file, so this stays a single call either way.
       const files = await autoUpdater.downloadUpdate(this.cancellationToken)
       if (updaterError) throw updaterError
-      const file = (Array.isArray(files) ? files.find((item) => String(item).toLowerCase().endsWith('.exe')) || files[0] : null) || null
+      const file =
+        (Array.isArray(files)
+          ? files.find((item) => String(item).toLowerCase().endsWith('.exe')) || files[0]
+          : null) || null
       if (file) this.installerPath = file
       if (!this.status.downloaded) this.markDownloaded(checkResult.updateInfo.version, file, false)
       return true
@@ -383,8 +450,13 @@ class UpdateService {
     if (!asset?.url) throw new Error('No Windows installer is attached to the latest release')
 
     this.fallbackAbort = new AbortController()
-    const response = await fetch(asset.url, { headers: { 'User-Agent': REQUEST_HEADERS['User-Agent'] }, redirect: 'follow', signal: this.fallbackAbort.signal })
-    if (!response.ok || !response.body) throw new Error(`Downloading the installer failed (${response.status})`)
+    const response = await fetch(asset.url, {
+      headers: { 'User-Agent': REQUEST_HEADERS['User-Agent'] },
+      redirect: 'follow',
+      signal: this.fallbackAbort.signal
+    })
+    if (!response.ok || !response.body)
+      throw new Error(`Downloading the installer failed (${response.status})`)
 
     const total = Number(response.headers.get('content-length')) || asset.size || 0
     const directory = path.join(app.getPath('temp') || os.tmpdir(), 'hyperfamily-branch-monitor-update')
@@ -415,22 +487,38 @@ class UpdateService {
       await new Promise((resolve, reject) => handle.end((error) => (error ? reject(error) : resolve())))
     } catch (error) {
       handle.destroy()
-      try { fs.unlinkSync(partial) } catch { /* nothing to clean up */ }
+      try {
+        fs.unlinkSync(partial)
+      } catch {
+        /* nothing to clean up */
+      }
       if (this.paused) return null
       throw new Error(`Downloading the installer failed: ${error.message}`)
     }
 
     if (this.paused) {
-      try { fs.unlinkSync(partial) } catch { /* nothing to clean up */ }
+      try {
+        fs.unlinkSync(partial)
+      } catch {
+        /* nothing to clean up */
+      }
       return null
     }
 
     if (total && transferred !== total) {
-      try { fs.unlinkSync(partial) } catch { /* nothing to clean up */ }
+      try {
+        fs.unlinkSync(partial)
+      } catch {
+        /* nothing to clean up */
+      }
       throw new Error('The downloaded installer is incomplete')
     }
 
-    try { fs.rmSync(target, { force: true }) } catch { /* nothing to replace */ }
+    try {
+      fs.rmSync(target, { force: true })
+    } catch {
+      /* nothing to replace */
+    }
     fs.renameSync(partial, target)
     this.markDownloaded(asset.version, target, true)
     return target
@@ -454,7 +542,11 @@ class UpdateService {
           autoUpdater.quitAndInstall(false, true)
         } catch {
           // quitAndInstall refuses when it cannot locate its own cached file.
-          try { this.runInstaller() } catch { /* reported below by the UI timeout */ }
+          try {
+            this.runInstaller()
+          } catch {
+            /* reported below by the UI timeout */
+          }
         }
       })
       return { success: true, method: 'updater' }
@@ -462,28 +554,43 @@ class UpdateService {
 
     // The installer must exist before we promise anything to the caller.
     const installer = this.installerPath
-    if (!installer || !fs.existsSync(installer)) throw new Error('The downloaded installer is no longer on disk; download it again')
-    setImmediate(() => { try { this.runInstaller() } catch { /* nothing left to try */ } })
+    if (!installer || !fs.existsSync(installer))
+      throw new Error('The downloaded installer is no longer on disk; download it again')
+    setImmediate(() => {
+      try {
+        this.runInstaller()
+      } catch {
+        /* nothing left to try */
+      }
+    })
     return { success: true, method: 'installer' }
   }
 
   runInstaller() {
     const installer = this.installerPath
-    if (!installer || !fs.existsSync(installer)) throw new Error('The downloaded installer is no longer on disk; download it again')
+    if (!installer || !fs.existsSync(installer))
+      throw new Error('The downloaded installer is no longer on disk; download it again')
 
     // "--updated" tells the electron-builder NSIS script this is an upgrade,
     // "/S" runs it without prompts, "--force-run" relaunches the app after.
     // The one-click per-user NSIS target needs no elevation, so this whole
     // sequence completes without a wizard or a UAC dialog.
     try {
-      const child = spawn(installer, ['--updated', '/S', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: false })
+      const child = spawn(installer, ['--updated', '/S', '--force-run'], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: false
+      })
       child.unref()
     } catch {
       // Last resort: hand the file to the shell so the user can click through.
       shell.openPath(installer)
     }
 
-    setTimeout(() => { app.removeAllListeners('window-all-closed'); app.quit() }, 1200)
+    setTimeout(() => {
+      app.removeAllListeners('window-all-closed')
+      app.quit()
+    }, 1200)
   }
 }
 

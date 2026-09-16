@@ -33,7 +33,8 @@ async function coverageBreaches(page, selector) {
     if (!panel) return { missing: true }
     const r = panel.getBoundingClientRect()
     const breaches = []
-    const cols = 7, rows = 9
+    const cols = 7,
+      rows = 9
     for (let i = 1; i < cols; i++) {
       for (let j = 1; j < rows; j++) {
         const x = r.left + (r.width * i) / cols
@@ -42,7 +43,12 @@ async function coverageBreaches(page, selector) {
         const top = document.elementFromPoint(x, y)
         if (!top) continue
         if (!panel.contains(top) && top !== panel) {
-          breaches.push({ x: Math.round(x), y: Math.round(y), tag: top.tagName, cls: String(top.className).slice(0, 70) })
+          breaches.push({
+            x: Math.round(x),
+            y: Math.round(y),
+            tag: top.tagName,
+            cls: String(top.className).slice(0, 70)
+          })
         }
       }
     }
@@ -59,39 +65,59 @@ const run = async () => {
     const bell = page.locator('button[aria-label*="otification"], button:has(svg.lucide-bell)').first()
     await bell.click({ timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(900)
-    const visible = await page.locator('.notification-popup').isVisible().catch(() => false)
+    const visible = await page
+      .locator('.notification-popup')
+      .isVisible()
+      .catch(() => false)
     record('Notification panel opens', visible)
 
     if (visible) {
       let res = await coverageBreaches(page, '.notification-popup')
-      record('Notification panel: nothing covers it at rest', !res.missing && res.breaches.length === 0,
-        res.missing ? 'panel not found' : `${res.breaches.length} breach(es) ${JSON.stringify(res.breaches.slice(0, 3))}`)
+      record(
+        'Notification panel: nothing covers it at rest',
+        !res.missing && res.breaches.length === 0,
+        res.missing
+          ? 'panel not found'
+          : `${res.breaches.length} breach(es) ${JSON.stringify(res.breaches.slice(0, 3))}`
+      )
 
       // Hover every branch card behind the panel — the reported failure.
       const cards = page.locator('.directory-branch-card')
       const n = Math.min(await cards.count(), 6)
       let worst = []
       for (let i = 0; i < n; i++) {
-        await cards.nth(i).hover({ force: true }).catch(() => {})
+        await cards
+          .nth(i)
+          .hover({ force: true })
+          .catch(() => {})
         await page.waitForTimeout(220)
         const r = await coverageBreaches(page, '.notification-popup')
         if (!r.missing && r.breaches.length) worst = worst.concat(r.breaches)
       }
-      record(`Notification panel: survives hovering ${n} branch card(s)`, worst.length === 0,
-        worst.length ? JSON.stringify(worst.slice(0, 3)) : 'no element ever painted over the panel')
+      record(
+        `Notification panel: survives hovering ${n} branch card(s)`,
+        worst.length === 0,
+        worst.length ? JSON.stringify(worst.slice(0, 3)) : 'no element ever painted over the panel'
+      )
 
       // Hover device cards too.
       const dev = page.locator('.directory-device-card, .device-card')
       const dn = Math.min(await dev.count(), 5)
       let devBreach = []
       for (let i = 0; i < dn; i++) {
-        await dev.nth(i).hover({ force: true }).catch(() => {})
+        await dev
+          .nth(i)
+          .hover({ force: true })
+          .catch(() => {})
         await page.waitForTimeout(200)
         const r = await coverageBreaches(page, '.notification-popup')
         if (!r.missing && r.breaches.length) devBreach = devBreach.concat(r.breaches)
       }
-      record(`Notification panel: survives hovering ${dn} device card(s)`, devBreach.length === 0,
-        devBreach.length ? JSON.stringify(devBreach.slice(0, 3)) : 'clean')
+      record(
+        `Notification panel: survives hovering ${dn} device card(s)`,
+        devBreach.length === 0,
+        devBreach.length ? JSON.stringify(devBreach.slice(0, 3)) : 'clean'
+      )
 
       // Computed stacking sanity.
       const z = await page.evaluate(() => {
@@ -99,7 +125,11 @@ const run = async () => {
         const h = document.querySelector('.app-header')
         return { panel: getComputedStyle(p).zIndex, header: h ? getComputedStyle(h).zIndex : null }
       })
-      record('Notification panel z-index is the top layer', Number(z.panel) >= 90, `panel=${z.panel} header=${z.header}`)
+      record(
+        'Notification panel z-index is the top layer',
+        Number(z.panel) >= 90,
+        `panel=${z.panel} header=${z.header}`
+      )
     }
     await page.close()
   }
@@ -111,31 +141,46 @@ const run = async () => {
   {
     const page = await openPage(browser, '/devices/')
     const vpn = page.locator('[data-vpn-live]')
-    record('VPN control is a single button',
-      (await vpn.count()) === 1 && (await vpn.first().evaluate((n) => n.tagName)) === 'BUTTON')
+    record(
+      'VPN control is a single button',
+      (await vpn.count()) === 1 && (await vpn.first().evaluate((n) => n.tagName)) === 'BUTTON'
+    )
 
-    await vpn.first().click({ timeout: 15000 }).catch(() => {})
+    await vpn
+      .first()
+      .click({ timeout: 15000 })
+      .catch(() => {})
     await page.waitForTimeout(900)
 
-    const popup = await page.evaluate(() =>
-      document.querySelectorAll('.vpn-popup, [role="menu"], [role="dialog"], [role="listbox"]').length)
+    const popup = await page.evaluate(
+      () => document.querySelectorAll('.vpn-popup, [role="menu"], [role="dialog"], [role="listbox"]').length
+    )
     record('VPN button opens no popup', popup === 0, `portalled layers=${popup}`)
 
     const rest = await coverageBreaches(page, '[data-vpn-live]')
-    record('VPN button: nothing covers it at rest', !rest.missing && rest.breaches.length === 0,
-      rest.missing ? 'control not found' : JSON.stringify(rest.breaches.slice(0, 3)))
+    record(
+      'VPN button: nothing covers it at rest',
+      !rest.missing && rest.breaches.length === 0,
+      rest.missing ? 'control not found' : JSON.stringify(rest.breaches.slice(0, 3))
+    )
 
     const cards = page.locator('.directory-branch-card')
     const n = Math.min(await cards.count(), 6)
     let worst = []
     for (let i = 0; i < n; i++) {
-      await cards.nth(i).hover({ force: true }).catch(() => {})
+      await cards
+        .nth(i)
+        .hover({ force: true })
+        .catch(() => {})
       await page.waitForTimeout(220)
       const r = await coverageBreaches(page, '[data-vpn-live]')
       if (!r.missing && r.breaches.length) worst = worst.concat(r.breaches)
     }
-    record(`VPN button: survives hovering ${n} branch card(s)`, worst.length === 0,
-      worst.length ? JSON.stringify(worst.slice(0, 3)) : 'no element ever painted over the control')
+    record(
+      `VPN button: survives hovering ${n} branch card(s)`,
+      worst.length === 0,
+      worst.length ? JSON.stringify(worst.slice(0, 3)) : 'no element ever painted over the control'
+    )
 
     await page.close()
   }
@@ -144,7 +189,14 @@ const run = async () => {
 
   const failed = results.filter((r) => !r.passed)
   console.log(`\n${results.length - failed.length}/${results.length} passed`)
-  if (failed.length) { console.log('FAILURES:'); failed.forEach((f) => console.log(' - ' + f.name + ' :: ' + f.detail)); process.exitCode = 1 }
+  if (failed.length) {
+    console.log('FAILURES:')
+    failed.forEach((f) => console.log(' - ' + f.name + ' :: ' + f.detail))
+    process.exitCode = 1
+  }
 }
 
-run().catch((e) => { console.error(e); process.exitCode = 1 })
+run().catch((e) => {
+  console.error(e)
+  process.exitCode = 1
+})

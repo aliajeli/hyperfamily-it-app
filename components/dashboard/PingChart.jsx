@@ -28,7 +28,11 @@ function ChartTooltip({ active, payload }) {
   return (
     <div className="rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 py-2 shadow-xl">
       <p className="text-xs font-bold">{formatTime(point.timestamp)}</p>
-      <p className={`mt-0.5 text-xs font-extrabold ${healthy ? 'status-online-text' : 'status-warning-text'}`}>{ping}</p>
+      <p
+        className={`mt-0.5 text-xs font-extrabold ${healthy ? 'status-online-text' : 'status-warning-text'}`}
+      >
+        {ping}
+      </p>
       <p className="mt-0.5 text-xs text-[rgb(var(--muted))]">Healthy threshold: 300 ms</p>
     </div>
   )
@@ -37,13 +41,26 @@ function ChartTooltip({ active, payload }) {
 function StatusDot({ cx, cy, payload }) {
   if (!Number.isFinite(payload?.value)) return null
   const healthy = payload.value <= 300
-  return <circle cx={cx} cy={cy} r={3.5} fill={healthy ? '#A3BE8C' : '#EBCB8B'} stroke="rgb(var(--surface))" strokeWidth={1.5} />
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={3.5}
+      fill={healthy ? '#A3BE8C' : '#EBCB8B'}
+      stroke="rgb(var(--surface))"
+      strokeWidth={1.5}
+    />
+  )
 }
 
 export default function PingChart({ history = [], compact = false, detailed = false }) {
   const data = history.map((item, index) => ({
     sequence: index + 1,
-    value: Number.isFinite(item.response_time) ? item.response_time : Number.isFinite(item.ping_time) ? item.ping_time : null,
+    value: Number.isFinite(item.response_time)
+      ? item.response_time
+      : Number.isFinite(item.ping_time)
+        ? item.ping_time
+        : null,
     timestamp: item.checked_at || item.timestamp,
     status: item.status
   }))
@@ -52,9 +69,17 @@ export default function PingChart({ history = [], compact = false, detailed = fa
   const showAxes = detailed || !compact
 
   return (
-    <div className={`ping-chart relative w-full overflow-visible ${chartHeight}`} aria-label="Gateway ping history chart">
+    <div
+      className={`ping-chart relative w-full overflow-visible ${chartHeight}`}
+      aria-label="Gateway ping history chart"
+    >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={detailed ? { top: 12, right: 18, bottom: 4, left: 4 } : { top: 6, right: 4, bottom: 0, left: 4 }}>
+        <LineChart
+          data={data}
+          margin={
+            detailed ? { top: 12, right: 18, bottom: 4, left: 4 } : { top: 6, right: 4, bottom: 0, left: 4 }
+          }
+        >
           {detailed ? <CartesianGrid strokeDasharray="4 4" vertical={false} opacity={0.5} /> : null}
           <ReferenceArea y1={0} y2={300} fill="#A3BE8C" fillOpacity={detailed ? 0.1 : 0.07} />
           {showAxes ? (

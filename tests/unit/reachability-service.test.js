@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const net = require('net')
-const { checkReachable, probePort } = require('../electron/services/reachability.service')
+const { checkReachable, probePort } = require('../../electron/services/reachability.service')
 
 /**
  * The bug these guard: gating the app on ICMP. A domain workstation running
@@ -26,7 +26,10 @@ test('a host that serves SMB is online even when ICMP is filtered', async () => 
 })
 
 test('a normal host reports the true ICMP latency', async () => {
-  const result = await checkReachable('CO-01', { probePort: async () => ({ open: true, ms: 40 }), ping: goodPing })
+  const result = await checkReachable('CO-01', {
+    probePort: async () => ({ open: true, ms: 40 }),
+    ping: goodPing
+  })
   assert.equal(result.status, 'online')
   assert.equal(result.ping_time, 5)
   assert.equal(result.icmp, true)
@@ -54,7 +57,9 @@ test('nothing answering at all is reported as powered off', async () => {
 test('a throwing ping never breaks the verdict', async () => {
   const result = await checkReachable('CO-04', {
     probePort: async () => ({ open: true, ms: 7 }),
-    ping: async () => { throw new Error('ping.exe missing') }
+    ping: async () => {
+      throw new Error('ping.exe missing')
+    }
   })
   assert.equal(result.status, 'online')
 })
@@ -111,7 +116,10 @@ test('the IP is tried first when it is listed first', async () => {
   const tried = []
   const result = await checkReachable('10.19.1.3', {
     candidates: ['10.19.1.3', 'st10019r03'],
-    probePort: async (host) => { tried.push(host); return { open: true, ms: 4 } },
+    probePort: async (host) => {
+      tried.push(host)
+      return { open: true, ms: 4 }
+    },
     ping: noPing
   })
   assert.equal(result.status, 'online')
@@ -135,7 +143,10 @@ test('duplicate and empty candidates are ignored', async () => {
   const tried = []
   await checkReachable('CO-01', {
     candidates: ['CO-01', '', null, 'CO-01'],
-    probePort: async (host) => { tried.push(host); return { open: false, ms: 1, error: 'ECONNREFUSED' } },
+    probePort: async (host) => {
+      tried.push(host)
+      return { open: false, ms: 1, error: 'ECONNREFUSED' }
+    },
     ping: noPing
   })
   assert.deepEqual(tried, ['CO-01'])

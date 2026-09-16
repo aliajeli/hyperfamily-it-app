@@ -72,7 +72,7 @@ test('unknown group names still raise the original error', () => {
  * old switch offers. This is the exact scenario that produced the user-visible
  * "Unknown DH group" error.
  */
-test('the app\'s SSH engine connects using diffie-hellman-group1-sha1', async () => {
+test("the app's SSH engine connects using diffie-hellman-group1-sha1", async () => {
   const terminal = require('../electron/services/terminal.service.js')
   const Client = terminal.loadSshClient()
   const { Server } = require('ssh2')
@@ -93,29 +93,41 @@ test('the app\'s SSH engine connects using diffie-hellman-group1-sha1', async ()
   const server = new Server({ hostKeys: [privateKey], algorithms: legacy }, (client) => {
     client.on('error', () => {})
     client.on('authentication', (ctx) => ctx.accept())
-    client.on('ready', () => client.on('session', (accept) => {
-      const session = accept()
-      session.on('pty', (respond) => respond && respond())
-      session.on('shell', (respond) => respond().write('SW#\r\n'))
-    }))
+    client.on('ready', () =>
+      client.on('session', (accept) => {
+        const session = accept()
+        session.on('pty', (respond) => respond && respond())
+        session.on('shell', (respond) => respond().write('SW#\r\n'))
+      })
+    )
   })
   server.on('error', () => {})
 
   try {
-    const port = await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address().port)))
+    const port = await new Promise((resolve) =>
+      server.listen(0, '127.0.0.1', () => resolve(server.address().port))
+    )
     const banner = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('handshake timed out')), 20000)
       const client = new Client()
-      client.on('ready', () => client.shell({ term: 'xterm' }, (error, stream) => {
-        if (error) { clearTimeout(timer); return reject(error) }
-        stream.on('data', (data) => {
-          if (!data.toString().includes('SW#')) return
-          clearTimeout(timer)
-          client.end()
-          resolve(data.toString().trim())
+      client.on('ready', () =>
+        client.shell({ term: 'xterm' }, (error, stream) => {
+          if (error) {
+            clearTimeout(timer)
+            return reject(error)
+          }
+          stream.on('data', (data) => {
+            if (!data.toString().includes('SW#')) return
+            clearTimeout(timer)
+            client.end()
+            resolve(data.toString().trim())
+          })
         })
-      }))
-      client.on('error', (error) => { clearTimeout(timer); reject(error) })
+      )
+      client.on('error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
       client.connect({
         host: '127.0.0.1',
         port,

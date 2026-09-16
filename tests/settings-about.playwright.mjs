@@ -1,13 +1,25 @@
 // Optional: npm install --no-save --package-lock=false @playwright/test
 // Build, serve out/ on port 3000, then node tests/settings-about.playwright.mjs.
 import { chromium, expect } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 import { readFileSync, mkdirSync } from 'node:fs'
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)))
 const stack = JSON.parse(readFileSync(new URL('../lib/technology-stack.json', import.meta.url)))
 const base = process.env.TEST_BASE_URL || 'http://127.0.0.1:3000'
 const screenshots = process.env.TEST_SCREENSHOTS || 'test-artifacts/settings-about'
 mkdirSync(screenshots, { recursive: true })
-const LAUNCH = { args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--js-flags=--max-old-space-size=320', '--renderer-process-limit=1', '--disable-background-networking', '--disable-features=Translate,BackForwardCache,MediaRouter'] }
+const LAUNCH = {
+  args: [
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process',
+    '--js-flags=--max-old-space-size=320',
+    '--renderer-process-limit=1',
+    '--disable-background-networking',
+    '--disable-features=Translate,BackForwardCache,MediaRouter'
+  ]
+}
 const errors = []
 // Software-GL, memory-starved containers randomly kill renderers mid-suite
 // (reproduced identically against unmodified main); retry a crashed run so
@@ -18,11 +30,23 @@ for (let attempt = 1; attempt <= 4; attempt++) {
   try {
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 } })
     await context.addInitScript(() => {
-      sessionStorage.setItem('hyperfamily-session', JSON.stringify({ state: { user: { username: 'Admin', role: 'admin' } }, version: 0 }))
-      if (!localStorage.getItem('hyperfamily.browser.demo.v2')) localStorage.setItem('hyperfamily.browser.demo.v2', JSON.stringify({ settings: {
-        store_program_name: 'Previously selected product', store_update_path: 'D:\\Updates',
-        target_domain: 'test-domain', target_admin_user: 'administrator', target_admin_password: 'fixture-secret'
-      } }))
+      sessionStorage.setItem(
+        'hyperfamily-session',
+        JSON.stringify({ state: { user: { username: 'Admin', role: 'admin' } }, version: 0 })
+      )
+      if (!localStorage.getItem('hyperfamily.browser.demo.v2'))
+        localStorage.setItem(
+          'hyperfamily.browser.demo.v2',
+          JSON.stringify({
+            settings: {
+              store_program_name: 'Previously selected product',
+              store_update_path: 'D:\\Updates',
+              target_domain: 'test-domain',
+              target_admin_user: 'administrator',
+              target_admin_password: 'fixture-secret'
+            }
+          })
+        )
     })
     let page = await context.newPage()
     page.on('pageerror', (error) => errors.push(error.message))
@@ -45,7 +69,9 @@ for (let attempt = 1; attempt <= 4; attempt++) {
     await expect(destination).toHaveValue('E:\\Checkout Updates')
     await page.getByLabel('Target domain', { exact: true }).fill('new-domain')
     await page.getByRole('button', { name: 'Save target access', exact: true }).click()
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('hyperfamily.browser.demo.v2')).settings)
+    const saved = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('hyperfamily.browser.demo.v2')).settings
+    )
     expect(saved.store_program_name).toBe('Previously selected product')
     expect(saved.target_admin_password).toBe('fixture-secret')
     expect(saved.target_domain).toBe('new-domain')
@@ -60,7 +86,11 @@ for (let attempt = 1; attempt <= 4; attempt++) {
     await password.fill('replacement-fixture')
     await page.getByRole('button', { name: 'Save target access', exact: true }).click()
     await expect(password).toHaveValue('')
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('hyperfamily.browser.demo.v2')).settings.target_admin_password)).toBe('replacement-fixture')
+    expect(
+      await page.evaluate(
+        () => JSON.parse(localStorage.getItem('hyperfamily.browser.demo.v2')).settings.target_admin_password
+      )
+    ).toBe('replacement-fixture')
     await page.screenshot({ path: `${screenshots}/store-app-light.png`, fullPage: true })
 
     // Instrument the IPC boundary: verify omission of blank secrets and product keys,
@@ -69,20 +99,27 @@ for (let attempt = 1; attempt <= 4; attempt++) {
       window.testCalls = []
       window.failNext = false
       window.hyperfamily = {
-        settings: { save: async (patch) => {
-          window.testCalls.push({ kind: 'save', patch })
-          await new Promise((resolve) => setTimeout(resolve, 400))
-          if (window.failNext) { window.failNext = false; throw new Error('Fixture save failed') }
-          const state = JSON.parse(localStorage.getItem('hyperfamily.browser.demo.v2'))
-          state.settings = { ...state.settings, ...patch }
-          localStorage.setItem('hyperfamily.browser.demo.v2', JSON.stringify(state))
-          return state.settings
-        } },
-        storeUpdate: { testAccess: async (payload) => {
-          window.testCalls.push({ kind: 'test', payload })
-          await new Promise((resolve) => setTimeout(resolve, 400))
-          return { host: payload.host, user: 'new-domain\\administrator', durationMs: 400 }
-        } }
+        settings: {
+          save: async (patch) => {
+            window.testCalls.push({ kind: 'save', patch })
+            await new Promise((resolve) => setTimeout(resolve, 400))
+            if (window.failNext) {
+              window.failNext = false
+              throw new Error('Fixture save failed')
+            }
+            const state = JSON.parse(localStorage.getItem('hyperfamily.browser.demo.v2'))
+            state.settings = { ...state.settings, ...patch }
+            localStorage.setItem('hyperfamily.browser.demo.v2', JSON.stringify(state))
+            return state.settings
+          }
+        },
+        storeUpdate: {
+          testAccess: async (payload) => {
+            window.testCalls.push({ kind: 'test', payload })
+            await new Promise((resolve) => setTimeout(resolve, 400))
+            return { host: payload.host, user: 'new-domain\\administrator', durationMs: 400 }
+          }
+        }
       }
     })
     await page.getByLabel('Test against one checkout', { exact: true }).fill('CO-01')
@@ -103,7 +140,9 @@ for (let attempt = 1; attempt <= 4; attempt++) {
     expect(calls[1].payload.password).toBe('typed-test-fixture')
     expect(calls[2].patch).toEqual({ target_domain: 'new-domain', target_admin_user: 'administrator' })
     expect(calls[3].patch).toEqual({ store_update_path: 'E:\\Checkout Updates' })
-    await page.evaluate(() => { window.failNext = true })
+    await page.evaluate(() => {
+      window.failNext = true
+    })
     await page.getByRole('button', { name: 'Save deploy destination', exact: true }).click()
     await expect(page.getByText('Fixture save failed', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save deploy destination', exact: true })).toBeEnabled()
@@ -119,7 +158,18 @@ for (let attempt = 1; attempt <= 4; attempt++) {
       } }))`
     for (const theme of ['aurora', 'polar']) {
       await browser.close()
-      browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--js-flags=--max-old-space-size=320', '--renderer-process-limit=1', '--disable-background-networking', '--disable-features=Translate,BackForwardCache,MediaRouter'] })
+      browser = await chromium.launch({
+        args: [
+          '--no-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--single-process',
+          '--js-flags=--max-old-space-size=320',
+          '--renderer-process-limit=1',
+          '--disable-background-networking',
+          '--disable-features=Translate,BackForwardCache,MediaRouter'
+        ]
+      })
       const themeBrowser = browser
       const themeContext = await themeBrowser.newContext({ viewport: { width: 1366, height: 768 } })
       await themeContext.addInitScript(seed(theme))
@@ -137,25 +187,49 @@ for (let attempt = 1; attempt <= 4; attempt++) {
         await expect(page.getByText(name, { exact: true })).toBeVisible()
       }
       await expect(page.getByText('shadcn/ui', { exact: true })).toHaveCount(0)
-      const extraHeight = await hero.evaluate((el) => el.clientHeight - el.firstElementChild.nextElementSibling.getBoundingClientRect().height)
+      const extraHeight = await hero.evaluate(
+        (el) => el.clientHeight - el.firstElementChild.nextElementSibling.getBoundingClientRect().height
+      )
       expect(extraHeight).toBeLessThan(4)
       await page.getByRole('button', { name: 'Check for updates', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled()
       await page.screenshot({ path: `${screenshots}/about-${theme}.png`, fullPage: true })
       for (const width of [1366, 900, 600]) {
         await page.setViewportSize({ width, height: 768 })
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), `About overflow ${theme}/${width}`).toBe(false)
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+          `About overflow ${theme}/${width}`
+        ).toBe(false)
       }
       await page.setViewportSize({ width: 1366, height: 768 })
+      // Automated accessibility audit: serious/critical findings fail the
+      // suite, minor ones are reported for follow-up without blocking.
+      const axe = await new AxeBuilder({ page }).analyze()
+      const minor = axe.violations.filter((v) => !['critical', 'serious'].includes(v.impact))
+      if (minor.length)
+        console.log(`  about/${theme} minor a11y findings: ${minor.map((v) => v.id).join(', ')}`)
+      const blocking = axe.violations.filter((v) => ['critical', 'serious'].includes(v.impact))
+      expect(
+        blocking.map((v) => `${v.id} (${v.impact}, ${v.nodes.length} nodes)`),
+        `About a11y ${theme}`
+      ).toEqual([])
       await page.goto(`${base}/settings/`, { waitUntil: 'networkidle' })
       await page.getByRole('tab', { name: 'Store App', exact: true }).click()
       for (const width of [1366, 900, 600]) {
         await page.setViewportSize({ width, height: 768 })
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), `Settings overflow ${theme}/${width}`).toBe(false)
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+          `Settings overflow ${theme}/${width}`
+        ).toBe(false)
       }
       await page.setViewportSize({ width: 1366, height: 768 })
-      await expect(page.getByRole('tab', { name: 'Store App', exact: true })).toHaveAttribute('data-state', 'active')
-      await expect.poll(() => page.getByRole('tabpanel').evaluate((el) => Number(getComputedStyle(el).opacity))).toBe(1)
+      await expect(page.getByRole('tab', { name: 'Store App', exact: true })).toHaveAttribute(
+        'data-state',
+        'active'
+      )
+      await expect
+        .poll(() => page.getByRole('tabpanel').evaluate((el) => Number(getComputedStyle(el).opacity)))
+        .toBe(1)
       await page.screenshot({ path: `${screenshots}/store-app-${theme}.png`, fullPage: true })
       // The browser stays open: the checks below continue on this page and the
       // suite closes it once at the very end.
@@ -171,18 +245,24 @@ for (let attempt = 1; attempt <= 4; attempt++) {
     await page.getByRole('button', { name: 'Save target access', exact: true }).click()
     await expect(page.getByText('Enter the password for the target account', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Test access', exact: true }).click()
-    await expect(page.getByText('Enter the hostname or IP of one checkout to test against', { exact: true })).toBeVisible()
+    await expect(
+      page.getByText('Enter the hostname or IP of one checkout to test against', { exact: true })
+    ).toBeVisible()
     await page.getByLabel('Target domain', { exact: true }).fill('')
     await page.getByRole('button', { name: 'Save target access', exact: true }).click()
     await expect(page.getByText('Enter the domain of the target machines', { exact: false })).toBeVisible()
     expect(errors).toEqual([])
-  
-console.log('PASS: Settings relocation, validation, save/reload/tab switch, product and password preservation, IPC payloads, busy/error states, About version/stack/compact card, light/dark responsive layout, no browser exceptions')
+
+    console.log(
+      'PASS: Settings relocation, validation, save/reload/tab switch, product and password preservation, IPC payloads, busy/error states, About version/stack/compact card, light/dark responsive layout, no browser exceptions'
+    )
     await browser.close()
     break
   } catch (error) {
     await browser.close().catch(() => {})
-    const harnessCrash = /Page crashed|Target page, context or browser has been closed/i.test(String(error && error.message))
+    const harnessCrash = /Page crashed|Target page, context or browser has been closed/i.test(
+      String(error && error.message)
+    )
     if (!harnessCrash || attempt === 4) throw error
     console.log(`- renderer died during attempt ${attempt}; retrying the suite`)
   }

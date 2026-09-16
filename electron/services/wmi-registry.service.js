@@ -53,18 +53,29 @@ try {
 
 function runWmiQuery(request, timeoutMs, exec = execFile) {
   return new Promise((resolve, reject) => {
-    const child = exec('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-      '-EncodedCommand', Buffer.from(WMI_REGISTRY_SCRIPT, 'utf16le').toString('base64')
-    ], { timeout: timeoutMs, windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {
-      if (error) {
-        const failure = new Error(error.killed
-          ? 'WMI registry query timed out — check the target WMI/DCOM firewall rules'
-          : 'WMI registry read failed — check Settings → Store App → Target access, WMI permissions and WMI/DCOM firewall rules')
-        failure.code = error.killed ? 'WMI_TIMEOUT' : 'WMI_UNAVAILABLE'
-        reject(failure)
-      } else resolve(String(stdout || ''))
-    })
+    const child = exec(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-EncodedCommand',
+        Buffer.from(WMI_REGISTRY_SCRIPT, 'utf16le').toString('base64')
+      ],
+      { timeout: timeoutMs, windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          const failure = new Error(
+            error.killed
+              ? 'WMI registry query timed out — check the target WMI/DCOM firewall rules'
+              : 'WMI registry read failed — check Settings → Store App → Target access, WMI permissions and WMI/DCOM firewall rules'
+          )
+          failure.code = error.killed ? 'WMI_TIMEOUT' : 'WMI_UNAVAILABLE'
+          reject(failure)
+        } else resolve(String(stdout || ''))
+      }
+    )
     // An early child exit can close the pipe before the input is consumed.
     child.stdin.on('error', () => {})
     child.stdin.end(JSON.stringify(request), 'utf8')
@@ -72,7 +83,9 @@ function runWmiQuery(request, timeoutMs, exec = execFile) {
 }
 
 async function listProgramsViaWmi(host, options = {}) {
-  const clean = String(host || '').trim().replace(/^\\+/, '')
+  const clean = String(host || '')
+    .trim()
+    .replace(/^\\+/, '')
   if (!/^[a-zA-Z0-9._-]{1,253}$/.test(clean)) throw new Error('Invalid WMI target host')
   const credentials = options.credentials || {}
   const request = {
@@ -83,19 +96,26 @@ async function listProgramsViaWmi(host, options = {}) {
   const raw = await (options.run || runWmiQuery)(request, options.timeoutMs || 30000)
   let rows
   try {
-    rows = JSON.parse(String(raw).replace(/^\uFEFF/, '').trim())
-    if (!Array.isArray(rows) || rows.some((row) => !row || typeof row.name !== 'string')) throw new Error('Invalid rows')
+    rows = JSON.parse(
+      String(raw)
+        .replace(/^\uFEFF/, '')
+        .trim()
+    )
+    if (!Array.isArray(rows) || rows.some((row) => !row || typeof row.name !== 'string'))
+      throw new Error('Invalid rows')
   } catch {
     throw new Error('WMI returned an invalid installed-programs response')
   }
   const seen = new Set()
-  return rows.filter((row) => {
-    if (!row.name.trim()) return false
-    const key = `${row.name.toLowerCase()}|${row.version || ''}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  }).sort((a, b) => a.name.localeCompare(b.name))
+  return rows
+    .filter((row) => {
+      if (!row.name.trim()) return false
+      const key = `${row.name.toLowerCase()}|${row.version || ''}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 module.exports = { listProgramsViaWmi, runWmiQuery, WMI_REGISTRY_SCRIPT }

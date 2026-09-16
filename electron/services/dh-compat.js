@@ -28,19 +28,22 @@ const crypto = require('crypto')
 
 /** RFC 2409 Oakley groups 1 and 2, plus RFC 3526 group 5. Generator is 2. */
 const FALLBACK_MODP_PRIMES = {
-  modp1: // 768-bit, RFC 2409 First Oakley Group
+  // 768-bit, RFC 2409 First Oakley Group
+  modp1:
     'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1' +
     '29024E088A67CC74020BBEA63B139B22514A08798E3404DD' +
     'EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245' +
     'E485B576625E7EC6F44C42E9A63A3620FFFFFFFFFFFFFFFF',
-  modp2: // 1024-bit, RFC 2409 Second Oakley Group
+  // 1024-bit, RFC 2409 Second Oakley Group
+  modp2:
     'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1' +
     '29024E088A67CC74020BBEA63B139B22514A08798E3404DD' +
     'EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245' +
     'E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED' +
     'EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381' +
     'FFFFFFFFFFFFFFFF',
-  modp5: // 1536-bit, RFC 3526 group 5
+  // 1536-bit, RFC 3526 group 5
+  modp5:
     'FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1' +
     '29024E088A67CC74020BBEA63B139B22514A08798E3404DD' +
     'EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245' +
@@ -65,13 +68,16 @@ function installDhCompat() {
   applied = true
 
   const original = crypto.createDiffieHellmanGroup
-  if (typeof original !== 'function') return { patched: false, reason: 'crypto.createDiffieHellmanGroup missing' }
+  if (typeof original !== 'function')
+    return { patched: false, reason: 'crypto.createDiffieHellmanGroup missing' }
 
   // Nothing to do on an OpenSSL build that still knows the small groups.
   try {
     original('modp2')
     return { patched: false, reason: 'named MODP groups already supported' }
-  } catch { /* BoringSSL — continue and patch. */ }
+  } catch {
+    /* BoringSSL — continue and patch. */
+  }
 
   const patched = function createDiffieHellmanGroup(name) {
     try {
@@ -89,9 +95,16 @@ function installDhCompat() {
   for (const key of targets) {
     if (typeof crypto[key] !== 'function') continue
     try {
-      Object.defineProperty(crypto, key, { value: patched, writable: true, configurable: true, enumerable: false })
+      Object.defineProperty(crypto, key, {
+        value: patched,
+        writable: true,
+        configurable: true,
+        enumerable: false
+      })
       done.push(key)
-    } catch { /* leave this alias alone */ }
+    } catch {
+      /* leave this alias alone */
+    }
   }
 
   return { patched: done.length > 0, functions: done }

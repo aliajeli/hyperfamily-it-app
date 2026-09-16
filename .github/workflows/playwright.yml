@@ -1,0 +1,42 @@
+name: Playwright
+
+# Nightly UI contract run (and on demand): builds the static export, serves
+# it, and drives every Playwright suite in a real Chromium. Kept off the push
+# CI because the browser download makes it minutes slower than a push gate
+# should be; software-GL flakiness is absorbed by the suites' own retries.
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Serve the static export on :3000
+        run: |
+          python3 -m http.server 3000 --directory out &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+      - run: node tests/settings-about.playwright.mjs
+      - run: node tests/responsive.playwright.mjs
+      - run: node tests/connection-methods.playwright.mjs
+      - run: node tests/store-agent.playwright.mjs
+      - run: node tests/typing-after-delete.playwright.mjs
+      - run: node tests/zorder.playwright.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-screenshots
+          path: test-artifacts/
+          if-no-files-found: ignore

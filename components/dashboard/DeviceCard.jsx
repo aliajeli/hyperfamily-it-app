@@ -1,7 +1,18 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CreditCard, HardDrive, Monitor, Network, Router, Scale, Server, ShoppingCart, Video, Wifi } from 'lucide-react'
+import {
+  CreditCard,
+  HardDrive,
+  Monitor,
+  Network,
+  Router,
+  Scale,
+  Server,
+  ShoppingCart,
+  Video,
+  Wifi
+} from 'lucide-react'
 import DeviceActionsMenu from './DeviceActionsMenu'
 import DeviceStatusBadge from './DeviceStatusBadge'
 
@@ -22,9 +33,12 @@ const iconMap = {
 }
 
 const treatment = {
-  online: 'border-nord-14/40 bg-gradient-to-br from-nord-14/10 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
-  warning: 'border-nord-13/50 bg-gradient-to-br from-nord-13/13 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
-  offline: 'border-nord-11/40 bg-gradient-to-br from-nord-11/10 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
+  online:
+    'border-nord-14/40 bg-gradient-to-br from-nord-14/10 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
+  warning:
+    'border-nord-13/50 bg-gradient-to-br from-nord-13/13 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
+  offline:
+    'border-nord-11/40 bg-gradient-to-br from-nord-11/10 via-[rgb(var(--surface))] to-[rgb(var(--surface))]',
   unknown: 'border-[rgb(var(--border))] bg-[rgb(var(--surface))]'
 }
 
@@ -49,16 +63,32 @@ export default function DeviceCard({ device, label }) {
       transition={{ type: 'spring', stiffness: 420, damping: 25 }}
       className={`device-card group relative min-w-0 overflow-hidden rounded-xl border p-2 shadow-sm ${treatment[state] || treatment.unknown}`}
     >
-      <span aria-hidden="true" className={`absolute -left-6 -top-7 h-16 w-16 rounded-full blur-2xl transition-all duration-500 group-hover:scale-150 ${style.halo}`} />
-      <span aria-hidden="true" className={`absolute left-5 right-5 top-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-35 ${style.icon.split(' ')[0]}`} />
+      <span
+        aria-hidden="true"
+        className={`absolute -left-6 -top-7 h-16 w-16 rounded-full blur-2xl transition-all duration-500 group-hover:scale-150 ${style.halo}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`absolute left-5 right-5 top-0 h-px bg-gradient-to-r from-transparent via-current to-transparent opacity-35 ${style.icon.split(' ')[0]}`}
+      />
       <div className="relative flex min-w-0 items-start gap-2">
-        <motion.div whileHover={{ rotate: -7, scale: 1.08 }} className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[rgb(var(--canvas)/.76)] shadow-sm ring-1 transition-shadow duration-300 group-hover:shadow-md ${style.icon}`}>
+        <motion.div
+          whileHover={{ rotate: -7, scale: 1.08 }}
+          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[rgb(var(--canvas)/.76)] shadow-sm ring-1 transition-shadow duration-300 group-hover:shadow-md ${style.icon}`}
+        >
           <Icon size={15} />
         </motion.div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-2xs font-extrabold leading-4 tracking-[0.035em]" title={device.name}>{label || device.name}</p>
-          <p className="truncate font-mono text-2xs leading-3 tracking-[0.025em] text-[rgb(var(--muted))]" title={address}>{address}</p>
+          <p className="truncate text-2xs font-extrabold leading-4 tracking-[0.035em]" title={device.name}>
+            {label || device.name}
+          </p>
+          <p
+            className="truncate font-mono text-2xs leading-3 tracking-[0.025em] text-[rgb(var(--muted))]"
+            title={address}
+          >
+            {address}
+          </p>
           <div className="mt-1 flex min-w-0 items-center gap-1.5">
             <DeviceStatusBadge status={state} compact />
             <span className="truncate text-2xs font-bold tabular-nums text-[rgb(var(--muted))]">{ping}</span>

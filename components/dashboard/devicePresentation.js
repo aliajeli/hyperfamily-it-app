@@ -28,5 +28,9 @@ export function visibleBranchDevices(branchId, devices = []) {
 export function orderedEquipment(devices = []) {
   return devices
     .filter((device) => device.device_type !== 'Router')
-    .sort((left, right) => deviceRank(left) - deviceRank(right) || String(left.name || '').localeCompare(String(right.name || '')))
+    .sort(
+      (left, right) =>
+        deviceRank(left) - deviceRank(right) ||
+        String(left.name || '').localeCompare(String(right.name || ''))
+    )
 }

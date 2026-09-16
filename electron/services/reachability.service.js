@@ -65,7 +65,11 @@ async function checkReachable(host, options = {}) {
   let target = host
   for (const candidate of candidates) {
     const attempt = await probe(candidate, port, timeoutMs)
-    if (attempt.open) { smb = attempt; target = candidate; break }
+    if (attempt.open) {
+      smb = attempt
+      target = candidate
+      break
+    }
     // Keep the most informative failure: a refused/timed-out connection says
     // more about the host than a DNS lookup that never left this machine.
     if (!smb.error || smb.error === 'no address' || smb.error === 'ENOTFOUND') smb = attempt
@@ -86,9 +90,10 @@ async function checkReachable(host, options = {}) {
       ping_time: icmp.ping_time ?? smb.ms,
       smb: true,
       icmp: icmp.status !== 'offline',
-      detail: icmp.status === 'offline'
-        ? `SMB (port ${port}) answered in ${smb.ms} ms; ICMP is filtered, which is normal on a firewalled domain`
-        : `SMB (port ${port}) answered in ${smb.ms} ms`
+      detail:
+        icmp.status === 'offline'
+          ? `SMB (port ${port}) answered in ${smb.ms} ms; ICMP is filtered, which is normal on a firewalled domain`
+          : `SMB (port ${port}) answered in ${smb.ms} ms`
     }
   }
 

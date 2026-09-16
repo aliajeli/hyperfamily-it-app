@@ -7,29 +7,63 @@ const path = require('node:path')
 // excel.service only touches `electron` for its save/open dialogs, which are
 // never reached when an explicit output path is supplied — so the export can
 // be exercised (and round-tripped through the real importer) in plain Node.
-const { exportDirectory, parseImportWorkbook } = require('../electron/services/excel.service')
+const { exportDirectory, parseImportWorkbook } = require('../../electron/services/excel.service')
 
 const BRANCHES = [
   {
-    id: 1, name: 'Tehran Flagship', code: 'THR-001', warehouse_code: 'WH-10',
-    link1: 'Main', ip_link1: '10.0.0.1', link2: 'Backup', ip_link2: '10.0.1.1',
-    manager_name: 'Ali Rezaei', manager_tell: '021-1234', deputy_name: 'Sara Karimi', deputy_tell: '021-5678'
+    id: 1,
+    name: 'Tehran Flagship',
+    code: 'THR-001',
+    warehouse_code: 'WH-10',
+    link1: 'Main',
+    ip_link1: '10.0.0.1',
+    link2: 'Backup',
+    ip_link2: '10.0.1.1',
+    manager_name: 'Ali Rezaei',
+    manager_tell: '021-1234',
+    deputy_name: 'Sara Karimi',
+    deputy_tell: '021-5678'
   },
   {
-    id: 2, name: 'Shiraz Center', code: 'SHZ-002', warehouse_code: 'WH-20',
-    link1: null, ip_link1: null, link2: null, ip_link2: null,
-    manager_name: 'Reza Moradi', manager_tell: '071-1111', deputy_name: null, deputy_tell: null
+    id: 2,
+    name: 'Shiraz Center',
+    code: 'SHZ-002',
+    warehouse_code: 'WH-20',
+    link1: null,
+    ip_link1: null,
+    link2: null,
+    ip_link2: null,
+    manager_name: 'Reza Moradi',
+    manager_tell: '071-1111',
+    deputy_name: null,
+    deputy_tell: null
   }
 ]
 
 const DEVICES = [
   {
-    id: 10, branch_id: 1, device_type: 'Router', name: 'Core Router', model: 'RB4011',
-    ip: '192.168.1.1', port: 443, asset_code: 'A-1', is_dashboard_visible: 1, switch_ports: []
+    id: 10,
+    branch_id: 1,
+    device_type: 'Router',
+    name: 'Core Router',
+    model: 'RB4011',
+    ip: '192.168.1.1',
+    port: 443,
+    asset_code: 'A-1',
+    is_dashboard_visible: 1,
+    switch_ports: []
   },
   {
-    id: 11, branch_id: 1, device_type: 'Switch', name: 'SW-Floor1', model: 'S5720', location: 'Rack 1',
-    ip: '192.168.1.2', connection_type: 'Fiber', connection_port: 'SFP1', asset_code: 'A-2',
+    id: 11,
+    branch_id: 1,
+    device_type: 'Switch',
+    name: 'SW-Floor1',
+    model: 'S5720',
+    location: 'Rack 1',
+    ip: '192.168.1.2',
+    connection_type: 'Fiber',
+    connection_port: 'SFP1',
+    asset_code: 'A-2',
     is_dashboard_visible: 0,
     switch_ports: [
       { port_number: 1, vlan: '10', status: 'up', ip: '192.168.10.2', details: 'Uplink' },
@@ -37,13 +71,32 @@ const DEVICES = [
     ]
   },
   {
-    id: 12, branch_id: 2, device_type: 'POS', name: 'POS-3', checkout_number: 3, brand: 'OKCS',
-    model: 'X1', version: '2.19.13', ip: '192.168.2.5', terminal_id: 'T-9',
-    acceptance_id: 'AC-2', asset_code: 'A-3', is_dashboard_visible: 1, switch_ports: []
+    id: 12,
+    branch_id: 2,
+    device_type: 'POS',
+    name: 'POS-3',
+    checkout_number: 3,
+    brand: 'OKCS',
+    model: 'X1',
+    version: '2.19.13',
+    ip: '192.168.2.5',
+    terminal_id: 'T-9',
+    acceptance_id: 'AC-2',
+    asset_code: 'A-3',
+    is_dashboard_visible: 1,
+    switch_ports: []
   },
   {
-    id: 13, branch_id: 2, device_type: 'iLO', name: 'iLO-SRV2', ip: '192.168.2.9',
-    esxi_version: '7.0', model: 'DL380', asset_code: 'A-4', is_dashboard_visible: 0, switch_ports: []
+    id: 13,
+    branch_id: 2,
+    device_type: 'iLO',
+    name: 'iLO-SRV2',
+    ip: '192.168.2.9',
+    esxi_version: '7.0',
+    model: 'DL380',
+    asset_code: 'A-4',
+    is_dashboard_visible: 0,
+    switch_ports: []
   }
 ]
 
@@ -76,9 +129,17 @@ test('exportDirectory writes a workbook the importer reads back unchanged', asyn
   // Branches survive the round trip field-for-field.
   assert.equal(payload.branches.length, 2)
   assert.deepEqual(payload.branches[0], {
-    name: 'Tehran Flagship', code: 'THR-001', warehouse_code: 'WH-10',
-    link1: 'Main', ip_link1: '10.0.0.1', link2: 'Backup', ip_link2: '10.0.1.1',
-    manager_name: 'Ali Rezaei', manager_tell: '021-1234', deputy_name: 'Sara Karimi', deputy_tell: '021-5678'
+    name: 'Tehran Flagship',
+    code: 'THR-001',
+    warehouse_code: 'WH-10',
+    link1: 'Main',
+    ip_link1: '10.0.0.1',
+    link2: 'Backup',
+    ip_link2: '10.0.1.1',
+    manager_name: 'Ali Rezaei',
+    manager_tell: '021-1234',
+    deputy_name: 'Sara Karimi',
+    deputy_tell: '021-5678'
   })
   assert.equal(payload.branches[1].code, 'SHZ-002')
   assert.equal(payload.branches[1].warehouse_code, 'WH-20')
@@ -133,7 +194,10 @@ test('exportDirectory appends the .xlsx extension when missing', async () => {
 test('exportDirectory handles an empty directory without failing', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dir-export-'))
   const file = path.join(dir, 'empty.xlsx')
-  const result = await exportDirectory({ listBranches: () => [], listDevices: () => [], audit: () => {} }, file)
+  const result = await exportDirectory(
+    { listBranches: () => [], listDevices: () => [], audit: () => {} },
+    file
+  )
   assert.equal(result.success, true)
   assert.equal(result.branches, 0)
   assert.equal(result.devices, 0)

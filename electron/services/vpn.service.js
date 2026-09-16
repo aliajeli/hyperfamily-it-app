@@ -80,14 +80,20 @@ const FORTICLIENT_DOWNLOAD = 'https://www.fortinet.com/support/product-downloads
 const TLS_PROFILES = [
   {},
   { minVersion: 'TLSv1.2', ecdhCurve: 'auto' },
-  { minVersion: 'TLSv1', ecdhCurve: 'auto', ciphers: 'DEFAULT', sigalgs: 'RSA+SHA1:RSA+SHA256:RSA+SHA384:ECDSA+SHA1:ECDSA+SHA256' },
+  {
+    minVersion: 'TLSv1',
+    ecdhCurve: 'auto',
+    ciphers: 'DEFAULT',
+    sigalgs: 'RSA+SHA1:RSA+SHA256:RSA+SHA384:ECDSA+SHA1:ECDSA+SHA256'
+  },
   { minVersion: 'TLSv1', ecdhCurve: 'P-521:P-384:P-256', ciphers: 'ALL' },
   {
     minVersion: 'TLSv1',
     ecdhCurve: 'P-521:P-384:P-256',
     // Explicit legacy RSA key-exchange suites: the ones an appliance that
     // trips FIRST_OCTET_INVALID typically still wants to speak.
-    ciphers: 'AES128-SHA:AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA'
+    ciphers:
+      'AES128-SHA:AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA'
   }
 ]
 
@@ -95,7 +101,9 @@ const TLS_PROFILES = [
 function isHandshakeFailure(error) {
   if (!error) return false
   const text = `${error.code || ''} ${error.message || ''}`
-  return /EPROTO|ERR_SSL|SSL routines|RSA routines|FIRST_OCTET_INVALID|wrong version number|no ciphers|unsupported protocol|handshake|DECRYPTION_FAILED|sslv3 alert/i.test(text)
+  return /EPROTO|ERR_SSL|SSL routines|RSA routines|FIRST_OCTET_INVALID|wrong version number|no ciphers|unsupported protocol|handshake|DECRYPTION_FAILED|sslv3 alert/i.test(
+    text
+  )
 }
 
 /** Merges a TLS profile into request options. */
@@ -108,9 +116,15 @@ const GLOBAL_TUNNEL_TIMEOUT_MS = 90000
 
 function findFortiClient(configuredPath) {
   const candidates = [configuredPath, ...FORTICLIENT_CANDIDATES].filter(Boolean)
-  return candidates.find((candidate) => {
-    try { return fs.existsSync(candidate) } catch { return false }
-  }) || null
+  return (
+    candidates.find((candidate) => {
+      try {
+        return fs.existsSync(candidate)
+      } catch {
+        return false
+      }
+    }) || null
+  )
 }
 
 class VPNService {
@@ -221,11 +235,15 @@ class VPNService {
       this.lastLive = true
       this.globalBaseline = null
       if (wasAwaiting) {
-        try { this.database.audit('Admin', 'VPN_CONNECT', 'global', `Gateway ${this.gateway || ''}`) } catch {}
+        try {
+          this.database.audit('Admin', 'VPN_CONNECT', 'global', `Gateway ${this.gateway || ''}`)
+        } catch {}
       }
-      this.emit('connected_global', 'global', wasAwaiting
-        ? 'FortiClient signed in — the tunnel is up'
-        : 'FortiClient tunnel detected')
+      this.emit(
+        'connected_global',
+        'global',
+        wasAwaiting ? 'FortiClient signed in — the tunnel is up' : 'FortiClient tunnel detected'
+      )
       return
     }
 
@@ -322,17 +340,23 @@ class VPNService {
    * processes per tick, which was a major source of background CPU churn.
    */
   static combinedHealthProbe() {
-    if (process.platform !== 'win32') return Promise.resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
+    if (process.platform !== 'win32')
+      return Promise.resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
     return new Promise((resolve) => {
-      const script = "$ErrorActionPreference='SilentlyContinue';" +
+      const script =
+        "$ErrorActionPreference='SilentlyContinue';" +
         "$svc = @('FortiSSLVPNdaemon','FA_Scheduler','FortiClient','FortiClientService') | Where-Object { (Get-Service -Name $_).Status -eq 'Running' };" +
         "$proc = [bool](Get-Process -Name 'FortiSSLVPNdaemon','FortiClient','FortiTray','FortiSSLVPNclient');" +
         "$desc = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1' } | ForEach-Object { (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex).InterfaceDescription };" +
         "$match = [bool]($desc | Where-Object { $_ -match 'forti|ssl.?vpn|pangp|tap-windows' });" +
-        "ConvertTo-Json -Compress @{ serviceRunning = [bool]$svc; processRunning = $proc; adapterByDescription = $match }"
-      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
-        { windowsHide: true, timeout: 10000, encoding: 'utf8' }, (error, stdout) => {
-          if (error) return resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
+        'ConvertTo-Json -Compress @{ serviceRunning = [bool]$svc; processRunning = $proc; adapterByDescription = $match }'
+      execFile(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', script],
+        { windowsHide: true, timeout: 10000, encoding: 'utf8' },
+        (error, stdout) => {
+          if (error)
+            return resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
           try {
             const parsed = JSON.parse(String(stdout || '{}'))
             resolve({
@@ -343,21 +367,27 @@ class VPNService {
           } catch {
             resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
           }
-        })
+        }
+      )
     })
   }
 
   static isTunnelAdapterUpByDescription() {
     if (process.platform !== 'win32') return Promise.resolve(false)
     return new Promise((resolve) => {
-      const script = "Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | " +
+      const script =
+        'Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | ' +
         "Where-Object { $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1' } | " +
-        "ForEach-Object { (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue).InterfaceDescription }"
-      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
-        { windowsHide: true, timeout: 8000 }, (error, stdout) => {
+        'ForEach-Object { (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue).InterfaceDescription }'
+      execFile(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', script],
+        { windowsHide: true, timeout: 8000 },
+        (error, stdout) => {
           if (error) return resolve(false)
           resolve(/forti|ssl.?vpn|pangp|tap-windows/i.test(stdout || ''))
-        })
+        }
+      )
     })
   }
 
@@ -383,7 +413,11 @@ class VPNService {
   static async detectGlobalTunnel(baseline = null) {
     if (process.platform !== 'win32') return { serviceRunning: false, adapterUp: false, live: false }
     // A single PowerShell round-trip replaces the former per-check spawns.
-    const { serviceRunning, processRunning, adapterByDescription: byDescription } = await VPNService.combinedHealthProbe()
+    const {
+      serviceRunning,
+      processRunning,
+      adapterByDescription: byDescription
+    } = await VPNService.combinedHealthProbe()
 
     const byName = VPNService.isTunnelAdapterUp()
 
@@ -417,7 +451,11 @@ class VPNService {
   }
 
   safeSettings() {
-    try { return this.database.getSettings() } catch { return {} }
+    try {
+      return this.database.getSettings()
+    } catch {
+      return {}
+    }
   }
 
   /** Availability probe used by the UI before offering the global mode. */
@@ -444,7 +482,10 @@ class VPNService {
    * card and the audit log can name the gateway. Everything is optional.
    */
   profileFrom(settings) {
-    const gateway = String(settings.vpn_gateway || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '')
+    const gateway = String(settings.vpn_gateway || '')
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/.*$/, '')
     return {
       gateway,
       port: Number(settings.vpn_port) || 443,
@@ -460,7 +501,8 @@ class VPNService {
   requireProfile(settings) {
     const profile = this.profileFrom(settings)
     if (!profile.gateway) throw new Error('Set the FortiClient Remote Gateway in Settings → VPN first')
-    if (!profile.username || !profile.password) throw new Error('Set the VPN username and password in Settings → VPN first')
+    if (!profile.username || !profile.password)
+      throw new Error('Set the VPN username and password in Settings → VPN first')
     return profile
   }
 
@@ -478,7 +520,8 @@ class VPNService {
     const requested = mode === 'split' ? 'in_app' : mode === 'full' ? 'global' : mode
     if (requested && !['in_app', 'global'].includes(requested)) throw new Error('Invalid VPN mode')
     const normalized = 'global'
-    if (this.state === 'connecting' || this.state.startsWith('connected')) throw new Error('A VPN session is already active')
+    if (this.state === 'connecting' || this.state.startsWith('connected'))
+      throw new Error('A VPN session is already active')
 
     const settings = this.database.getSettings()
     const profile = this.profileFrom(settings)
@@ -496,11 +539,19 @@ class VPNService {
         this.mode = 'global'
         this.lastLive = false
         this.startHealthMonitor()
-        return this.emit('awaiting_forticlient', 'global',
-          'FortiClient is open — finish signing in there. The indicator turns green on its own as soon as the tunnel is up.')
+        return this.emit(
+          'awaiting_forticlient',
+          'global',
+          'FortiClient is open — finish signing in there. The indicator turns green on its own as soon as the tunnel is up.'
+        )
       }
 
-      this.database.audit(actor, 'VPN_CONNECT', normalized, this.gateway ? `Gateway ${this.gateway}` : 'FortiClient tunnel')
+      this.database.audit(
+        actor,
+        'VPN_CONNECT',
+        normalized,
+        this.gateway ? `Gateway ${this.gateway}` : 'FortiClient tunnel'
+      )
       this.lastLive = true
       this.startHealthMonitor()
       return this.emit('connected_global', normalized)
@@ -537,7 +588,9 @@ class VPNService {
    */
   async portalRequest(profile) {
     const start = this.tlsProfileIndex || 0
-    const order = [start, ...TLS_PROFILES.keys()].filter((index, position, all) => all.indexOf(index) === position)
+    const order = [start, ...TLS_PROFILES.keys()].filter(
+      (index, position, all) => all.indexOf(index) === position
+    )
     let lastError = null
     for (const index of order) {
       try {
@@ -623,7 +676,10 @@ class VPNService {
         response.on('data', (chunk) => chunks.push(chunk))
         response.on('aborted', done)
         // A body-level parse error after the headers arrived is survivable.
-        response.on('error', (error) => { result.transportError = error.message; done() })
+        response.on('error', (error) => {
+          result.transportError = error.message
+          done()
+        })
         response.on('end', done)
       })
 
@@ -665,25 +721,37 @@ class VPNService {
   static verdict(reply) {
     const text = reply.body || ''
     const explicitAccept = /(^|[^a-z])ret=1(\D|$)/i.test(text)
-    const explicitReject = /(^|[^a-z])ret=0(\D|$)/i.test(text)
-      || /permission_denied|login_failed|invalid.{0,20}(username|password|credential)/i.test(text)
-    const twoFactor = /(^|[^a-z])ret=2(\D|$)/i.test(text)
-      || /redir=(%2f|\/)remote(%2f|\/)twofactor|tokeninfo|fortitoken/i.test(text)
+    const explicitReject =
+      /(^|[^a-z])ret=0(\D|$)/i.test(text) ||
+      /permission_denied|login_failed|invalid.{0,20}(username|password|credential)/i.test(text)
+    const twoFactor =
+      /(^|[^a-z])ret=2(\D|$)/i.test(text) ||
+      /redir=(%2f|\/)remote(%2f|\/)twofactor|tokeninfo|fortitoken/i.test(text)
     const hasCookie = Boolean(reply.cookie || reply.cookies.length)
 
     if (explicitReject && !explicitAccept) {
       return { outcome: 'rejected', reason: 'The SSL VPN portal rejected the username or password' }
     }
     if (twoFactor && !explicitAccept) {
-      return { outcome: 'two_factor', reason: 'The gateway requires two-factor authentication; use the Global (FortiClient) mode' }
+      return {
+        outcome: 'two_factor',
+        reason: 'The gateway requires two-factor authentication; use the Global (FortiClient) mode'
+      }
     }
     if (explicitAccept) return { outcome: 'accepted', reason: 'The gateway returned ret=1' }
     if (hasCookie) return { outcome: 'accepted', reason: 'The gateway issued a session cookie' }
     if (!text.trim() && !reply.statusCode) {
-      return { outcome: 'unreachable', reason: 'The VPN gateway returned an empty response. Check that the Remote Gateway host and port point at the SSL-VPN portal.' }
+      return {
+        outcome: 'unreachable',
+        reason:
+          'The VPN gateway returned an empty response. Check that the Remote Gateway host and port point at the SSL-VPN portal.'
+      }
     }
     // Nothing conclusive either way: continue rather than block a valid login.
-    return { outcome: 'ambiguous', reason: 'The gateway did not report a result; continuing with the connection' }
+    return {
+      outcome: 'ambiguous',
+      reason: 'The gateway did not report a result; continuing with the connection'
+    }
   }
 
   /**
@@ -746,10 +814,13 @@ class VPNService {
   /* ------------------------------------------------------------------ global */
 
   async connectGlobal(profile, settings) {
-    if (process.platform !== 'win32') throw new Error('The global VPN mode is only available in the Windows desktop build')
+    if (process.platform !== 'win32')
+      throw new Error('The global VPN mode is only available in the Windows desktop build')
     const executable = findFortiClient(settings.forticlient_path)
     if (!executable) {
-      const error = new Error('FortiClient VPN is not installed on this computer. Install the FortiClient VPN client, then try the Global mode again.')
+      const error = new Error(
+        'FortiClient VPN is not installed on this computer. Install the FortiClient VPN client, then try the Global mode again.'
+      )
       error.code = 'FORTICLIENT_MISSING'
       error.downloadUrl = FORTICLIENT_DOWNLOAD
       throw error
@@ -828,17 +899,29 @@ class VPNService {
 
       // Directories to look in: the configured executable's folder plus the
       // two standard FortiClient install roots.
-      const roots = [...new Set([
-        installed && path.dirname(installed),
-        ...FORTICLIENT_CANDIDATES.map((candidate) => path.dirname(candidate))
-      ].filter(Boolean))]
+      const roots = [
+        ...new Set(
+          [
+            installed && path.dirname(installed),
+            ...FORTICLIENT_CANDIDATES.map((candidate) => path.dirname(candidate))
+          ].filter(Boolean)
+        )
+      ]
 
       for (const command of DISCONNECT_COMMANDS) {
         const executable = roots
           .map((root) => path.join(root, command.exe))
-          .find((candidate) => { try { return fs.existsSync(candidate) } catch { return false } })
+          .find((candidate) => {
+            try {
+              return fs.existsSync(candidate)
+            } catch {
+              return false
+            }
+          })
         if (!executable) continue
-        await new Promise((resolve) => execFile(executable, command.args, { windowsHide: true, timeout: 15000 }, () => resolve()))
+        await new Promise((resolve) =>
+          execFile(executable, command.args, { windowsHide: true, timeout: 15000 }, () => resolve())
+        )
       }
     }
 
@@ -856,7 +939,8 @@ class VPNService {
     // The tunnel is still carrying traffic. Claiming "disconnected" here is
     // exactly the bug this method exists to prevent.
     if (probe.live) {
-      const message = 'FortiClient did not drop the tunnel. Disconnect it inside the FortiClient window, or press the button again.'
+      const message =
+        'FortiClient did not drop the tunnel. Disconnect it inside the FortiClient window, or press the button again.'
       this.database.audit(actor, 'VPN_DISCONNECT', modeBefore, message)
       this.emit('connected_global', 'global', message)
       throw new Error(message)
@@ -875,7 +959,11 @@ class VPNService {
 
   stop() {
     this.stopHealthMonitor()
-    if (this.process) { try { this.process.kill() } catch {} }
+    if (this.process) {
+      try {
+        this.process.kill()
+      } catch {}
+    }
   }
 }
 

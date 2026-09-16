@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { compareVersions } = require('../electron/services/version')
+const { compareVersions } = require('../../electron/services/version')
 
 test('compares semantic release versions', () => {
   assert.equal(compareVersions('1.2.0', '1.1.9'), 1)

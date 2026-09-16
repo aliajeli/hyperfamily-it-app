@@ -74,11 +74,19 @@ function negotiateTelnet(socket, chunk, state) {
   let index = 0
   while (index < chunk.length) {
     const byte = chunk[index]
-    if (byte !== IAC) { output.push(byte); index += 1; continue }
+    if (byte !== IAC) {
+      output.push(byte)
+      index += 1
+      continue
+    }
 
     const command = chunk[index + 1]
     if (command === undefined) break
-    if (command === IAC) { output.push(IAC); index += 2; continue }
+    if (command === IAC) {
+      output.push(IAC)
+      index += 2
+      continue
+    }
 
     if (command === SB) {
       let end = index + 2
@@ -140,9 +148,16 @@ class TerminalService {
     if (!safeHost.test(device.ip || '')) throw new Error('Unsafe or invalid device address')
     const credential = this.database.resolveDeviceCredential(deviceId)
     if (!credential) throw new Error('Assign a credential to switches in Settings \u2192 Credentials first')
-    const settings = (() => { try { return this.database.getSettings() } catch { return {} } })()
+    const settings = (() => {
+      try {
+        return this.database.getSettings()
+      } catch {
+        return {}
+      }
+    })()
     const transport = device.transport === 'telnet' ? 'telnet' : 'ssh'
-    const fallbackPort = transport === 'telnet' ? (settings.terminal_telnet_port || 23) : (settings.terminal_ssh_port || 22)
+    const fallbackPort =
+      transport === 'telnet' ? settings.terminal_telnet_port || 23 : settings.terminal_ssh_port || 22
     return {
       device,
       credential,
@@ -152,19 +167,25 @@ class TerminalService {
   }
 
   open({ deviceId, cols = 80, rows = 24 }, sender, actor = 'Admin') {
-    if (this.sessions.size >= MAX_SESSIONS) throw new Error(`At most ${MAX_SESSIONS} terminal sessions can be open at once`)
+    if (this.sessions.size >= MAX_SESSIONS)
+      throw new Error(`At most ${MAX_SESSIONS} terminal sessions can be open at once`)
     const { device, credential, transport, port } = this.resolve(deviceId)
     this.counter += 1
     const sessionId = `term-${this.counter}`
     const meta = {
-      sessionId, sender, transport,
+      sessionId,
+      sender,
+      transport,
       deviceId: device.id,
       name: device.name || device.device_type,
       host: device.ip,
       port,
       username: credential.username,
-      cols, rows,
-      client: null, socket: null, stream: null,
+      cols,
+      rows,
+      client: null,
+      socket: null,
+      stream: null,
       closed: false
     }
     this.sessions.set(sessionId, meta)
@@ -193,10 +214,17 @@ class TerminalService {
     client.on('ready', () => {
       this.emit(meta.sessionId, 'terminal:status', { state: 'connected' })
       client.shell({ term: 'xterm-256color', cols: meta.cols, rows: meta.rows }, (error, stream) => {
-        if (error) { this.fail(meta, error.message); return }
+        if (error) {
+          this.fail(meta, error.message)
+          return
+        }
         meta.stream = stream
-        stream.on('data', (chunk) => this.emit(meta.sessionId, 'terminal:data', { data: chunk.toString('utf8') }))
-        stream.stderr?.on('data', (chunk) => this.emit(meta.sessionId, 'terminal:data', { data: chunk.toString('utf8') }))
+        stream.on('data', (chunk) =>
+          this.emit(meta.sessionId, 'terminal:data', { data: chunk.toString('utf8') })
+        )
+        stream.stderr?.on('data', (chunk) =>
+          this.emit(meta.sessionId, 'terminal:data', { data: chunk.toString('utf8') })
+        )
         stream.on('close', () => this.close(meta.sessionId, 'Session closed by the device'))
       })
     })
@@ -218,10 +246,47 @@ class TerminalService {
       keepaliveInterval: 20000,
       // Switches in the field are often old; allow their legacy algorithms.
       algorithms: {
-        kex: ['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1', 'diffie-hellman-group-exchange-sha1'],
-        cipher: ['aes128-gcm@openssh.com', 'aes256-gcm@openssh.com', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc', '3des-cbc'],
-        serverHostKey: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa', 'ssh-dss'],
-        hmac: ['hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1']
+        kex: [
+          'curve25519-sha256',
+          'curve25519-sha256@libssh.org',
+          'ecdh-sha2-nistp256',
+          'ecdh-sha2-nistp384',
+          'ecdh-sha2-nistp521',
+          'diffie-hellman-group-exchange-sha256',
+          'diffie-hellman-group14-sha256',
+          'diffie-hellman-group16-sha512',
+          'diffie-hellman-group14-sha1',
+          'diffie-hellman-group1-sha1',
+          'diffie-hellman-group-exchange-sha1'
+        ],
+        cipher: [
+          'aes128-gcm@openssh.com',
+          'aes256-gcm@openssh.com',
+          'aes128-ctr',
+          'aes192-ctr',
+          'aes256-ctr',
+          'aes128-cbc',
+          'aes192-cbc',
+          'aes256-cbc',
+          '3des-cbc'
+        ],
+        serverHostKey: [
+          'ssh-ed25519',
+          'ecdsa-sha2-nistp256',
+          'ecdsa-sha2-nistp384',
+          'ecdsa-sha2-nistp521',
+          'rsa-sha2-512',
+          'rsa-sha2-256',
+          'ssh-rsa',
+          'ssh-dss'
+        ],
+        hmac: [
+          'hmac-sha2-256-etm@openssh.com',
+          'hmac-sha2-512-etm@openssh.com',
+          'hmac-sha2-256',
+          'hmac-sha2-512',
+          'hmac-sha1'
+        ]
       }
     })
   }
@@ -263,10 +328,12 @@ class TerminalService {
 
   friendly(error) {
     const message = error?.message || String(error)
-    if (/ECONNREFUSED/.test(message)) return 'Connection refused \u2014 the service is not listening on that port'
+    if (/ECONNREFUSED/.test(message))
+      return 'Connection refused \u2014 the service is not listening on that port'
     if (/EHOSTUNREACH|ENETUNREACH/.test(message)) return 'The device is unreachable from this network'
     if (/ETIMEDOUT|timed out/i.test(message)) return 'The connection timed out'
-    if (/All configured authentication methods failed/i.test(message)) return 'Authentication failed \u2014 check the credential assigned to switches'
+    if (/All configured authentication methods failed/i.test(message))
+      return 'Authentication failed \u2014 check the credential assigned to switches'
     return message
   }
 
@@ -291,7 +358,8 @@ class TerminalService {
   owned(sessionId, sender) {
     const session = this.sessions.get(sessionId)
     if (!session) throw new Error('That terminal session is no longer open')
-    if (sender && session.sender !== sender) throw new Error('That terminal session belongs to another window')
+    if (sender && session.sender !== sender)
+      throw new Error('That terminal session belongs to another window')
     return session
   }
 
@@ -304,16 +372,29 @@ class TerminalService {
     const session = this.sessions.get(sessionId)
     if (!session || session.closed) return true
     session.closed = true
-    try { session.stream?.end() } catch { /* already gone */ }
-    try { session.client?.end() } catch { /* already gone */ }
-    try { session.socket?.destroy() } catch { /* already gone */ }
+    try {
+      session.stream?.end()
+    } catch {
+      /* already gone */
+    }
+    try {
+      session.client?.end()
+    } catch {
+      /* already gone */
+    }
+    try {
+      session.socket?.destroy()
+    } catch {
+      /* already gone */
+    }
     this.emit(sessionId, 'terminal:status', { state: 'closed', message: reason })
     this.sessions.delete(sessionId)
     return true
   }
 
   closeAllFor(sender) {
-    for (const [id, session] of [...this.sessions]) if (session.sender === sender) this.close(id, 'Window closed')
+    for (const [id, session] of [...this.sessions])
+      if (session.sender === sender) this.close(id, 'Window closed')
   }
 
   stop() {

@@ -22,7 +22,15 @@ const WINBOX_CANDIDATES = [
 
 function resolveExecutable(configured, candidates) {
   const list = [configured, ...candidates].filter(Boolean)
-  return list.find((item) => { try { return fs.existsSync(item) } catch { return false } }) || null
+  return (
+    list.find((item) => {
+      try {
+        return fs.existsSync(item)
+      } catch {
+        return false
+      }
+    }) || null
+  )
 }
 
 class RemoteService {
@@ -54,10 +62,16 @@ class RemoteService {
       else if (method === 'teamviewer') this.teamviewer(device)
       else if (method === 'winbox') this.winbox(device, credential)
       else if (method === 'browser') await this.browser(device, credential)
-      else if (method === 'webview') result = { success: true, webview: this.webviewSession(device, credential) }
+      else if (method === 'webview')
+        result = { success: true, webview: this.webviewSession(device, credential) }
       else throw new Error('Unsupported remote connection method')
 
-      this.database.audit(actor, `${method.toUpperCase()}_CONNECT`, target, credential ? `Credential: ${credential.name}` : 'No mapped credential')
+      this.database.audit(
+        actor,
+        `${method.toUpperCase()}_CONNECT`,
+        target,
+        credential ? `Credential: ${credential.name}` : 'No mapped credential'
+      )
       return result
     } catch (error) {
       this.database.audit(actor, `${method.toUpperCase()}_ERROR`, target, error.message)
@@ -68,7 +82,15 @@ class RemoteService {
   async rdp(device, credential) {
     this.requireWindows('Remote Desktop')
     if (!credential) throw new Error('Assign a credential to this device in Settings → Credentials first')
-    await new Promise((resolve, reject) => execFile('cmdkey.exe', [`/generic:TERMSRV/${device.ip}`, `/user:${credential.username}`, `/pass:${credential.password}`], { windowsHide: true }, (error) => error ? reject(new Error('Windows Credential Manager rejected the RDP credential')) : resolve()))
+    await new Promise((resolve, reject) =>
+      execFile(
+        'cmdkey.exe',
+        [`/generic:TERMSRV/${device.ip}`, `/user:${credential.username}`, `/pass:${credential.password}`],
+        { windowsHide: true },
+        (error) =>
+          error ? reject(new Error('Windows Credential Manager rejected the RDP credential')) : resolve()
+      )
+    )
     detached('mstsc.exe', [`/v:${device.ip}${device.port ? `:${device.port}` : ''}`])
   }
 
@@ -81,12 +103,14 @@ class RemoteService {
     this.requireWindows('TeamViewer')
     const settings = this.database.getSettings()
     const executable = resolveExecutable(settings.teamviewer_path, TEAMVIEWER_CANDIDATES)
-    if (!executable) throw new Error('TeamViewer executable was not found; set its path in Settings → Device Tools')
+    if (!executable)
+      throw new Error('TeamViewer executable was not found; set its path in Settings → Device Tools')
 
     const lanMode = settings.teamviewer_lan_mode !== false
     // In LAN mode TeamViewer accepts the IP address in the -i / --id slot.
-    const identifier = lanMode ? device.ip : (device.remote_id || device.terminal_id)
-    if (!identifier) throw new Error('This device has no TeamViewer ID. Enable LAN connections to connect by IP instead.')
+    const identifier = lanMode ? device.ip : device.remote_id || device.terminal_id
+    if (!identifier)
+      throw new Error('This device has no TeamViewer ID. Enable LAN connections to connect by IP instead.')
 
     const args = ['-i', String(identifier)]
     if (settings.teamviewer_password) args.push('-p', String(settings.teamviewer_password))
@@ -101,11 +125,15 @@ class RemoteService {
     this.requireWindows('Winbox')
     const settings = this.database.getSettings()
     const executable = resolveExecutable(settings.winbox_path, WINBOX_CANDIDATES)
-    if (!executable) throw new Error('Winbox executable was not found; set its path in Settings → Device Tools')
+    if (!executable)
+      throw new Error('Winbox executable was not found; set its path in Settings → Device Tools')
 
     const port = device.port || settings.winbox_port || 8291
     const endpoint = `${device.ip}:${port}`
-    if (!credential) throw new Error('Assign a credential to this router in Settings → Credentials so Winbox can log in automatically')
+    if (!credential)
+      throw new Error(
+        'Assign a credential to this router in Settings → Credentials so Winbox can log in automatically'
+      )
 
     // winbox64.exe <host:port> <login> <password>
     detached(executable, [endpoint, credential.username, credential.password])
@@ -115,7 +143,8 @@ class RemoteService {
     const protocol = device.protocol === 'http' ? 'http' : 'https'
     const port = device.port ? `:${device.port}` : ''
     let authority = device.ip
-    if (credential) authority = `${encodeURIComponent(credential.username)}:${encodeURIComponent(credential.password)}@${device.ip}`
+    if (credential)
+      authority = `${encodeURIComponent(credential.username)}:${encodeURIComponent(credential.password)}@${device.ip}`
     await shell.openExternal(`${protocol}://${authority}${port}`, { activate: true })
   }
 
@@ -125,7 +154,10 @@ class RemoteService {
    * guest page; it is never exposed to the renderer that requested the window.
    */
   webviewSession(device, credential) {
-    if (!credential) throw new Error('Assign a credential to this device in Settings \u2192 Credentials so it can sign in automatically')
+    if (!credential)
+      throw new Error(
+        'Assign a credential to this device in Settings \u2192 Credentials so it can sign in automatically'
+      )
     const protocol = device.protocol === 'http' ? 'http' : 'https'
     const port = device.port ? `:${device.port}` : ''
     return {
@@ -139,7 +171,13 @@ class RemoteService {
   }
 
   probe() {
-    const settings = (() => { try { return this.database.getSettings() } catch { return {} } })()
+    const settings = (() => {
+      try {
+        return this.database.getSettings()
+      } catch {
+        return {}
+      }
+    })()
     return {
       teamviewer: resolveExecutable(settings.teamviewer_path, TEAMVIEWER_CANDIDATES),
       winbox: resolveExecutable(settings.winbox_path, WINBOX_CANDIDATES)

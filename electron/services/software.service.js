@@ -117,7 +117,12 @@ function streamCopy(source, target, total, onProgress) {
     })
     read.on('error', fail)
     write.on('error', fail)
-    write.on('finish', () => { if (!settled) { settled = true; resolve() } })
+    write.on('finish', () => {
+      if (!settled) {
+        settled = true
+        resolve()
+      }
+    })
     read.pipe(write)
   })
 }
@@ -164,7 +169,13 @@ class SoftwareService {
     const programs = await this.listInstalled()
     const needle = name.toLowerCase()
     const matches = programs.filter((program) => program.name.toLowerCase().includes(needle))
-    return { mode: 'installed', query: name, matches: matches.slice(0, 25), total: matches.length, checkedAt: new Date().toISOString() }
+    return {
+      mode: 'installed',
+      query: name,
+      matches: matches.slice(0, 25),
+      total: matches.length,
+      checkedAt: new Date().toISOString()
+    }
   }
 
   /** File/Product version of one executable plus its statistics. */
@@ -211,7 +222,9 @@ class SoftwareService {
    * run continues with the next file.
    */
   async copyFiles(payload = {}) {
-    const sources = (Array.isArray(payload.sources) ? payload.sources : []).map((value) => String(value || '').trim()).filter(Boolean)
+    const sources = (Array.isArray(payload.sources) ? payload.sources : [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
     const destination = String(payload.destination || '').trim()
     const overwrite = Boolean(payload.overwrite)
     const verify = payload.verify !== false
@@ -247,16 +260,27 @@ class SoftwareService {
         if (!(await existsAsync(source))) throw new Error('Source file not found')
         const stats = await statAsync(source)
         if (!stats.isFile()) throw new Error('The source is not a file')
-        if (path.resolve(source) === path.resolve(target)) throw new Error('Source and destination are identical')
+        if (path.resolve(source) === path.resolve(target))
+          throw new Error('Source and destination are identical')
         if ((await existsAsync(target)) && !overwrite) {
-          results.push({ source, target, bytes: 0, state: 'skipped', error: 'Already exists at the destination' })
+          results.push({
+            source,
+            target,
+            bytes: 0,
+            state: 'skipped',
+            error: 'Already exists at the destination'
+          })
           emit('skipped', { percent: 100, written: stats.size, total: stats.size })
           continue
         }
         emit('started', { percent: 0, written: 0, total: stats.size })
         await withTimeout(
           streamCopy(source, target, stats.size, (written, total) =>
-            emit('progress', { percent: total > 0 ? Math.floor((written / total) * 100) : 100, written, total })
+            emit('progress', {
+              percent: total > 0 ? Math.floor((written / total) * 100) : 100,
+              written,
+              total
+            })
           ),
           this.copyTimeoutMs,
           'The copy stalled and was aborted'
@@ -271,7 +295,15 @@ class SoftwareService {
           if (!verified) throw new Error('SHA-256 verification failed after copying')
         }
         copiedBytes += stats.size
-        results.push({ source, target, bytes: stats.size, sha256Source, sha256Target, verified, state: 'copied' })
+        results.push({
+          source,
+          target,
+          bytes: stats.size,
+          sha256Source,
+          sha256Target,
+          verified,
+          state: 'copied'
+        })
         emit('copied', { percent: 100, written: stats.size, total: stats.size, verified })
       } catch (error) {
         results.push({ source, target, bytes: 0, state: 'error', error: error.message })

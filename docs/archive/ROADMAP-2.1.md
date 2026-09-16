@@ -3,8 +3,8 @@
 پیشنهادها بر اساس بررسی کد فعلی نوشته شده‌اند، نه حدس. هر مورد با دلیل و
 تخمین کار آمده است.
 
-*These suggestions come from reading the current code, not from guessing. Each
-one carries a reason and a rough cost.*
+_These suggestions come from reading the current code, not from guessing. Each
+one carries a reason and a rough cost._
 
 ---
 
@@ -15,15 +15,15 @@ one carries a reason and a rough cost.*
 
 Items still open from the current round, which should close before anything new:
 
-| # | مورد | وضعیت |
-|---|------|--------|
-| 1 | App Scale (۷۵/۹۰/۱۰۰/۱۱۰/۱۲۵) | انجام نشده |
-| 11 | انیمیشن رنگی شدن بلوک‌های تکنولوژی در About | انجام نشده |
-| 12 | لوگوی جدید از تصویر Family | انجام نشده |
-| 13 | آیکون برنامه (متفاوت از لوگو) | انجام نشده |
-| 14 | ایمیل توسعه‌دهنده + باز شدن Outlook | انجام نشده |
-| — | `TypographySettings.jsx` هنوز دو `<select>` خام دارد (تکمیل مورد ۶) | انجام نشده |
-| — | آیتم‌های ۴ و ۵ در مرورگر تست نشده‌اند | نیاز به تأیید |
+| #   | مورد                                                                | وضعیت         |
+| --- | ------------------------------------------------------------------- | ------------- |
+| 1   | App Scale (۷۵/۹۰/۱۰۰/۱۱۰/۱۲۵)                                       | انجام نشده    |
+| 11  | انیمیشن رنگی شدن بلوک‌های تکنولوژی در About                         | انجام نشده    |
+| 12  | لوگوی جدید از تصویر Family                                          | انجام نشده    |
+| 13  | آیکون برنامه (متفاوت از لوگو)                                       | انجام نشده    |
+| 14  | ایمیل توسعه‌دهنده + باز شدن Outlook                                 | انجام نشده    |
+| —   | `TypographySettings.jsx` هنوز دو `<select>` خام دارد (تکمیل مورد ۶) | انجام نشده    |
+| —   | آیتم‌های ۴ و ۵ در مرورگر تست نشده‌اند                               | نیاز به تأیید |
 
 ---
 

@@ -3,7 +3,11 @@ const assert = require('node:assert/strict')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const { SoftwareService, parseInstalledJson, sha256File } = require('../electron/services/software.service')
+const {
+  SoftwareService,
+  parseInstalledJson,
+  sha256File
+} = require('../../electron/services/software.service')
 
 const SAMPLE_REGISTRY_JSON = JSON.stringify([
   {
@@ -32,7 +36,9 @@ test('parses installed-program JSON: dedupes, drops nameless rows, cleans icon p
 })
 
 test('parseInstalledJson accepts a single object (ConvertTo-Json with one match)', () => {
-  const programs = parseInstalledJson(JSON.stringify({ DisplayName: 'TeamViewer 15', DisplayVersion: '15.58.5' }))
+  const programs = parseInstalledJson(
+    JSON.stringify({ DisplayName: 'TeamViewer 15', DisplayVersion: '15.58.5' })
+  )
   assert.equal(programs.length, 1)
   assert.equal(programs[0].name, 'TeamViewer 15')
 })
@@ -78,7 +84,12 @@ test('copyFiles copies with verification, progress events and a summary', async 
 
   const events = []
   const service = new SoftwareService((channel, payload) => events.push({ channel, ...payload }))
-  const summary = await service.copyFiles({ sources: [sourceA, sourceB], destination, overwrite: false, verify: true })
+  const summary = await service.copyFiles({
+    sources: [sourceA, sourceB],
+    destination,
+    overwrite: false,
+    verify: true
+  })
 
   assert.equal(summary.copied, 2)
   assert.equal(summary.failed, 0)
@@ -123,7 +134,11 @@ test('copyFiles records per-file errors without aborting the batch', async () =>
   fs.writeFileSync(good, 'fine')
   const destination = path.join(dir, 'out')
   const service = new SoftwareService(null)
-  const summary = await service.copyFiles({ sources: [path.join(dir, 'missing.txt'), good], destination, verify: false })
+  const summary = await service.copyFiles({
+    sources: [path.join(dir, 'missing.txt'), good],
+    destination,
+    verify: false
+  })
   assert.equal(summary.copied, 1)
   assert.equal(summary.failed, 1)
   assert.match(summary.results[0].error, /not found/i)
@@ -133,5 +148,8 @@ test('copyFiles validates its inputs before touching the disk', async () => {
   const service = new SoftwareService(null)
   await assert.rejects(() => service.copyFiles({}), /at least one file/)
   await assert.rejects(() => service.copyFiles({ sources: ['C:/a.txt'] }), /destination folder/)
-  await assert.rejects(() => service.copyFiles({ sources: ['C:/a.txt'], destination: 'relative/dir' }), /absolute path/)
+  await assert.rejects(
+    () => service.copyFiles({ sources: ['C:/a.txt'], destination: 'relative/dir' }),
+    /absolute path/
+  )
 })

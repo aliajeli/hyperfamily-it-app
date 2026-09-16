@@ -57,7 +57,10 @@ export default function VPNButton() {
   const refresh = useCallback(() => {
     const api = getApi()
     if (!api?.vpn?.status) return
-    api.vpn.status().then(setStatus).catch(() => {})
+    api.vpn
+      .status()
+      .then(setStatus)
+      .catch(() => {})
   }, [setStatus])
 
   useEffect(() => {
@@ -79,7 +82,10 @@ export default function VPNButton() {
       const result = await getApi().vpn.connect('global')
       setStatus(result)
       if (result?.state === 'awaiting_forticlient') {
-        toast.info('FortiClient is open — finish signing in there. This button turns green on its own once the tunnel is up.', { duration: 10000 })
+        toast.info(
+          'FortiClient is open — finish signing in there. This button turns green on its own once the tunnel is up.',
+          { duration: 10000 }
+        )
       } else {
         toast.success('FortiClient VPN tunnel is active')
       }
@@ -88,7 +94,11 @@ export default function VPNButton() {
       toast.error(error.message, {
         duration: 8000,
         action: /not installed/i.test(error.message)
-          ? { label: 'Get FortiClient', onClick: () => getApi().app.openExternal('https://www.fortinet.com/support/product-downloads#vpn') }
+          ? {
+              label: 'Get FortiClient',
+              onClick: () =>
+                getApi().app.openExternal('https://www.fortinet.com/support/product-downloads#vpn')
+            }
           : undefined
       })
     }
@@ -98,7 +108,9 @@ export default function VPNButton() {
     try {
       setStatus(await getApi().vpn.disconnect())
       toast.success('VPN disconnected')
-    } catch (error) { toast.error(error.message) }
+    } catch (error) {
+      toast.error(error.message)
+    }
   }
 
   const onClick = async () => {

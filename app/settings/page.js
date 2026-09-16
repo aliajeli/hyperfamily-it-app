@@ -1,7 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SlidersHorizontal, KeyRound, Link2, MonitorCog, PlugZap, TerminalSquare, Shield, Palette, Type, LayoutDashboard, Store } from 'lucide-react'
+import {
+  SlidersHorizontal,
+  KeyRound,
+  Link2,
+  MonitorCog,
+  PlugZap,
+  TerminalSquare,
+  Shield,
+  Palette,
+  Type,
+  LayoutDashboard,
+  Store
+} from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import GeneralSettings from '@/components/settings/GeneralSettings'
@@ -38,7 +50,8 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState(null)
 
   useEffect(() => {
-    getApi().settings.get()
+    getApi()
+      .settings.get()
       .then((value) => setSettings({ ...DEFAULT_SETTINGS, ...value }))
       .catch((error) => toast.error(error.message))
   }, [])
@@ -48,7 +61,10 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-[1600px] space-y-3">
         <div>
           <h1 className="page-title">Application settings</h1>
-          <p className="page-subtitle">Security, monitoring, Store App deployment, the dashboard experience, credentials and their assignments, connection methods, device tools, terminal, VPN, and appearance.</p>
+          <p className="page-subtitle">
+            Security, monitoring, Store App deployment, the dashboard experience, credentials and their
+            assignments, connection methods, device tools, terminal, VPN, and appearance.
+          </p>
         </div>
 
         {!settings ? (
@@ -58,17 +74,39 @@ export default function SettingsPage() {
              header for the card below it rather than a control inside it. */
           <Tabs value={tab} onValueChange={setTab} tabs={tabs} listClassName="mb-2.5 w-fit max-w-full">
             <Card className="p-3">
-              <TabsContent value="general"><GeneralSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="store-app"><StoreAppSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="dashboard"><DashboardSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="credentials"><CredentialsSettings /></TabsContent>
-              <TabsContent value="assignments"><AssignmentsSettings /></TabsContent>
-              <TabsContent value="connections"><ConnectionsSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="devices"><DeviceSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="terminal"><TerminalSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="vpn"><VPNSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="theme"><ThemeSettings settings={settings} onSaved={setSettings} /></TabsContent>
-              <TabsContent value="typography"><TypographySettings settings={settings} onSaved={setSettings} /></TabsContent>
+              <TabsContent value="general">
+                <GeneralSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="store-app">
+                <StoreAppSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="dashboard">
+                <DashboardSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="credentials">
+                <CredentialsSettings />
+              </TabsContent>
+              <TabsContent value="assignments">
+                <AssignmentsSettings />
+              </TabsContent>
+              <TabsContent value="connections">
+                <ConnectionsSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="devices">
+                <DeviceSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="terminal">
+                <TerminalSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="vpn">
+                <VPNSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="theme">
+                <ThemeSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="typography">
+                <TypographySettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
             </Card>
           </Tabs>
         )}

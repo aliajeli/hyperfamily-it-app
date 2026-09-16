@@ -10,7 +10,9 @@ class SecureVault {
     this.fallbackKey = null
   }
 
-  hasDatabaseKey() { return fs.existsSync(this.databaseKeyPath) }
+  hasDatabaseKey() {
+    return fs.existsSync(this.databaseKeyPath)
+  }
 
   getDatabaseKey() {
     if (this.hasDatabaseKey()) return this.decrypt(fs.readFileSync(this.databaseKeyPath, 'utf8'))
@@ -45,12 +47,19 @@ class SecureVault {
 
   decrypt(payload) {
     if (!payload) return ''
-    if (payload.startsWith('dpapi:')) return safeStorage.decryptString(Buffer.from(payload.slice(6), 'base64'))
+    if (payload.startsWith('dpapi:'))
+      return safeStorage.decryptString(Buffer.from(payload.slice(6), 'base64'))
     if (payload.startsWith('aes:')) {
       const [, iv, tag, encrypted] = payload.split(':')
-      const decipher = crypto.createDecipheriv('aes-256-gcm', this.getFallbackKey(), Buffer.from(iv, 'base64'))
+      const decipher = crypto.createDecipheriv(
+        'aes-256-gcm',
+        this.getFallbackKey(),
+        Buffer.from(iv, 'base64')
+      )
       decipher.setAuthTag(Buffer.from(tag, 'base64'))
-      return Buffer.concat([decipher.update(Buffer.from(encrypted, 'base64')), decipher.final()]).toString('utf8')
+      return Buffer.concat([decipher.update(Buffer.from(encrypted, 'base64')), decipher.final()]).toString(
+        'utf8'
+      )
     }
     // Migration compatibility for old development databases; save operations re-encrypt it.
     return payload

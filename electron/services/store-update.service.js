@@ -9,7 +9,15 @@ const { compareVersions } = require('./version')
 /** First agent that hashes files ON the checkout and answers over the command channel. */
 const MIN_AGENT_SHA256 = '3.1.4-beta.1'
 const { SmbSessionManager } = require('./smb.service')
-const { existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync, withTimeout } = require('./async-fs')
+const {
+  existsAsync,
+  probeAsync,
+  statAsync,
+  mkdirAsync,
+  renameAsync,
+  unlinkAsync,
+  withTimeout
+} = require('./async-fs')
 
 /**
  * The product exactly as Control Panel lists it. Deliberately hard-coded: the
@@ -53,11 +61,15 @@ function jalaliStamp(date = new Date()) {
 
 /** 'D:\\Store\\app.exe' on host CO-01 → '\\\\CO-01\\D$\\Store\\app.exe'. */
 function uncPath(host, localPath) {
-  const cleanHost = String(host || '').trim().replace(/^\\+/, '').replace(/[\\/].*$/, '')
+  const cleanHost = String(host || '')
+    .trim()
+    .replace(/^\\+/, '')
+    .replace(/[\\/].*$/, '')
   if (!cleanHost) throw new Error('The checkout has no hostname or IP address')
   const value = String(localPath || '').trim()
   const match = value.match(/^([a-zA-Z]):[\\/]([\s\S]*)$/)
-  if (!match || !match[2]) throw new Error(`Path must be a local drive path like C:\\Store\\app.exe — got “${value}”`)
+  if (!match || !match[2])
+    throw new Error(`Path must be a local drive path like C:\\Store\\app.exe — got “${value}”`)
   return `\\\\${cleanHost}\\${match[1].toUpperCase()}$\\${match[2].replace(/\//g, '\\')}`
 }
 
@@ -112,10 +124,16 @@ class StoreUpdateService {
     // Copies and renames hit real UNC paths, which only exist on Windows; in
     // tests a custom pathMapper (plus the other injectables) substitutes them.
     this.realFs = this.platform === 'win32' || Boolean(options.pathMapper)
-    this.agent = options.agent || new StoreAgentService({
-      platform: this.platform, sourcePath: options.agentSourcePath,
-      smb: this.smb, getCredentials: this.getCredentials, reach: this.reach, send: this.sendEvent
-    })
+    this.agent =
+      options.agent ||
+      new StoreAgentService({
+        platform: this.platform,
+        sourcePath: options.agentSourcePath,
+        smb: this.smb,
+        getCredentials: this.getCredentials,
+        reach: this.reach,
+        send: this.sendEvent
+      })
     // Destination-side SHA-256: the agent hashes the copy locally and only the
     // digest crosses the link. Injectable for tests, like everything OS-shaped.
     this.commands = options.commands || new AgentCommands({ agentPathMapper: options.agentPathMapper })
@@ -139,7 +157,12 @@ class StoreUpdateService {
   /** checkOne + cache, for the single-checkout recheck path. */
   async checkOneCached(checkout) {
     const result = await this.checkOne(checkout)
-    this.#remember(checkout, { checkoutId: checkout?.id, name: checkout?.name, branchId: checkout?.branch_id, ...result })
+    this.#remember(checkout, {
+      checkoutId: checkout?.id,
+      name: checkout?.name,
+      branchId: checkout?.branch_id,
+      ...result
+    })
     return result
   }
 
@@ -199,35 +222,82 @@ class StoreUpdateService {
       candidates: [checkout?.ip, checkout?.hostname]
     }).catch(() => ({ status: 'offline', detail: 'Reachability probe failed' }))
     if (reach.status === 'offline') {
-      return { state: 'offline', host, detail: reach.detail, icmp: reach.icmp, smb: false, checkedAt: new Date().toISOString() }
+      return {
+        state: 'offline',
+        host,
+        detail: reach.detail,
+        icmp: reach.icmp,
+        smb: false,
+        checkedAt: new Date().toISOString()
+      }
     }
 
     // Everything downstream must talk to the address that actually answered.
     const address = reach.host || host
-    const base = { host: address, label: this.#labelOf(checkout), pingTime: reach.ping_time, icmp: reach.icmp, smb: true, checkedAt: new Date().toISOString() }
+    const base = {
+      host: address,
+      label: this.#labelOf(checkout),
+      pingTime: reach.ping_time,
+      icmp: reach.icmp,
+      smb: true,
+      checkedAt: new Date().toISOString()
+    }
     try {
       this.#requireRealPaths('Reading a version from a remote machine')
-      return await withTimeout(this.#withSession(address, async () => {
-        const inventory = await this.agent.inspect(address)
-        if (!inventory.running) return { ...base, state: 'agent-not-running', detail: inventory.reason || 'Agent is not running' }
-        if (inventory.inventoryError) return { ...base, state: 'error', error: inventory.inventoryError, source: 'agent' }
-        const program = pickProgram(inventory.programs, this.programName)
-        // The Hyper.Commerce extension version: modern agents report it in the
-        // heartbeat (registry first, deployed files second); older agents only
-        // carry the raw Programs and Features list, so match that here.
-        const extensionEntry = inventory.extensionVersion ? null : pickHyperCommerceExtension(inventory.programs)
-        const extension = inventory.extensionVersion
-          ? { name: inventory.extensionName || 'Hyper.Commerce', version: inventory.extensionVersion, source: inventory.extensionSource || 'manifest' }
-          : extensionEntry ? { name: extensionEntry.name || 'Hyper.Commerce', version: extensionEntry.version || 'unknown', source: 'control-panel' } : null
-        if (!program) return { ...base, state: 'not-found', source: 'agent', extension, detail: `“${this.programName}” is not listed in the agent's current Programs and Features inventory`, installedCount: inventory.programs.length }
-        return {
-          ...base, state: 'ok', version: program.version || 'unknown', product: program.name,
-          publisher: program.publisher, installLocation: program.installLocation,
-          extension,
-          source: 'agent', stale: false, agentVersion: inventory.agentVersion,
-          inventoryAt: inventory.generatedAt, durationMs: Date.now() - startedAt
-        }
-      }), this.checkTimeoutMs, `${this.#labelOf(checkout)} did not return its installed programs in time`)
+      return await withTimeout(
+        this.#withSession(address, async () => {
+          const inventory = await this.agent.inspect(address)
+          if (!inventory.running)
+            return { ...base, state: 'agent-not-running', detail: inventory.reason || 'Agent is not running' }
+          if (inventory.inventoryError)
+            return { ...base, state: 'error', error: inventory.inventoryError, source: 'agent' }
+          const program = pickProgram(inventory.programs, this.programName)
+          // The Hyper.Commerce extension version: modern agents report it in the
+          // heartbeat (registry first, deployed files second); older agents only
+          // carry the raw Programs and Features list, so match that here.
+          const extensionEntry = inventory.extensionVersion
+            ? null
+            : pickHyperCommerceExtension(inventory.programs)
+          const extension = inventory.extensionVersion
+            ? {
+                name: inventory.extensionName || 'Hyper.Commerce',
+                version: inventory.extensionVersion,
+                source: inventory.extensionSource || 'manifest'
+              }
+            : extensionEntry
+              ? {
+                  name: extensionEntry.name || 'Hyper.Commerce',
+                  version: extensionEntry.version || 'unknown',
+                  source: 'control-panel'
+                }
+              : null
+          if (!program)
+            return {
+              ...base,
+              state: 'not-found',
+              source: 'agent',
+              extension,
+              detail: `“${this.programName}” is not listed in the agent's current Programs and Features inventory`,
+              installedCount: inventory.programs.length
+            }
+          return {
+            ...base,
+            state: 'ok',
+            version: program.version || 'unknown',
+            product: program.name,
+            publisher: program.publisher,
+            installLocation: program.installLocation,
+            extension,
+            source: 'agent',
+            stale: false,
+            agentVersion: inventory.agentVersion,
+            inventoryAt: inventory.generatedAt,
+            durationMs: Date.now() - startedAt
+          }
+        }),
+        this.checkTimeoutMs,
+        `${this.#labelOf(checkout)} did not return its installed programs in time`
+      )
     } catch (error) {
       return { ...base, state: 'error', error: error.message, durationMs: Date.now() - startedAt }
     }
@@ -252,25 +322,32 @@ class StoreUpdateService {
     const address = reach.host || host
     this.#requireRealPaths('Listing installed programs on a remote machine')
 
-    return withTimeout(this.#withSession(address, async () => {
-      const inventory = await this.agent.inspect(address)
-      if (!inventory.running) throw new Error(`Agent is not running — ${inventory.reason || 'Import Agent to install/start the service'}`)
-      if (inventory.inventoryError) throw new Error(inventory.inventoryError)
-      const { programs } = inventory
-      const source = 'agent'
-      const stale = false
-      const match = pickProgram(programs, this.programName)
-      return {
-        host: address,
-        label: this.#labelOf(checkout),
-        source,
-        stale,
-        programs,
-        total: programs.length,
-        configuredName: this.programName,
-        match: match ? { name: match.name, version: match.version } : null
-      }
-    }), this.checkTimeoutMs, `${this.#labelOf(checkout)} did not return its installed programs in time`)
+    return withTimeout(
+      this.#withSession(address, async () => {
+        const inventory = await this.agent.inspect(address)
+        if (!inventory.running)
+          throw new Error(
+            `Agent is not running — ${inventory.reason || 'Import Agent to install/start the service'}`
+          )
+        if (inventory.inventoryError) throw new Error(inventory.inventoryError)
+        const { programs } = inventory
+        const source = 'agent'
+        const stale = false
+        const match = pickProgram(programs, this.programName)
+        return {
+          host: address,
+          label: this.#labelOf(checkout),
+          source,
+          stale,
+          programs,
+          total: programs.length,
+          configuredName: this.programName,
+          match: match ? { name: match.name, version: match.version } : null
+        }
+      }),
+      this.checkTimeoutMs,
+      `${this.#labelOf(checkout)} did not return its installed programs in time`
+    )
   }
 
   /**
@@ -285,8 +362,16 @@ class StoreUpdateService {
     const workers = Array.from({ length: Math.min(5, queue.length) }, async () => {
       while (queue.length) {
         const checkout = queue.shift()
-        const result = await this.checkOne(checkout).catch((error) => ({ state: 'error', error: error.message }))
-        const full = this.#remember(checkout, { checkoutId: checkout.id, name: checkout.name, branchId: checkout.branch_id, ...result })
+        const result = await this.checkOne(checkout).catch((error) => ({
+          state: 'error',
+          error: error.message
+        }))
+        const full = this.#remember(checkout, {
+          checkoutId: checkout.id,
+          name: checkout.name,
+          branchId: checkout.branch_id,
+          ...result
+        })
         this.emit('store-update:version', full)
         results.push(full)
       }
@@ -327,7 +412,11 @@ class StoreUpdateService {
       if (!fileName) throw new Error('No file selected')
       sourceSize = (await statAsync(source, 10000)).size
     } catch {
-      record('source', 'failed', fileName ? 'The selected file no longer exists on this system' : 'No file selected')
+      record(
+        'source',
+        'failed',
+        fileName ? 'The selected file no longer exists on this system' : 'No file selected'
+      )
       return finish(false, { error: 'Selected file missing' })
     }
     record('source', 'done', `${fileName} (${sourceSize} bytes)`)
@@ -358,7 +447,12 @@ class StoreUpdateService {
     // session when the checkout sits in another domain. One session covers the
     // whole deployment and is released automatically at the end.
     const credentials = this.getCredentials()
-    if (credentials?.username) record('signin', 'running', `Signing in to ${address} as ${credentials.domain ? `${credentials.domain}\\` : ''}${credentials.username}…`)
+    if (credentials?.username)
+      record(
+        'signin',
+        'running',
+        `Signing in to ${address} as ${credentials.domain ? `${credentials.domain}\\` : ''}${credentials.username}…`
+      )
     try {
       return await this.smb.withHost(address, credentials, async () => {
         if (credentials?.username) record('signin', 'done', `Authenticated to ${address}`)
@@ -404,14 +498,28 @@ class StoreUpdateService {
           const suffix = MAX_COPY_ATTEMPTS > 1 ? ` (attempt ${attempt}/${MAX_COPY_ATTEMPTS})` : ''
           let lastProgress = 0
           record('copy', 'running', `Copying ${fileName}…${suffix}`)
-          this.emit('store-update:progress', { runId, checkoutId: checkout.id, name: checkout.name, percent: 0, attempt })
+          this.emit('store-update:progress', {
+            runId,
+            checkoutId: checkout.id,
+            name: checkout.name,
+            percent: 0,
+            attempt
+          })
           try {
             await withTimeout(
               this.copyImpl(source, target, sourceSize, (written, total) => {
                 const percent = total > 0 ? Math.floor((written / total) * 100) : 100
                 if (Date.now() - lastProgress >= 100 || written === total) {
                   lastProgress = Date.now()
-                  this.emit('store-update:progress', { runId, checkoutId: checkout.id, name: checkout.name, percent, written, total, attempt })
+                  this.emit('store-update:progress', {
+                    runId,
+                    checkoutId: checkout.id,
+                    name: checkout.name,
+                    percent,
+                    written,
+                    total,
+                    attempt
+                  })
                 }
               }),
               this.copyTimeoutMs,
@@ -435,13 +543,24 @@ class StoreUpdateService {
             if (inventory.running && compareVersions(inventory.agentVersion || '0', MIN_AGENT_SHA256) >= 0) {
               const answer = await withTimeout(
                 this.commands.sendCommand(address, { action: 'sha256', path: localTarget }),
-                this.copyTimeoutMs, `The agent on ${address} did not return the file hash in time`)
-              if (answer.sha256) { targetHash = String(answer.sha256).toLowerCase(); hashedBy = 'agent' }
+                this.copyTimeoutMs,
+                `The agent on ${address} did not return the file hash in time`
+              )
+              if (answer.sha256) {
+                targetHash = String(answer.sha256).toLowerCase()
+                hashedBy = 'agent'
+              }
             }
-          } catch { /* fall back to the read-back hash below */ }
+          } catch {
+            /* fall back to the read-back hash below */
+          }
           if (!targetHash) {
             try {
-              targetHash = await withTimeout(sha256File(target), this.copyTimeoutMs, `Hashing the copy on ${address} stalled`)
+              targetHash = await withTimeout(
+                sha256File(target),
+                this.copyTimeoutMs,
+                `Hashing the copy on ${address} stalled`
+              )
               hashedBy = 'desktop'
             } catch (error) {
               record('verify', 'failed', `Could not hash the copied file — ${error.message}`)
@@ -449,13 +568,32 @@ class StoreUpdateService {
             }
           }
           if (targetHash === sourceHash) {
-            record('verify', 'done', hashedBy === 'agent'
-              ? 'SHA-256 hashes match — computed by the agent on the checkout'
-              : 'SHA-256 hashes match — the copy is intact')
-            record('finish', 'done', `Deployed ${fileName}${backupName ? ` (previous file kept as ${backupName})` : ''}`)
-            return finish(true, { backup: backupName, bytes: sourceSize, attempts: attempt, sha256: sourceHash })
+            record(
+              'verify',
+              'done',
+              hashedBy === 'agent'
+                ? 'SHA-256 hashes match — computed by the agent on the checkout'
+                : 'SHA-256 hashes match — the copy is intact'
+            )
+            record(
+              'finish',
+              'done',
+              `Deployed ${fileName}${backupName ? ` (previous file kept as ${backupName})` : ''}`
+            )
+            return finish(true, {
+              backup: backupName,
+              bytes: sourceSize,
+              attempts: attempt,
+              sha256: sourceHash
+            })
           }
-          record('verify', 'failed', attempt < MAX_COPY_ATTEMPTS ? 'SHA-256 mismatch — deleting the corrupt copy and repeating' : 'SHA-256 still differs after the final attempt')
+          record(
+            'verify',
+            'failed',
+            attempt < MAX_COPY_ATTEMPTS
+              ? 'SHA-256 mismatch — deleting the corrupt copy and repeating'
+              : 'SHA-256 still differs after the final attempt'
+          )
           try {
             await unlinkAsync(target)
           } catch (error) {
@@ -463,7 +601,10 @@ class StoreUpdateService {
             return finish(false, { error: 'Corrupt copy could not be removed', backup: backupName })
           }
         }
-        return finish(false, { error: `SHA-256 mismatch after ${MAX_COPY_ATTEMPTS} attempts`, backup: backupName })
+        return finish(false, {
+          error: `SHA-256 mismatch after ${MAX_COPY_ATTEMPTS} attempts`,
+          backup: backupName
+        })
       })
     } catch (error) {
       // Session setup failed (wrong credentials, host refuses SMB, …).
@@ -498,4 +639,11 @@ class StoreUpdateService {
   }
 }
 
-module.exports = { StoreUpdateService, toJalali, jalaliStamp, uncPath, pickBackupName, STORE_COMMERCE_PROGRAM }
+module.exports = {
+  StoreUpdateService,
+  toJalali,
+  jalaliStamp,
+  uncPath,
+  pickBackupName,
+  STORE_COMMERCE_PROGRAM
+}

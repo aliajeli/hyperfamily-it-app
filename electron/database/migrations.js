@@ -1,12 +1,35 @@
 const DEVICE_COLUMNS = [
-  'branch_id', 'device_type', 'model', 'name', 'location', 'ip', 'port', 'asset_code',
-  'connection_type', 'transport', 'connection_port', 'hostname', 'user', 'domain', 'esxi_version',
-  'version', 'terminal_id', 'acceptance_id', 'brand', 'checkout_number', 'serial_number',
-  'remote_id', 'protocol', 'is_dashboard_visible'
+  'branch_id',
+  'device_type',
+  'model',
+  'name',
+  'location',
+  'ip',
+  'port',
+  'asset_code',
+  'connection_type',
+  'transport',
+  'connection_port',
+  'hostname',
+  'user',
+  'domain',
+  'esxi_version',
+  'version',
+  'terminal_id',
+  'acceptance_id',
+  'brand',
+  'checkout_number',
+  'serial_number',
+  'remote_id',
+  'protocol',
+  'is_dashboard_visible'
 ]
 
 function hasColumn(db, table, column) {
-  return db.prepare(`PRAGMA table_info(${table})`).all().some((item) => item.name === column)
+  return db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all()
+    .some((item) => item.name === column)
 }
 
 function runMigrations(db, adminHash, adminRecovery = '') {
@@ -214,27 +237,35 @@ function runMigrations(db, adminHash, adminRecovery = '') {
   // Upgrade databases made by early development builds without these optional fields.
   if (!hasColumn(db, 'devices', 'remote_id')) db.exec('ALTER TABLE devices ADD COLUMN remote_id TEXT')
   if (!hasColumn(db, 'devices', 'transport')) db.exec('ALTER TABLE devices ADD COLUMN transport TEXT')
-  if (!hasColumn(db, 'devices', 'protocol')) db.exec("ALTER TABLE devices ADD COLUMN protocol TEXT DEFAULT 'https'")
+  if (!hasColumn(db, 'devices', 'protocol'))
+    db.exec("ALTER TABLE devices ADD COLUMN protocol TEXT DEFAULT 'https'")
   if (!hasColumn(db, 'devices', 'serial_number')) db.exec('ALTER TABLE devices ADD COLUMN serial_number TEXT')
-  if (!hasColumn(db, 'branches', 'warehouse_code')) db.exec('ALTER TABLE branches ADD COLUMN warehouse_code TEXT')
+  if (!hasColumn(db, 'branches', 'warehouse_code'))
+    db.exec('ALTER TABLE branches ADD COLUMN warehouse_code TEXT')
 
   // Notes gained a colour and a priority level in 2.1.0. Existing notes take
   // the neutral colour and the ordinary priority, so nothing already written
   // changes appearance or position until it is edited.
-  if (!hasColumn(db, 'notes', 'color')) db.exec("ALTER TABLE notes ADD COLUMN color TEXT NOT NULL DEFAULT 'default'")
-  if (!hasColumn(db, 'notes', 'priority')) db.exec('ALTER TABLE notes ADD COLUMN priority INTEGER NOT NULL DEFAULT 0')
+  if (!hasColumn(db, 'notes', 'color'))
+    db.exec("ALTER TABLE notes ADD COLUMN color TEXT NOT NULL DEFAULT 'default'")
+  if (!hasColumn(db, 'notes', 'priority'))
+    db.exec('ALTER TABLE notes ADD COLUMN priority INTEGER NOT NULL DEFAULT 0')
   // v2.0.16: tags live in their own column (a JSON array) so they no longer
   // need to be written into the note body.
   if (!hasColumn(db, 'notes', 'tags')) db.exec("ALTER TABLE notes ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
   // v2.0.18: a DPAPI-encrypted copy of the administrator password, so the
   // bundled Credential Recovery tool can display the current credentials.
-  if (!hasColumn(db, 'users', 'password_recovery')) db.exec("ALTER TABLE users ADD COLUMN password_recovery TEXT NOT NULL DEFAULT ''")
+  if (!hasColumn(db, 'users', 'password_recovery'))
+    db.exec("ALTER TABLE users ADD COLUMN password_recovery TEXT NOT NULL DEFAULT ''")
   // v2.0.21: the recovery PIN (scrypt hash) that gates credential recovery.
   // Lockout state lives in credentials.dat so the app and the standalone tool
   // share one counter.
-  if (!hasColumn(db, 'users', 'recovery_pin_hash')) db.exec("ALTER TABLE users ADD COLUMN recovery_pin_hash TEXT NOT NULL DEFAULT ''")
+  if (!hasColumn(db, 'users', 'recovery_pin_hash'))
+    db.exec("ALTER TABLE users ADD COLUMN recovery_pin_hash TEXT NOT NULL DEFAULT ''")
   db.exec('DROP INDEX IF EXISTS idx_notes_updated')
-  db.exec('CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, priority DESC, updated_at DESC)')
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(pinned DESC, priority DESC, updated_at DESC)'
+  )
   db.exec(`
     UPDATE branches
     SET warehouse_code = 'LEGACY-' || code
@@ -250,37 +281,68 @@ function runMigrations(db, adminHash, adminRecovery = '') {
   // Preserve legacy records if an older build allowed multiple Routers. New and
   // already-compliant databases receive a database-level invariant; a legacy
   // database receives it automatically after its extra Routers are removed.
-  const duplicateRouterBranches = db.prepare(`SELECT COUNT(*) AS count FROM (
+  const duplicateRouterBranches = db
+    .prepare(
+      `SELECT COUNT(*) AS count FROM (
     SELECT branch_id FROM devices WHERE device_type = 'Router' GROUP BY branch_id HAVING COUNT(*) > 1
-  )`).get().count
+  )`
+    )
+    .get().count
   if (!duplicateRouterBranches) {
-    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_one_router_per_branch ON devices(branch_id) WHERE device_type = 'Router'")
+    db.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_one_router_per_branch ON devices(branch_id) WHERE device_type = 'Router'"
+    )
   }
 
   const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count
-  if (!userCount) db.prepare('INSERT INTO users (username, password, password_recovery) VALUES (?, ?, ?)').run('Admin', adminHash, adminRecovery)
+  if (!userCount)
+    db.prepare('INSERT INTO users (username, password, password_recovery) VALUES (?, ?, ?)').run(
+      'Admin',
+      adminHash,
+      adminRecovery
+    )
 
   const defaults = {
-    theme: 'aurora', theme_custom: '', ping_interval: 3, ping_history_count: 30,
-    dashboard_branch_mode: 'compact_over_four', dashboard_branch_details_view: 'modal',
-    teamviewer_path: 'C:\\Program Files\\TeamViewer\\TeamViewer.exe', teamviewer_password: '',
-    winbox_path: 'C:\\Program Files\\Winbox\\winbox64.exe', winbox_port: 8291,
+    theme: 'aurora',
+    theme_custom: '',
+    ping_interval: 3,
+    ping_history_count: 30,
+    dashboard_branch_mode: 'compact_over_four',
+    dashboard_branch_details_view: 'modal',
+    teamviewer_path: 'C:\\Program Files\\TeamViewer\\TeamViewer.exe',
+    teamviewer_password: '',
+    winbox_path: 'C:\\Program Files\\Winbox\\winbox64.exe',
+    winbox_port: 8291,
     teamviewer_lan_mode: true,
-    vpn_gateway: '', vpn_port: 443, vpn_user: '', vpn_pass: '', vpn_autoconnect: false,
+    vpn_gateway: '',
+    vpn_port: 443,
+    vpn_user: '',
+    vpn_pass: '',
+    vpn_autoconnect: false,
     forticlient_path: 'C:\\Program Files\\Fortinet\\FortiClient\\FortiClient.exe',
-    terminal_font_size: 14, terminal_ssh_port: 22, terminal_telnet_port: 23,
-    terminal_font_family: 'ui-monospace', terminal_syntax_highlight: true,
+    terminal_font_size: 14,
+    terminal_ssh_port: 22,
+    terminal_telnet_port: 23,
+    terminal_font_family: 'ui-monospace',
+    terminal_syntax_highlight: true,
     webview_autologin: true,
     // Typography groups and the global interface scale. An empty family means
     // "inherit the application default" so a fresh install looks unchanged.
-    font_header_family: '', font_header_size: 100,
-    font_title_family: '', font_title_size: 100,
-    font_text_family: '', font_text_size: 100,
-    font_info_family: '', font_info_size: 100,
-    font_mono_family: '', font_mono_size: 100
+    font_header_family: '',
+    font_header_size: 100,
+    font_title_family: '',
+    font_title_size: 100,
+    font_text_family: '',
+    font_text_size: 100,
+    font_info_family: '',
+    font_info_size: 100,
+    font_mono_family: '',
+    font_mono_size: 100
   }
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
-  const transaction = db.transaction(() => Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value))))
+  const transaction = db.transaction(() =>
+    Object.entries(defaults).forEach(([key, value]) => insertSetting.run(key, JSON.stringify(value)))
+  )
   transaction()
 
   // The in-app remote session (Guacamole) was removed in 2.0.1; drop its stored settings.
@@ -292,7 +354,9 @@ function runMigrations(db, adminHash, adminRecovery = '') {
 
   const snippetCount = db.prepare('SELECT COUNT(*) AS count FROM terminal_snippets').get().count
   if (!snippetCount) {
-    const insertSnippet = db.prepare('INSERT INTO terminal_snippets (name, command, description) VALUES (?, ?, ?)')
+    const insertSnippet = db.prepare(
+      'INSERT INTO terminal_snippets (name, command, description) VALUES (?, ?, ?)'
+    )
     const seedSnippets = db.transaction(() => {
       insertSnippet.run('Show interfaces', 'show interfaces status', 'Port status overview')
       insertSnippet.run('Show VLANs', 'show vlan brief', 'Configured VLANs and member ports')

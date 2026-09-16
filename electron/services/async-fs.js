@@ -25,8 +25,12 @@ function withTimeout(promise, ms, message) {
     Promise.resolve(promise).finally(() => clearTimeout(timer)),
     new Promise((_resolve, reject) => {
       timer = setTimeout(() => reject(new Error(message || `Timed out after ${ms} ms`)), ms)
-      // A pending network wait must never keep the app alive on quit.
-      timer.unref?.()
+      // Inside Electron a pending network wait must never keep the app alive on
+      // quit, so the timer steps out of the event loop's way there. In plain
+      // Node (tests, CLI tools) it must stay referenced — an unref'd timer in
+      // an otherwise idle loop would never fire and the timeout would never
+      // settle, breaking the contract this helper exists for.
+      if (process.versions.electron) timer.unref?.()
     })
   ])
 }
@@ -47,14 +51,19 @@ async function probeAsync(target, timeoutMs = 15000) {
     const stats = await withTimeout(fsp.stat(target), timeoutMs, `Timed out reading ${target}`)
     return { reachable: true, exists: true, size: stats.size, modifiedAt: stats.mtime.toISOString() }
   } catch (error) {
-    if (error && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) return { reachable: true, exists: false }
+    if (error && (error.code === 'ENOENT' || error.code === 'ENOTDIR'))
+      return { reachable: true, exists: false }
     return { reachable: false, exists: false, error: error.message }
   }
 }
 
-const statAsync = (target, timeoutMs = 15000) => withTimeout(fsp.stat(target), timeoutMs, `Timed out reading ${target}`)
-const mkdirAsync = (target, timeoutMs = 20000) => withTimeout(fsp.mkdir(target, { recursive: true }), timeoutMs, `Timed out creating ${target}`)
-const renameAsync = (from, to, timeoutMs = 30000) => withTimeout(fsp.rename(from, to), timeoutMs, `Timed out renaming ${from}`)
-const unlinkAsync = (target, timeoutMs = 20000) => withTimeout(fsp.unlink(target), timeoutMs, `Timed out deleting ${target}`)
+const statAsync = (target, timeoutMs = 15000) =>
+  withTimeout(fsp.stat(target), timeoutMs, `Timed out reading ${target}`)
+const mkdirAsync = (target, timeoutMs = 20000) =>
+  withTimeout(fsp.mkdir(target, { recursive: true }), timeoutMs, `Timed out creating ${target}`)
+const renameAsync = (from, to, timeoutMs = 30000) =>
+  withTimeout(fsp.rename(from, to), timeoutMs, `Timed out renaming ${from}`)
+const unlinkAsync = (target, timeoutMs = 20000) =>
+  withTimeout(fsp.unlink(target), timeoutMs, `Timed out deleting ${target}`)
 
 module.exports = { withTimeout, existsAsync, probeAsync, statAsync, mkdirAsync, renameAsync, unlinkAsync }

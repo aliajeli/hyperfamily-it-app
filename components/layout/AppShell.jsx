@@ -27,26 +27,46 @@ export default function AppShell({ children, compact = false }) {
   // button is clicked again — never expanded by a hover, a route change or a
   // restart (v2.0.16). The choice is remembered across sessions.
   const [collapsed, setCollapsed] = useState(() => {
-    try { return window.localStorage.getItem('hyperfamily.sidebar') === 'collapsed' } catch { return false }
+    try {
+      return window.localStorage.getItem('hyperfamily.sidebar') === 'collapsed'
+    } catch {
+      return false
+    }
   })
 
   useEffect(() => {
-    try { window.localStorage.setItem('hyperfamily.sidebar', collapsed ? 'collapsed' : 'expanded') } catch { /* storage may be unavailable */ }
+    try {
+      window.localStorage.setItem('hyperfamily.sidebar', collapsed ? 'collapsed' : 'expanded')
+    } catch {
+      /* storage may be unavailable */
+    }
   }, [collapsed])
 
   useEffect(() => {
     if (hydrated && !user) router.replace('/login')
     if (hydrated && user) {
-      getApi().auth.status().then(({ authenticated }) => {
-        if (!authenticated) { logout(); router.replace('/login') }
-      }).catch(() => { logout(); router.replace('/login') })
+      getApi()
+        .auth.status()
+        .then(({ authenticated }) => {
+          if (!authenticated) {
+            logout()
+            router.replace('/login')
+          }
+        })
+        .catch(() => {
+          logout()
+          router.replace('/login')
+        })
     }
   }, [hydrated, user, logout, router])
 
   useEffect(() => {
     if (!user) return
     let unsubscribe = () => {}
-    getApi().monitor.snapshot().then(setSnapshot).catch(() => {})
+    getApi()
+      .monitor.snapshot()
+      .then(setSnapshot)
+      .catch(() => {})
     unsubscribe = getApi().monitor.subscribe(setSnapshot)
     return () => unsubscribe?.()
   }, [user, setSnapshot])
@@ -73,7 +93,9 @@ export default function AppShell({ children, compact = false }) {
             })
           }
         }
-      } catch { /* offline or a failed check must stay silent */ }
+      } catch {
+        /* offline or a failed check must stay silent */
+      }
     }
     runCheck()
     const timer = setInterval(runCheck, 6 * 60 * 60 * 1000)
@@ -81,25 +103,36 @@ export default function AppShell({ children, compact = false }) {
   }, [user, setUpdateInfo, router])
 
   const onLogout = async () => {
-    await getApi().auth.logout().catch(() => {})
+    await getApi()
+      .auth.logout()
+      .catch(() => {})
     logout()
     router.replace('/login')
   }
 
-  if (!hydrated || !user) return <div className="grid min-h-screen place-items-center"><div className="h-10 w-10 animate-spin rounded-full border-4 border-[rgb(var(--primary)/.25)] border-t-[rgb(var(--primary))]" /></div>
+  if (!hydrated || !user)
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[rgb(var(--primary)/.25)] border-t-[rgb(var(--primary))]" />
+      </div>
+    )
 
   const rail = collapsed ? SIDEBAR_WIDTH.collapsed : SIDEBAR_WIDTH.expanded
 
   // A single custom property drives the rail width, the header offset and the
   // content margin, so the three can never disagree at any interface scale.
-  return <div className="app-shell min-h-[100dvh]" style={{ '--rail': rail }}>
-    <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} onLogout={onLogout} />
-    <Header user={user} />
-    <motion.main
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={`app-main min-h-[100dvh] ${compact ? 'px-3 pb-20 pt-[68px] md:px-4 md:pb-4' : 'px-3 pb-20 pt-[72px] md:px-5 md:pb-6'}`}
-    >{children}</motion.main>
-  </div>
+  return (
+    <div className="app-shell min-h-[100dvh]" style={{ '--rail': rail }}>
+      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} onLogout={onLogout} />
+      <Header user={user} />
+      <motion.main
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`app-main min-h-[100dvh] ${compact ? 'px-3 pb-20 pt-[68px] md:px-4 md:pb-4' : 'px-3 pb-20 pt-[72px] md:px-5 md:pb-6'}`}
+      >
+        {children}
+      </motion.main>
+    </div>
+  )
 }

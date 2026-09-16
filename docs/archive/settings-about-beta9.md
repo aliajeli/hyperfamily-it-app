@@ -17,16 +17,16 @@
 
 Credits live in `lib/technology-stack.json`. Next.js, React, Electron and Framer Motion major labels are derived from the dependency manifest. The list distinguishes runtime responsibilities from build tools through descriptions; it is not a list of all transitive packages.
 
-| Area | Credits and source evidence |
-| --- | --- |
-| UI/runtime | Next.js / React (`app/`, `components/`); Electron / bundled Node.js (`electron/main/`) |
-| Components/style | Actual Radix UI wrappers (`components/ui/index.jsx`), Tailwind (`tailwind.config.js`), Framer Motion, Lucide |
-| State/charts/forms | Zustand (`stores/`), Recharts (`components/dashboard/`), React Hook Form + Zod (`components/devices/DeviceForm.jsx`, `components/devices/BranchForm.jsx`), Sonner notifications |
-| Database/auth | Encrypted SQLite with SQLCipher pragma and bcryptjs (`electron/database/index.js`) |
-| Secret storage | Electron safeStorage / Windows DPAPI and AES-256-GCM fallback (`electron/services/crypto.service.js`) |
-| Operations | ssh2 (`electron/services/terminal.service.js`), ExcelJS (`electron/services/excel.service.js`), SMB / Windows SCM and SHA-256 (`electron/services/smb.service.js`, `store-agent.service.js`, `agent-transfer.service.js`, `store-update.service.js`) |
-| Native Agent | C++17 / Win32 (`agent/main.cpp`, `agent/CMakeLists.txt`) |
-| Delivery/build | electron-updater (`electron/services/update.service.js`); electron-builder / NSIS (`electron-builder.json`); CMake / MSVC (`agent/CMakeLists.txt`, beta release workflow) |
+| Area               | Credits and source evidence                                                                                                                                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UI/runtime         | Next.js / React (`app/`, `components/`); Electron / bundled Node.js (`electron/main/`)                                                                                                                                                               |
+| Components/style   | Actual Radix UI wrappers (`components/ui/index.jsx`), Tailwind (`tailwind.config.js`), Framer Motion, Lucide                                                                                                                                         |
+| State/charts/forms | Zustand (`stores/`), Recharts (`components/dashboard/`), React Hook Form + Zod (`components/devices/DeviceForm.jsx`, `components/devices/BranchForm.jsx`), Sonner notifications                                                                      |
+| Database/auth      | Encrypted SQLite with SQLCipher pragma and bcryptjs (`electron/database/index.js`)                                                                                                                                                                   |
+| Secret storage     | Electron safeStorage / Windows DPAPI and AES-256-GCM fallback (`electron/services/crypto.service.js`)                                                                                                                                                |
+| Operations         | ssh2 (`electron/services/terminal.service.js`), ExcelJS (`electron/services/excel.service.js`), SMB / Windows SCM and SHA-256 (`electron/services/smb.service.js`, `store-agent.service.js`, `agent-transfer.service.js`, `store-update.service.js`) |
+| Native Agent       | C++17 / Win32 (`agent/main.cpp`, `agent/CMakeLists.txt`)                                                                                                                                                                                             |
+| Delivery/build     | electron-updater (`electron/services/update.service.js`); electron-builder / NSIS (`electron-builder.json`); CMake / MSVC (`agent/CMakeLists.txt`, beta release workflow)                                                                            |
 
 Removed the inaccurate shadcn/ui credit in favor of Radix UI. Installed-but-unused packages such as keytar, vaul, @formkit/auto-animate and @phosphor-icons/react are not advertised as used technologies. Build tools are not additional checkout runtime requirements. No claim is made that Electron's renderer is sandboxed or that an authentication secret never participates in remote authentication.
 

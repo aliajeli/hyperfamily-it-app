@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { StoreInstallService, INSTALLER_FILE } = require('../electron/services/store-install.service')
+const { StoreInstallService, INSTALLER_FILE } = require('../../electron/services/store-install.service')
 
 /**
  * The whole Update Store Commerce pipeline with every OS-shaped dependency
@@ -18,44 +18,83 @@ function harness(overrides = {}) {
     storeRunning: true,
     closeOk: true,
     fileExists: true,
-    installer: { ok: true, exitCode: 0, output: 'Installed successfully', version: '9.60.24100.1', timedOut: false, error: '' },
+    installer: {
+      ok: true,
+      exitCode: 0,
+      output: 'Installed successfully',
+      version: '9.60.24100.1',
+      timedOut: false,
+      error: ''
+    },
     versionBefore: '9.52.24020.3'
   }
   Object.assign(state, overrides)
-  const service = new StoreInstallService(
-    (channel, payload) => events.push({ channel, payload }),
-    {
-      platform: 'win32',
-      reach: async () => (state.reachStatus === 'offline'
+  const service = new StoreInstallService((channel, payload) => events.push({ channel, payload }), {
+    platform: 'win32',
+    reach: async () =>
+      state.reachStatus === 'offline'
         ? { status: 'offline', detail: 'SMB did not answer' }
-        : { status: 'online', host: '10.0.0.5', ping_time: 6, detail: 'SMB answered in 6 ms' }),
-      reachTimeoutMs: 50,
-      stepTimeoutMs: 200,
-      smb: { withHost: async (_host, _credentials, task) => task() },
-      agent: { inspect: async () => (state.agentRunning ? { running: true, agentVersion: state.agentVersion } : { running: false, reason: 'Agent service is Stopped' }) },
-      commands: {
-        sendCommand: async (_host, command) => {
-          sent.push(command)
-          if (command.action === 'status') {
-            return { protocolVersion: 1, id: 'x', action: 'status', ok: true, running: state.storeRunning, processes: state.storeRunning ? [{ name: 'StoreCommerce.exe', pid: 4242 }] : [], version: state.versionBefore }
+        : { status: 'online', host: '10.0.0.5', ping_time: 6, detail: 'SMB answered in 6 ms' },
+    reachTimeoutMs: 50,
+    stepTimeoutMs: 200,
+    smb: { withHost: async (_host, _credentials, task) => task() },
+    agent: {
+      inspect: async () =>
+        state.agentRunning
+          ? { running: true, agentVersion: state.agentVersion }
+          : { running: false, reason: 'Agent service is Stopped' }
+    },
+    commands: {
+      sendCommand: async (_host, command) => {
+        sent.push(command)
+        if (command.action === 'status') {
+          return {
+            protocolVersion: 1,
+            id: 'x',
+            action: 'status',
+            ok: true,
+            running: state.storeRunning,
+            processes: state.storeRunning ? [{ name: 'StoreCommerce.exe', pid: 4242 }] : [],
+            version: state.versionBefore
           }
-          if (command.action === 'close') {
-            state.storeRunning = false
-            return { protocolVersion: 1, id: 'x', action: 'close', ok: state.closeOk, running: !state.closeOk, processes: state.closeOk ? [] : [{ name: 'StoreCommerce.exe', pid: 4242 }], version: state.versionBefore, error: state.closeOk ? '' : 'still running' }
-          }
-          if (command.action === 'install') {
-            return { protocolVersion: 1, id: 'x', action: 'install', ok: state.installer.ok, exitCode: state.installer.exitCode, output: state.installer.output, version: state.installer.version, timedOut: state.installer.timedOut, error: state.installer.error, processes: [] }
-          }
-          throw new Error(`unexpected command ${command.action}`)
         }
-      },
-      probe: async () => ({ reachable: true, exists: state.fileExists, size: 4812032 }),
-      destinationMapper: (_host, local) => `\\\\10.0.0.5\\C$\\${local.replace(/^C:\\/, '')}`,
-      getCredentials: () => ({ domain: 'okcs', username: 'administrator', password: 'x' })
-    }
-  )
+        if (command.action === 'close') {
+          state.storeRunning = false
+          return {
+            protocolVersion: 1,
+            id: 'x',
+            action: 'close',
+            ok: state.closeOk,
+            running: !state.closeOk,
+            processes: state.closeOk ? [] : [{ name: 'StoreCommerce.exe', pid: 4242 }],
+            version: state.versionBefore,
+            error: state.closeOk ? '' : 'still running'
+          }
+        }
+        if (command.action === 'install') {
+          return {
+            protocolVersion: 1,
+            id: 'x',
+            action: 'install',
+            ok: state.installer.ok,
+            exitCode: state.installer.exitCode,
+            output: state.installer.output,
+            version: state.installer.version,
+            timedOut: state.installer.timedOut,
+            error: state.installer.error,
+            processes: []
+          }
+        }
+        throw new Error(`unexpected command ${command.action}`)
+      }
+    },
+    probe: async () => ({ reachable: true, exists: state.fileExists, size: 4812032 }),
+    destinationMapper: (_host, local) => `\\\\10.0.0.5\\C$\\${local.replace(/^C:\\/, '')}`,
+    getCredentials: () => ({ domain: 'okcs', username: 'administrator', password: 'x' })
+  })
   const checkout = { id: 7, name: 'st10007r02', hostname: 'st10007r02', ip: '10.0.0.5' }
-  const stepStatuses = (result, step) => result.steps.filter((entry) => entry.step === step).map((entry) => entry.status)
+  const stepStatuses = (result, step) =>
+    result.steps.filter((entry) => entry.step === step).map((entry) => entry.status)
   return { service, checkout, events, sent, state, stepStatuses }
 }
 
@@ -70,10 +109,19 @@ test('happy path: close → verify → installer install → version, with the f
   assert.equal(result.versionBefore, '9.52.24020.3')
   assert.match(result.output, /Installed successfully/)
   // the exact step order the operators asked for
-  assert.deepEqual(result.steps.map((entry) => `${entry.step}:${entry.status}`).filter((row) => !row.endsWith(':running')), [
-    'reachability:done', 'agent:done', 'running-check:done', 'close:done', 'verify-closed:done',
-    'file-check:done', 'install:done', 'version:done'
-  ])
+  assert.deepEqual(
+    result.steps.map((entry) => `${entry.step}:${entry.status}`).filter((row) => !row.endsWith(':running')),
+    [
+      'reachability:done',
+      'agent:done',
+      'running-check:done',
+      'close:done',
+      'verify-closed:done',
+      'file-check:done',
+      'install:done',
+      'version:done'
+    ]
+  )
   // every step is narrated live for the dialog
   const installSteps = events.filter((event) => event.channel === 'store-update:install-step')
   assert.ok(installSteps.length >= 8)
@@ -129,7 +177,14 @@ test('missing installer fails the file check but STILL reports the version', asy
 
 test('a failing installer is red, carries exit code and output, and shows the final version', async () => {
   const { service, checkout } = harness({
-    installer: { ok: false, exitCode: 1603, output: 'Fatal error during installation', version: '9.52.24020.3', timedOut: false, error: 'The installer exited with code 1603' }
+    installer: {
+      ok: false,
+      exitCode: 1603,
+      output: 'Fatal error during installation',
+      version: '9.52.24020.3',
+      timedOut: false,
+      error: 'The installer exited with code 1603'
+    }
   })
   const result = await service.installOne(checkout, { destinationPath: DEST })
   assert.equal(result.ok, false)
@@ -145,7 +200,11 @@ test('a Store Commerce that refuses to die stops the pipeline before the file ch
   const result = await service.installOne(checkout, { destinationPath: DEST })
   assert.equal(result.ok, false)
   assert.match(result.error, /could not be closed/)
-  assert.equal(sent.some((command) => command.action === 'install'), false, 'the installer must never run while Store Commerce lives')
+  assert.equal(
+    sent.some((command) => command.action === 'install'),
+    false,
+    'the installer must never run while Store Commerce lives'
+  )
 })
 
 test('installAll runs strictly serially and emits the finished summary', async () => {
@@ -182,7 +241,10 @@ test('Stop skips the remaining checkouts and flags the batch as cancelled', asyn
   assert.equal(summary.cancelledByOperator, true)
   const skipped = summary.results.filter((row) => row.skipped)
   assert.ok(skipped.length >= 1, 'at least one checkout must be skipped after Stop')
-  assert.ok(summary.results.every((row) => row.ok || row.cancelled), 'nothing may report a hard failure after a Stop')
+  assert.ok(
+    summary.results.every((row) => row.ok || row.cancelled),
+    'nothing may report a hard failure after a Stop'
+  )
 })
 
 test('a missing destination folder is refused before anything is sent', async () => {

@@ -28,12 +28,12 @@ A Windows desktop workspace for HyperFamily retail IT: branch connectivity monit
 
 Use the [3.1.0 release page](https://github.com/aliajeli/hyperfamily-it-app/releases/tag/v3.1.0) for the exact release, or [latest stable release](https://github.com/aliajeli/hyperfamily-it-app/releases/latest) for subsequent stable versions.
 
-| Release file | Purpose |
-| --- | --- |
+| Release file                                                                                                                                                     | Purpose                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | [HyperFamily-Branch-Monitor-Setup-3.1.0.exe](https://github.com/aliajeli/hyperfamily-it-app/releases/download/v3.1.0/HyperFamily-Branch-Monitor-Setup-3.1.0.exe) | Main Windows installer; includes the desktop app with integrated credential recovery, plus the native Agent bundle |
-| `HyperFamilyStoreAgent.exe` | Standalone checkout Windows Service binary; normally installed using the desktop Import action |
-| `HyperFamilyStoreAgent.exe.sha256` | SHA-256 checksum of the standalone Agent |
-| Installer `.blockmap` and `latest.yml` | Update metadata; not additional programs to install |
+| `HyperFamilyStoreAgent.exe`                                                                                                                                      | Standalone checkout Windows Service binary; normally installed using the desktop Import action                     |
+| `HyperFamilyStoreAgent.exe.sha256`                                                                                                                               | SHA-256 checksum of the standalone Agent                                                                           |
+| Installer `.blockmap` and `latest.yml`                                                                                                                           | Update metadata; not additional programs to install                                                                |
 
 ### Management workstation
 
@@ -67,7 +67,7 @@ This stable release includes the approved Beta work through beta.10:
 - **Refreshed About:** compact product card, package-derived version, audited technology credits, update controls and support links.
 - **Local data and customization:** encrypted SQLite storage, per-field secret protection, PIN-gated recovery, multiple light/dark themes, custom colors, fonts, scaling and operational notes.
 
-On top of the beta line, 3.1.0 cuts the Windows installer from roughly 300 MB to about 100 MB (the separate recovery app is now integrated into the desktop app), and adds a selectable **main/beta update channel** in About. The stable release also aligns the desktop manifests and removes the native Agent's Windows prerelease flag for stable builds. See [3.1.0 release notes](docs/release-3.1.0.md).
+On top of the beta line, 3.1.0 cuts the Windows installer from roughly 300 MB to about 100 MB (the separate recovery app is now integrated into the desktop app), and adds a selectable **main/beta update channel** in About. The stable release also aligns the desktop manifests and removes the native Agent's Windows prerelease flag for stable builds. See [3.1.0 release notes](docs/archive/release-3.1.0.md).
 
 ## First-run checklist
 
@@ -84,34 +84,34 @@ The local application administrator login and the remote checkout administrator 
 
 ## Screens and settings
 
-| Route | Purpose |
-| --- | --- |
-| `/login` | Local sign-in, remember-account option and PIN-gated credential recovery |
-| `/dashboard` | Branch health, gateway/device response charts, alerts and remote actions |
-| `/dashboard/gateway` | Gateway-focused monitoring view |
-| `/devices` | Branches, equipment records, type-specific forms and Excel workflows |
-| `/inventory` | Searchable inventory, warehouse information and workbook export/import |
-| `/terminal` | In-app SSH sessions |
-| `/store-update` | Installed product/version checks, Agent Import and update-file deployment |
-| `/notes` | Operational notes |
-| `/settings` | Application, checkout, connectivity and appearance settings |
-| `/about` | Product/version information, updates with main/beta channel choice, technology credits and support |
+| Route                | Purpose                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `/login`             | Local sign-in, remember-account option and PIN-gated credential recovery                           |
+| `/dashboard`         | Branch health, gateway/device response charts, alerts and remote actions                           |
+| `/dashboard/gateway` | Gateway-focused monitoring view                                                                    |
+| `/devices`           | Branches, equipment records, type-specific forms and Excel workflows                               |
+| `/inventory`         | Searchable inventory, warehouse information and workbook export/import                             |
+| `/terminal`          | In-app SSH sessions                                                                                |
+| `/store-update`      | Installed product/version checks, Agent Import and update-file deployment                          |
+| `/notes`             | Operational notes                                                                                  |
+| `/settings`          | Application, checkout, connectivity and appearance settings                                        |
+| `/about`             | Product/version information, updates with main/beta channel choice, technology credits and support |
 
 ### Settings tabs
 
-| Tab | Configuration |
-| --- | --- |
-| **General** | Application administrator username/password, recovery PIN, ping interval and chart history |
-| **Store App** | Deploy destination folder; target domain, administrator username/password; checkout access test |
-| **Dashboard** | Dashboard display and interaction preferences |
-| **Credentials** | Saved remote-access credentials |
-| **Assignments** | Credential mappings to equipment types/devices |
-| **Connections** | Enabled connection methods and default method per equipment type |
-| **Device tools** | External client/tool configuration |
-| **Terminal & web** | Terminal and device web preferences |
-| **VPN** | FortiClient and gateway settings/diagnostics |
-| **Theme** | Light/dark themes and custom colors |
-| **Fonts** | Typography and interface sizing |
+| Tab                | Configuration                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| **General**        | Application administrator username/password, recovery PIN, ping interval and chart history      |
+| **Store App**      | Deploy destination folder; target domain, administrator username/password; checkout access test |
+| **Dashboard**      | Dashboard display and interaction preferences                                                   |
+| **Credentials**    | Saved remote-access credentials                                                                 |
+| **Assignments**    | Credential mappings to equipment types/devices                                                  |
+| **Connections**    | Enabled connection methods and default method per equipment type                                |
+| **Device tools**   | External client/tool configuration                                                              |
+| **Terminal & web** | Terminal and device web preferences                                                             |
+| **VPN**            | FortiClient and gateway settings/diagnostics                                                    |
+| **Theme**          | Light/dark themes and custom colors                                                             |
+| **Fonts**          | Typography and interface sizing                                                                 |
 
 **Product name in Programs and Features is no longer a Settings field.** Choose the installed product on **Update Store App**. Saving the deployment destination changes only `store_update_path` and preserves the selected product.
 
@@ -145,16 +145,16 @@ The workbook is validated before a database transaction starts. Invalid rows can
 
 The desktop app orchestrates operations from the management workstation. Each checkout runs the native inventory Agent as a Windows Service:
 
-| Property | Value |
-| --- | --- |
-| Executable | `C:\Agent\HyperFamilyStoreAgent.exe` |
-| Service name | `HyperFamilyStoreAgent` |
-| Service account | `LocalSystem` |
-| Startup | Automatic; no interactive login or Startup-folder shortcut required |
-| Inventory source | Machine-wide Programs and Features registry entries, both 64-bit and 32-bit views |
-| Heartbeat | Approximately every 15 seconds; includes process/instance identity and sequence |
-| Protocol | Version 1; same inventory/import contract retained from the beta service |
-| Implementation | Native x64 C++17/Win32, static CRT; no separately installed .NET or VC++ Redistributable required |
+| Property         | Value                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| Executable       | `C:\Agent\HyperFamilyStoreAgent.exe`                                                              |
+| Service name     | `HyperFamilyStoreAgent`                                                                           |
+| Service account  | `LocalSystem`                                                                                     |
+| Startup          | Automatic; no interactive login or Startup-folder shortcut required                               |
+| Inventory source | Machine-wide Programs and Features registry entries, both 64-bit and 32-bit views                 |
+| Heartbeat        | Approximately every 15 seconds; includes process/instance identity and sequence                   |
+| Protocol         | Version 1; same inventory/import contract retained from the beta service                          |
+| Implementation   | Native x64 C++17/Win32, static CRT; no separately installed .NET or VC++ Redistributable required |
 
 The Agent publishes a local inventory snapshot which the desktop reads through authenticated Windows admin shares. It is **not an HTTP server** and does not require a new custom inbound Agent port. Windows SMB and remote Service Control Manager connectivity still need to be allowed by organizational policy.
 
@@ -187,7 +187,7 @@ Do not double-click the standalone Agent expecting a setup wizard. Use the deskt
 
 Agent hash/copy operations use a **120-second no-progress timeout** and a **30-minute maximum duration per protected transfer operation**. Progress resets the idle timeout; these are not guarantees for total multi-checkout completion time.
 
-The same rules apply when connecting **from outside the store over VPN**: the agent heartbeat/inventory read runs under a 45-second *no-data* deadline (progress keeps it alive) with a 5-minute ceiling, the post-import WAIT for the first agent heartbeat allows up to 5 minutes, and remote service-control calls allow 45-120 seconds per operation instead of LAN-sized values. A busy/slow tunnel therefore slows the steps down instead of failing them.
+The same rules apply when connecting **from outside the store over VPN**: the agent heartbeat/inventory read runs under a 45-second _no-data_ deadline (progress keeps it alive) with a 5-minute ceiling, the post-import WAIT for the first agent heartbeat allows up to 5 minutes, and remote service-control calls allow 45-120 seconds per operation instead of LAN-sized values. A busy/slow tunnel therefore slows the steps down instead of failing them.
 
 The first replacement of an older bundled-runtime Agent may still need to read/hash the old approximately 75 MB file. Later native-Agent transfers and comparisons are much smaller. Do not remove integrity checks or disable endpoint protection to work around a slow or blocked operation.
 
@@ -260,15 +260,15 @@ Recovery reads that file under the same Windows user; it does not bypass DPAPI o
 
 The desktop UI is a statically exported Next.js application loaded by Electron. Main-process services handle native operations and encrypted persistence through a preload IPC boundary. The separate native Agent handles checkout-local registry inventory and heartbeat publication.
 
-| Layer | Technologies actually used |
-| --- | --- |
-| UI/runtime | Next.js 15, React 19, Electron 41 and its bundled Node.js runtime |
-| Interface | Tailwind CSS, custom Radix UI components, Framer Motion, Lucide and Sonner |
-| State/forms/charts | Zustand, React Hook Form + Zod, Recharts |
-| Data/security | better-sqlite3-multiple-ciphers / SQLCipher, bcryptjs, Windows DPAPI, AES-256-GCM |
-| Operations | ssh2, ExcelJS, Windows SMB/SCM and SHA-256 |
-| Native Agent | C++17 / Win32; static CRT |
-| Delivery/build | electron-updater, electron-builder / NSIS, CMake / MSVC |
+| Layer              | Technologies actually used                                                        |
+| ------------------ | --------------------------------------------------------------------------------- |
+| UI/runtime         | Next.js 15, React 19, Electron 41 and its bundled Node.js runtime                 |
+| Interface          | Tailwind CSS, custom Radix UI components, Framer Motion, Lucide and Sonner        |
+| State/forms/charts | Zustand, React Hook Form + Zod, Recharts                                          |
+| Data/security      | better-sqlite3-multiple-ciphers / SQLCipher, bcryptjs, Windows DPAPI, AES-256-GCM |
+| Operations         | ssh2, ExcelJS, Windows SMB/SCM and SHA-256                                        |
+| Native Agent       | C++17 / Win32; static CRT                                                         |
+| Delivery/build     | electron-updater, electron-builder / NSIS, CMake / MSVC                           |
 
 About's 24 technology credits are maintained in [`lib/technology-stack.json`](lib/technology-stack.json). Selected framework major labels and the displayed application version derive from the package manifest. Installed-but-unused dependencies are not automatically advertised as part of the active production stack. The desktop/frontend source uses JavaScript/JSX; the Agent uses C++, not JavaScript.
 
@@ -344,22 +344,22 @@ The Agent bundle is embedded via `extraResources` and must be built before packa
 
 ### Scripts
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Next.js and Electron development processes |
-| `npm run dev:next` | Browser-only UI preview |
-| `npm run build` | Next.js production build/static export |
-| `npm run build:agent` | Windows x64 CMake/MSVC build, C++ tests, native PE/size checks and SHA sidecar |
-| `npm run build:recovery` | Build standalone recovery executable |
-| `npm run build:electron` | Build Agent + frontend + desktop installer; build recovery first |
-| `npm start` | Start Electron with the available app build |
-| `npm run lint` / `npm run format` | ESLint / Prettier |
-| `npm test` | Node unit/contract tests; some checks are conditional on Windows/artifact availability |
-| `npm run test:database` | Encrypted database integration through Electron |
-| `npm run test:ssh` | SSH compatibility integration through Electron |
-| `npm run test:vpn` | VPN service integration through Electron |
-| `npm run test:template` | Excel template/import integration through Electron |
-| `npm run test:agent` | Explicitly opted-in real Windows Agent/service tests |
+| Script                            | Purpose                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| `npm run dev`                     | Next.js and Electron development processes                                             |
+| `npm run dev:next`                | Browser-only UI preview                                                                |
+| `npm run build`                   | Next.js production build/static export                                                 |
+| `npm run build:agent`             | Windows x64 CMake/MSVC build, C++ tests, native PE/size checks and SHA sidecar         |
+| `npm run build:recovery`          | Build standalone recovery executable                                                   |
+| `npm run build:electron`          | Build Agent + frontend + desktop installer; build recovery first                       |
+| `npm start`                       | Start Electron with the available app build                                            |
+| `npm run lint` / `npm run format` | ESLint / Prettier                                                                      |
+| `npm test`                        | Node unit/contract tests; some checks are conditional on Windows/artifact availability |
+| `npm run test:database`           | Encrypted database integration through Electron                                        |
+| `npm run test:ssh`                | SSH compatibility integration through Electron                                         |
+| `npm run test:vpn`                | VPN service integration through Electron                                               |
+| `npm run test:template`           | Excel template/import integration through Electron                                     |
+| `npm run test:agent`              | Explicitly opted-in real Windows Agent/service tests                                   |
 
 ## Tests and validation
 
@@ -395,12 +395,12 @@ Before a real branch rollout, test a known checkout, authenticated admin shares,
 
 ## Releases and updates
 
-| Trigger | Result |
-| --- | --- |
-| Push / pull request to supported CI branches | Validation; branch pushes also package an unsigned test installer |
-| Push to `Beta` | Beta Release workflow builds the version in `package.json` and publishes a **prerelease** |
-| Push stable tag such as `v3.1.0` | Release workflow builds/tests Windows artifacts and publishes the stable release |
-| Push to `main` without a release tag | CI only; it does not by itself publish a stable GitHub release |
+| Trigger                                      | Result                                                                                    |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Push / pull request to supported CI branches | Validation; branch pushes also package an unsigned test installer                         |
+| Push to `Beta`                               | Beta Release workflow builds the version in `package.json` and publishes a **prerelease** |
+| Push stable tag such as `v3.1.0`             | Release workflow builds/tests Windows artifacts and publishes the stable release          |
+| Push to `main` without a release tag         | CI only; it does not by itself publish a stable GitHub release                            |
 
 For a stable release, update the root and recovery package/lock versions together, validate, commit on `main`, and push the matching `v<version>` tag. Keep the `Beta` branch and historical prerelease tags intact; never retag an already-published release to silently replace its contents.
 
@@ -410,29 +410,29 @@ The release workflow uses its repository `GITHUB_TOKEN`. Configure `CSC_LINK` an
 
 ## Troubleshooting
 
-| Symptom | Checks / action |
-| --- | --- |
-| `Agent is not running` | Confirm the service exists/is running; use Import Agent on one checkout and inspect the summary. Double-clicking the EXE is not service installation. |
-| Access denied / rejected credentials | Check Settings → Store App → Target access, target administrator rights, domain/user syntax, Windows remote UAC policy and admin-share/SCM firewall rules. |
-| Agent transfer times out | Inspect the reported hash/copy/verification phase and progress. Check WAN throughput and endpoint scanning. Initial legacy-Agent hashing can be slow. |
-| Import ends waiting for the agent heartbeat | Typical on a slow VPN before 3.1.2-beta.1 — the wait now allows several minutes and streams the inventory under a no-data deadline. If it still fails, check C:\Agent\data permissions, the checkout clock and that the service stays Running. |
-| Agent shows as not seen over VPN | The inspection read shares the WAN-aware limits now; also confirm TCP 445 stays open through the tunnel and the account has admin-share access. |
-| Product/version missing | Check the selected product on Update Store App, machine-wide Programs and Features entries, Agent freshness and any inventory error. |
-| Wrong deployment destination | Update Settings → Store App; the path is interpreted on each checkout. Saving it should not change product selection. |
-| Native module ABI error | Run `npx electron-builder install-app-deps`; use Electron for its native integration tests. |
-| Device unknown/offline | Check ICMP, address/DNS, VPN/routes, ping settings and Dashboard visibility. |
-| External executable not found | Set its actual installed path under Device tools or VPN; the app does not install third-party clients. |
-| FortiClient is open but VPN is off | Complete connection in FortiClient and verify a real tunnel adapter/routes; process presence alone is insufficient. |
-| Database/recovery fails after moving accounts | Restore under the originating Windows account with the required data/key files; do not copy only the database. |
-| SmartScreen or endpoint block | Verify source, signing and organizational allowlisting with IT. Do not disable protection as a workaround. |
+| Symptom                                       | Checks / action                                                                                                                                                                                                                                |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Agent is not running`                        | Confirm the service exists/is running; use Import Agent on one checkout and inspect the summary. Double-clicking the EXE is not service installation.                                                                                          |
+| Access denied / rejected credentials          | Check Settings → Store App → Target access, target administrator rights, domain/user syntax, Windows remote UAC policy and admin-share/SCM firewall rules.                                                                                     |
+| Agent transfer times out                      | Inspect the reported hash/copy/verification phase and progress. Check WAN throughput and endpoint scanning. Initial legacy-Agent hashing can be slow.                                                                                          |
+| Import ends waiting for the agent heartbeat   | Typical on a slow VPN before 3.1.2-beta.1 — the wait now allows several minutes and streams the inventory under a no-data deadline. If it still fails, check C:\Agent\data permissions, the checkout clock and that the service stays Running. |
+| Agent shows as not seen over VPN              | The inspection read shares the WAN-aware limits now; also confirm TCP 445 stays open through the tunnel and the account has admin-share access.                                                                                                |
+| Product/version missing                       | Check the selected product on Update Store App, machine-wide Programs and Features entries, Agent freshness and any inventory error.                                                                                                           |
+| Wrong deployment destination                  | Update Settings → Store App; the path is interpreted on each checkout. Saving it should not change product selection.                                                                                                                          |
+| Native module ABI error                       | Run `npx electron-builder install-app-deps`; use Electron for its native integration tests.                                                                                                                                                    |
+| Device unknown/offline                        | Check ICMP, address/DNS, VPN/routes, ping settings and Dashboard visibility.                                                                                                                                                                   |
+| External executable not found                 | Set its actual installed path under Device tools or VPN; the app does not install third-party clients.                                                                                                                                         |
+| FortiClient is open but VPN is off            | Complete connection in FortiClient and verify a real tunnel adapter/routes; process presence alone is insufficient.                                                                                                                            |
+| Database/recovery fails after moving accounts | Restore under the originating Windows account with the required data/key files; do not copy only the database.                                                                                                                                 |
+| SmartScreen or endpoint block                 | Verify source, signing and organizational allowlisting with IT. Do not disable protection as a workaround.                                                                                                                                     |
 
 ## Documentation, support and license
 
-- [3.1.0 release notes and upgrade checklist](docs/release-3.1.0.md)
-- [Settings/About changes and technology audit](docs/settings-about-beta9.md)
-- [Native Agent architecture, build and upgrade notes](docs/store-agent-beta8.md)
-- [WAN timeout/progress troubleshooting](docs/store-agent-beta7.md)
-- [Service/import design history](docs/store-agent-beta6.md)
+- [3.1.0 release notes and upgrade checklist](docs/archive/release-3.1.0.md)
+- [Settings/About changes and technology audit](docs/archive/settings-about-beta9.md)
+- [Native Agent architecture, build and upgrade notes](docs/archive/store-agent-beta8.md)
+- [WAN timeout/progress troubleshooting](docs/archive/store-agent-beta7.md)
+- [Service/import design history](docs/archive/store-agent-beta6.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Windows validation plan](docs/WINDOWS-TEST-PLAN.md) · [Security policy](SECURITY.md)
 
 Beta guides are historical implementation/test references; their beta version numbers and pre-approval merge instructions are not the current stable release status. This README and the 3.1.0 release notes describe the current stable release on `main`.

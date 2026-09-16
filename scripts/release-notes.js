@@ -40,7 +40,8 @@ function renderEntry(entry) {
   const changes = entry.changes || {}
   const lines = [`## ${entry.version}`, '']
   if (entry.title) lines.push(`**${entry.title}**`, '')
-  if (entry.date) lines.push(`_Released ${entry.date}${entry.channel ? ` · ${entry.channel} channel` : ''}_`, '')
+  if (entry.date)
+    lines.push(`_Released ${entry.date}${entry.channel ? ` · ${entry.channel} channel` : ''}_`, '')
   for (const key of ORDER) {
     const items = changes[key]
     if (!Array.isArray(items) || items.length === 0) continue
@@ -60,7 +61,9 @@ function main(argv) {
   const version = (argv[0] || require(path.join(ROOT, 'package.json')).version).replace(/^v/, '')
   const entry = entries.find((row) => row.version === version)
   if (!entry) {
-    process.stderr.write(`No changelog entry for version ${version}. Add it to lib/changelog.json before releasing.\n`)
+    process.stderr.write(
+      `No changelog entry for version ${version}. Add it to lib/changelog.json before releasing.\n`
+    )
     return 1
   }
   process.stdout.write(`${renderEntry(entry)}\n`)

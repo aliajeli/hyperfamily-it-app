@@ -64,9 +64,10 @@ function evaluateChannelUpdate({ releases, channel, currentVersion }) {
 
   // On main, a prerelease install adopts the newest stable whatever its
   // number; everywhere else only a strictly newer version is an update.
-  const hasUpdate = channel === UPDATE_CHANNEL_MAIN && isPrereleaseVersion(currentVersion)
-    ? true
-    : compareVersions(newest.version, currentVersion) > 0
+  const hasUpdate =
+    channel === UPDATE_CHANNEL_MAIN && isPrereleaseVersion(currentVersion)
+      ? true
+      : compareVersions(newest.version, currentVersion) > 0
 
   return {
     release: newest.item,

@@ -9,10 +9,11 @@ import { create } from 'zustand'
 export const useUpdateStore = create((set) => ({
   info: null,
   dismissed: false,
-  setInfo: (info) => set((state) => ({
-    info,
-    // A different version than the dismissed one gets a fresh announcement.
-    dismissed: state.dismissed && state.info?.latestVersion === info?.latestVersion
-  })),
+  setInfo: (info) =>
+    set((state) => ({
+      info,
+      // A different version than the dismissed one gets a fresh announcement.
+      dismissed: state.dismissed && state.info?.latestVersion === info?.latestVersion
+    })),
   dismiss: () => set({ dismissed: true })
 }))

@@ -56,10 +56,16 @@ class StoreInstallService {
     this.mapDestination = options.destinationMapper || uncPath
     this.smb = options.smb || new SmbSessionManager({ platform: this.platform })
     this.getCredentials = typeof options.getCredentials === 'function' ? options.getCredentials : () => null
-    this.agent = options.agent || new StoreAgentService({
-      platform: this.platform, smb: this.smb, getCredentials: this.getCredentials,
-      reach: this.reach, send: this.sendEvent, agentPathMapper: options.agentPathMapper
-    })
+    this.agent =
+      options.agent ||
+      new StoreAgentService({
+        platform: this.platform,
+        smb: this.smb,
+        getCredentials: this.getCredentials,
+        reach: this.reach,
+        send: this.sendEvent,
+        agentPathMapper: options.agentPathMapper
+      })
     this.commands = options.commands || new AgentCommands({ agentPathMapper: options.agentPathMapper })
     this.installerFile = options.installerFile || INSTALLER_FILE
     this.minCommandAgent = options.minCommandAgent || MIN_COMMAND_AGENT
@@ -68,9 +74,13 @@ class StoreInstallService {
     this.runs = new Map()
   }
 
-  emit(channel, payload) { this.sendEvent(channel, payload) }
+  emit(channel, payload) {
+    this.sendEvent(channel, payload)
+  }
 
-  #hostOf(checkout) { return String(checkout?.ip || checkout?.hostname || '').trim() }
+  #hostOf(checkout) {
+    return String(checkout?.ip || checkout?.hostname || '').trim()
+  }
 
   #labelOf(checkout) {
     const name = String(checkout?.hostname || '').trim()
@@ -86,7 +96,9 @@ class StoreInstallService {
     return { signal: controller.signal, owns: true }
   }
 
-  #releaseRun(runId, owns) { if (owns) this.runs.delete(runId) }
+  #releaseRun(runId, owns) {
+    if (owns) this.runs.delete(runId)
+  }
 
   /** Stop button: aborts the batch between steps and while waiting for answers. */
   cancel(runId) {
@@ -96,7 +108,9 @@ class StoreInstallService {
     return { cancelled: true }
   }
 
-  activeRuns() { return [...this.runs.keys()] }
+  activeRuns() {
+    return [...this.runs.keys()]
+  }
 
   #throwIfCancelled(signal, label = 'The Store Commerce update') {
     if (signal?.aborted) {
@@ -123,12 +137,22 @@ class StoreInstallService {
     const record = (step, status, detail) => {
       const entry = { step, status, detail: detail || '', at: new Date().toISOString() }
       steps.push(entry)
-      this.emit('store-update:install-step', { runId, checkoutId: checkout.id, name: checkout.name, ...entry })
+      this.emit('store-update:install-step', {
+        runId,
+        checkoutId: checkout.id,
+        name: checkout.name,
+        ...entry
+      })
       return entry
     }
     const finish = (ok, extra = {}) => ({
-      checkoutId: checkout.id, name: checkout.name, host, ok, steps,
-      durationMs: Date.now() - startedAt, ...extra
+      checkoutId: checkout.id,
+      name: checkout.name,
+      host,
+      ok,
+      steps,
+      durationMs: Date.now() - startedAt,
+      ...extra
     })
 
     try {
@@ -149,30 +173,56 @@ class StoreInstallService {
       return await this.smb.withHost(address, credentials, async () => {
         // 2 --- agent presence ---------------------------------------------
         record('agent', 'running', 'Checking the HyperFamily Agent service…')
-        const inventory = await withTimeout(this.agent.inspect(address), this.stepTimeoutMs, `The agent on ${address} did not answer in time`)
+        const inventory = await withTimeout(
+          this.agent.inspect(address),
+          this.stepTimeoutMs,
+          `The agent on ${address} did not answer in time`
+        )
         if (!inventory.running) {
           record('agent', 'failed', inventory.reason || 'Agent is not running')
           return finish(false, { error: 'Agent is not running — use Import Agent first' })
         }
         if (compareVersions(inventory.agentVersion || '0', this.minCommandAgent) < 0) {
-          record('agent', 'failed', `Agent ${inventory.agentVersion || 'unknown'} does not support remote commands yet`)
-          return finish(false, { error: `Agent ${inventory.agentVersion || 'unknown'} is too old — run Import Agent to update it` })
+          record(
+            'agent',
+            'failed',
+            `Agent ${inventory.agentVersion || 'unknown'} does not support remote commands yet`
+          )
+          return finish(false, {
+            error: `Agent ${inventory.agentVersion || 'unknown'} is too old — run Import Agent to update it`
+          })
         }
         record('agent', 'done', `Agent ${inventory.agentVersion} is running`)
 
         // 3 --- is Store Commerce open? -------------------------------------
         record('running-check', 'running', 'Asking the agent whether Store Commerce is open…')
-        const before = await withTimeout(this.commands.sendCommand(address, { action: 'status' }, { signal }), this.stepTimeoutMs, 'The agent did not answer in time')
+        const before = await withTimeout(
+          this.commands.sendCommand(address, { action: 'status' }, { signal }),
+          this.stepTimeoutMs,
+          'The agent did not answer in time'
+        )
         const versionBefore = before.version || null
         if (before.running) {
-          record('running-check', 'done', `Store Commerce is open — ${before.processes.map((p) => `PID ${p.pid}`).join(', ')}`)
+          record(
+            'running-check',
+            'done',
+            `Store Commerce is open — ${before.processes.map((p) => `PID ${p.pid}`).join(', ')}`
+          )
 
           // 4 --- close it ---------------------------------------------------
           record('close', 'running', 'Asking Store Commerce to close, force-stopping if it refuses…')
-          const closed = await withTimeout(this.commands.sendCommand(address, { action: 'close' }, { signal }), this.stepTimeoutMs + 30000, 'The agent did not answer in time')
+          const closed = await withTimeout(
+            this.commands.sendCommand(address, { action: 'close' }, { signal }),
+            this.stepTimeoutMs + 30000,
+            'The agent did not answer in time'
+          )
           if (!closed.ok) {
             record('close', 'failed', closed.error || 'Store Commerce could not be closed')
-            return finish(false, { error: 'Store Commerce could not be closed', version: closed.version || versionBefore, versionBefore })
+            return finish(false, {
+              error: 'Store Commerce could not be closed',
+              version: closed.version || versionBefore,
+              versionBefore
+            })
           }
           record('close', 'done', 'Store Commerce was closed')
         } else {
@@ -182,10 +232,22 @@ class StoreInstallService {
 
         // 5 --- verify it is really gone --------------------------------------
         record('verify-closed', 'running', 'Verifying that Store Commerce is closed…')
-        const verified = await withTimeout(this.commands.sendCommand(address, { action: 'status' }, { signal }), this.stepTimeoutMs, 'The agent did not answer in time')
+        const verified = await withTimeout(
+          this.commands.sendCommand(address, { action: 'status' }, { signal }),
+          this.stepTimeoutMs,
+          'The agent did not answer in time'
+        )
         if (verified.running) {
-          record('verify-closed', 'failed', `Still running — ${verified.processes.map((p) => `PID ${p.pid}`).join(', ')}`)
-          return finish(false, { error: 'Store Commerce is still running', version: verified.version || versionBefore, versionBefore })
+          record(
+            'verify-closed',
+            'failed',
+            `Still running — ${verified.processes.map((p) => `PID ${p.pid}`).join(', ')}`
+          )
+          return finish(false, {
+            error: 'Store Commerce is still running',
+            version: verified.version || versionBefore,
+            versionBefore
+          })
         }
         record('verify-closed', 'done', 'No Store Commerce process is left')
 
@@ -201,46 +263,102 @@ class StoreInstallService {
           return finish(false, { error: error.message, version: versionBefore, versionBefore })
         }
         if (!installerStat?.reachable) {
-          record('file-check', 'failed', installerStat?.error || `Cannot reach ${destinationPath} on ${address}`)
-          record('version', 'done', versionBefore ? `Store Commerce v${versionBefore}` : 'Store Commerce is not listed in Programs and Features')
+          record(
+            'file-check',
+            'failed',
+            installerStat?.error || `Cannot reach ${destinationPath} on ${address}`
+          )
+          record(
+            'version',
+            'done',
+            versionBefore
+              ? `Store Commerce v${versionBefore}`
+              : 'Store Commerce is not listed in Programs and Features'
+          )
           return finish(false, { error: 'Deploy folder unreachable', version: versionBefore, versionBefore })
         }
         if (!installerStat.exists) {
           record('file-check', 'failed', `${this.installerFile} was not found in ${destinationPath}`)
           // The version is reported on failure too, exactly as after an install.
-          record('version', 'done', versionBefore ? `Store Commerce v${versionBefore}` : 'Store Commerce is not listed in Programs and Features')
-          return finish(false, { error: `${this.installerFile} not found — deploy it first`, version: versionBefore, versionBefore })
+          record(
+            'version',
+            'done',
+            versionBefore
+              ? `Store Commerce v${versionBefore}`
+              : 'Store Commerce is not listed in Programs and Features'
+          )
+          return finish(false, {
+            error: `${this.installerFile} not found — deploy it first`,
+            version: versionBefore,
+            versionBefore
+          })
         }
-        record('file-check', 'done', `${this.installerFile} (${installerStat.size ?? '?'} bytes) is in ${destinationPath}`)
+        record(
+          'file-check',
+          'done',
+          `${this.installerFile} (${installerStat.size ?? '?'} bytes) is in ${destinationPath}`
+        )
 
         // 7 --- run the installer with its `install` argument ------------------
         this.#throwIfCancelled(signal)
         record('install', 'running', `Running ${this.installerFile} install with system rights…`)
         const installed = await withTimeout(
-          this.commands.sendCommand(address, { action: 'install', path: localInstaller }, { signal, timeoutMs: INSTALL_TIMEOUT_MS }),
+          this.commands.sendCommand(
+            address,
+            { action: 'install', path: localInstaller },
+            { signal, timeoutMs: INSTALL_TIMEOUT_MS }
+          ),
           INSTALL_TIMEOUT_MS + 60000,
           `The installer on ${address} did not report back in time`
         )
         const exitCode = Number.isInteger(installed.exitCode) ? installed.exitCode : null
         const versionAfter = installed.version || null
         if (!installed.ok) {
-          record('install', 'failed', installed.error || `The installer exited with code ${exitCode ?? 'unknown'}`)
+          record(
+            'install',
+            'failed',
+            installed.error || `The installer exited with code ${exitCode ?? 'unknown'}`
+          )
           // 8 --- the version is reported on failure too ----------------------
-          const finalVersion = versionAfter || await this.#safeVersion(address, signal)
-          record('version', 'done', finalVersion ? `Store Commerce v${finalVersion}${versionBefore && versionBefore !== finalVersion ? ` (was v${versionBefore})` : ''}` : 'Store Commerce is not listed in Programs and Features')
+          const finalVersion = versionAfter || (await this.#safeVersion(address, signal))
+          record(
+            'version',
+            'done',
+            finalVersion
+              ? `Store Commerce v${finalVersion}${versionBefore && versionBefore !== finalVersion ? ` (was v${versionBefore})` : ''}`
+              : 'Store Commerce is not listed in Programs and Features'
+          )
           return finish(false, {
             error: installed.error || `Installer exit code ${exitCode ?? 'unknown'}`,
-            exitCode, output: installed.output || '', timedOut: Boolean(installed.timedOut),
-            version: finalVersion, versionBefore
+            exitCode,
+            output: installed.output || '',
+            timedOut: Boolean(installed.timedOut),
+            version: finalVersion,
+            versionBefore
           })
         }
-        record('install', 'done', `The installer finished with exit code ${exitCode}${installed.timedOut ? ' (timed out)' : ''}`)
+        record(
+          'install',
+          'done',
+          `The installer finished with exit code ${exitCode}${installed.timedOut ? ' (timed out)' : ''}`
+        )
 
         // 8 --- the version afterwards ----------------------------------------
-        const finalVersion = versionAfter || await this.#safeVersion(address, signal)
+        const finalVersion = versionAfter || (await this.#safeVersion(address, signal))
         const changed = versionBefore && finalVersion && versionBefore !== finalVersion
-        record('version', 'done', finalVersion ? `Store Commerce v${finalVersion}${changed ? ` (was v${versionBefore})` : ''}` : 'The installer succeeded but Store Commerce is not listed in Programs and Features')
-        return finish(true, { exitCode, output: installed.output || '', version: finalVersion, versionBefore })
+        record(
+          'version',
+          'done',
+          finalVersion
+            ? `Store Commerce v${finalVersion}${changed ? ` (was v${versionBefore})` : ''}`
+            : 'The installer succeeded but Store Commerce is not listed in Programs and Features'
+        )
+        return finish(true, {
+          exitCode,
+          output: installed.output || '',
+          version: finalVersion,
+          versionBefore
+        })
       })
     } catch (error) {
       if (error.cancelled) {
@@ -257,9 +375,15 @@ class StoreInstallService {
   /** Best-effort version read for the failure paths — never throws. */
   async #safeVersion(address, signal) {
     try {
-      const status = await this.commands.sendCommand(address, { action: 'status' }, { signal, timeoutMs: 30000 })
+      const status = await this.commands.sendCommand(
+        address,
+        { action: 'status' },
+        { signal, timeoutMs: 30000 }
+      )
       return status.version || null
-    } catch { return null }
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -294,8 +418,25 @@ class StoreInstallService {
       for (let index = 0; index < checkouts.length; index += 1) {
         if (results[index]) continue
         cancelledByOperator = true
-        results[index] = { checkoutId: checkouts[index].id, name: checkouts[index].name, ok: false, cancelled: true, skipped: true, steps: [], durationMs: 0, error: 'Skipped after the operator stopped the batch' }
-        this.emit('store-update:install-step', { runId, checkoutId: checkouts[index].id, name: checkouts[index].name, step: 'cancelled', status: 'skipped', detail: 'Skipped after the operator stopped the batch', at: new Date().toISOString() })
+        results[index] = {
+          checkoutId: checkouts[index].id,
+          name: checkouts[index].name,
+          ok: false,
+          cancelled: true,
+          skipped: true,
+          steps: [],
+          durationMs: 0,
+          error: 'Skipped after the operator stopped the batch'
+        }
+        this.emit('store-update:install-step', {
+          runId,
+          checkoutId: checkouts[index].id,
+          name: checkouts[index].name,
+          step: 'cancelled',
+          status: 'skipped',
+          detail: 'Skipped after the operator stopped the batch',
+          at: new Date().toISOString()
+        })
       }
     } finally {
       this.#releaseRun(runId, true)

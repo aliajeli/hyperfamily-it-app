@@ -7,15 +7,22 @@ const DEFAULT_INTERVAL_SECONDS = 5
 
 function pingHost(host, timeoutMs = 1000) {
   const isWindows = process.platform === 'win32'
-  const args = isWindows ? ['-n', '1', '-w', String(timeoutMs), host] : ['-c', '1', '-W', String(Math.max(1, Math.ceil(timeoutMs / 1000))), host]
+  const args = isWindows
+    ? ['-n', '1', '-w', String(timeoutMs), host]
+    : ['-c', '1', '-W', String(Math.max(1, Math.ceil(timeoutMs / 1000))), host]
   return new Promise((resolve) => {
-    execFile('ping', args, { timeout: timeoutMs + 750, windowsHide: true, encoding: 'utf8' }, (error, stdout = '') => {
-      if (error) return resolve({ status: 'offline', ping_time: null })
-      const match = stdout.match(/(?:time|zeit|temps|tiempo)[=<]\s*(\d+(?:\.\d+)?)\s*ms/i)
-      const lessThanOne = /(?:time|zeit|temps|tiempo)<\s*1\s*ms/i.test(stdout)
-      const pingTime = lessThanOne ? 1 : match ? Math.max(1, Math.round(Number(match[1]))) : 1
-      resolve({ status: pingTime <= 300 ? 'online' : 'warning', ping_time: pingTime })
-    })
+    execFile(
+      'ping',
+      args,
+      { timeout: timeoutMs + 750, windowsHide: true, encoding: 'utf8' },
+      (error, stdout = '') => {
+        if (error) return resolve({ status: 'offline', ping_time: null })
+        const match = stdout.match(/(?:time|zeit|temps|tiempo)[=<]\s*(\d+(?:\.\d+)?)\s*ms/i)
+        const lessThanOne = /(?:time|zeit|temps|tiempo)<\s*1\s*ms/i.test(stdout)
+        const pingTime = lessThanOne ? 1 : match ? Math.max(1, Math.round(Number(match[1]))) : 1
+        resolve({ status: pingTime <= 300 ? 'online' : 'warning', ping_time: pingTime })
+      }
+    )
   })
 }
 
@@ -68,9 +75,10 @@ class PingMonitor {
       const settled = await Promise.allSettled(wave.map((device) => this.probe(device)))
       settled.forEach((item, offset) => {
         const device = wave[offset]
-        results[start + offset] = item.status === 'fulfilled'
-          ? { device_id: device.id, ...item.value }
-          : { device_id: device.id, status: 'offline', ping_time: null }
+        results[start + offset] =
+          item.status === 'fulfilled'
+            ? { device_id: device.id, ...item.value }
+            : { device_id: device.id, status: 'offline', ping_time: null }
       })
     }
     return results
@@ -84,18 +92,26 @@ class PingMonitor {
         this.database.recordPingBatch(results)
         // Emit only when a displayed value changed; the database keeps the
         // full history either way.
-        const fingerprint = results.map((item) => `${item.device_id}:${item.status}:${item.ping_time}`).join('|')
+        const fingerprint = results
+          .map((item) => `${item.device_id}:${item.status}:${item.ping_time}`)
+          .join('|')
         if (fingerprint !== this.lastFingerprint) {
           this.lastFingerprint = fingerprint
           const settings = this.database.getSettings()
-          this.sendEvent('monitor:update', this.database.getMonitorSnapshot(settings.ping_history_count || 30))
+          this.sendEvent(
+            'monitor:update',
+            this.database.getMonitorSnapshot(settings.ping_history_count || 30)
+          )
         }
       } else {
         // No monitored devices: still refresh so removals reach the UI once.
         if (this.lastFingerprint !== 'empty') {
           this.lastFingerprint = 'empty'
           const settings = this.database.getSettings()
-          this.sendEvent('monitor:update', this.database.getMonitorSnapshot(settings.ping_history_count || 30))
+          this.sendEvent(
+            'monitor:update',
+            this.database.getMonitorSnapshot(settings.ping_history_count || 30)
+          )
         }
       }
       const settings = this.database.getSettings()

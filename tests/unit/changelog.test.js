@@ -1,8 +1,8 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { loadEntries, renderEntry } = require('../scripts/release-notes')
-const { compareVersions } = require('../electron/services/version')
-const pkg = require('../package.json')
+const { loadEntries, renderEntry } = require('../../scripts/release-notes')
+const { compareVersions } = require('../../electron/services/version')
+const pkg = require('../../package.json')
 
 const CATEGORIES = ['added', 'improved', 'fixed', 'removed', 'security']
 
@@ -11,7 +11,10 @@ test('the shipped version has a changelog entry', () => {
   const current = entries.find((entry) => entry.version === pkg.version)
   assert.ok(current, `lib/changelog.json has no entry for ${pkg.version}`)
   assert.ok(current.title, 'the entry needs a one-line title')
-  assert.ok(Object.values(current.changes || {}).some((items) => items.length), 'the entry needs at least one change')
+  assert.ok(
+    Object.values(current.changes || {}).some((items) => items.length),
+    'the entry needs at least one change'
+  )
 })
 
 test('every changelog entry is complete, ordered and uniquely versioned', () => {
@@ -37,8 +40,11 @@ test('every changelog entry is complete, ordered and uniquely versioned', () => 
   }
   // Newest first, so the About card can render history in order.
   for (let index = 1; index < entries.length; index += 1) {
-    assert.equal(compareVersions(entries[index - 1].version, entries[index].version), 1,
-      `${entries[index - 1].version} must come before ${entries[index].version}`)
+    assert.equal(
+      compareVersions(entries[index - 1].version, entries[index].version),
+      1,
+      `${entries[index - 1].version} must come before ${entries[index].version}`
+    )
   }
 })
 
@@ -49,8 +55,12 @@ test('rendered release notes carry the version, the categories and every change'
     assert.ok(notes.startsWith(`## ${entry.version}`))
     assert.ok(notes.includes(entry.title))
     for (const [key, items] of Object.entries(entry.changes)) {
-      assert.ok(notes.includes(`### ${key.charAt(0).toUpperCase()}${key.slice(1)}`), `${entry.version}: missing ${key} heading`)
-      for (const item of items) assert.ok(notes.includes(`- ${item}`), `${entry.version}: missing change "${item}"`)
+      assert.ok(
+        notes.includes(`### ${key.charAt(0).toUpperCase()}${key.slice(1)}`),
+        `${entry.version}: missing ${key} heading`
+      )
+      for (const item of items)
+        assert.ok(notes.includes(`- ${item}`), `${entry.version}: missing change "${item}"`)
     }
   }
 })

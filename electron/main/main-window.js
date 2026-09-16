@@ -24,7 +24,9 @@ let startupSweepTimer = null
 const { registerIpcHandlers } = require('./ipc-handlers')
 const { registerDeviceWebviewHandlers } = require('./webview-window')
 
-protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false } }])
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: false } }
+])
 
 // Electron kills the process and shows a raw "A JavaScript error occurred in
 // the main process" dialog for anything unhandled. Log it and keep the app
@@ -54,7 +56,8 @@ function registerAppProtocol() {
     if (requested.endsWith('/')) requested += 'index.html'
     if (!path.extname(requested)) requested += '/index.html'
     const filePath = path.resolve(root, `.${requested}`)
-    if (!filePath.startsWith(`${root}${path.sep}`) || !fs.existsSync(filePath)) return new Response('Not found', { status: 404 })
+    if (!filePath.startsWith(`${root}${path.sep}`) || !fs.existsSync(filePath))
+      return new Response('Not found', { status: 404 })
     return net.fetch(pathToFileURL(filePath).toString())
   })
 }
@@ -62,14 +65,25 @@ function registerAppProtocol() {
 function createWindow() {
   const workArea = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({
-    width: Math.min(1500, workArea.width), height: Math.min(940, workArea.height),
-    minWidth: Math.min(360, workArea.width), minHeight: Math.min(560, workArea.height),
-    show: false, backgroundColor: '#2E3440', title: 'HyperFamily Branch Monitor',
+    width: Math.min(1500, workArea.width),
+    height: Math.min(940, workArea.height),
+    minWidth: Math.min(360, workArea.width),
+    minHeight: Math.min(560, workArea.height),
+    show: false,
+    backgroundColor: '#2E3440',
+    title: 'HyperFamily Branch Monitor',
     icon: path.join(__dirname, '../../public/electron/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      contextIsolation: true, nodeIntegration: false, sandbox: false,
-      spellcheck: false, devTools: isDev, webviewTag: false
+      // sandbox: the renderer (and its preload) run without Node — the IPC
+      // bridge is the only door to the system, so a compromised page cannot
+      // reach the filesystem directly.
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: false,
+      devTools: isDev,
+      webviewTag: false
     }
   })
   Menu.setApplicationMenu(null)
@@ -94,7 +108,8 @@ function createWindow() {
     const [width, height] = mainWindow.getContentSize()
     const scale = Math.min(width / 1366, height / 768)
     const zoom = Math.min(2.5, Math.max(0.5, Math.round(scale * 4) / 4))
-    if (Math.abs(mainWindow.webContents.getZoomFactor() - zoom) > 0.015) mainWindow.webContents.setZoomFactor(zoom)
+    if (Math.abs(mainWindow.webContents.getZoomFactor() - zoom) > 0.015)
+      mainWindow.webContents.setZoomFactor(zoom)
   }
   mainWindow.on('resize', applyViewportScale)
   mainWindow.on('maximize', applyViewportScale)
@@ -102,29 +117,44 @@ function createWindow() {
   mainWindow.webContents.on('did-finish-load', applyViewportScale)
   applyViewportScale()
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try { const parsed = new URL(url); if (['https:', 'mailto:'].includes(parsed.protocol)) shell.openExternal(url) } catch {}
+    try {
+      const parsed = new URL(url)
+      if (['https:', 'mailto:'].includes(parsed.protocol)) shell.openExternal(url)
+    } catch {}
     return { action: 'deny' }
   })
   mainWindow.webContents.on('will-navigate', (event, url) => {
     const allowed = isDev ? url.startsWith('http://localhost:3000') : url.startsWith('app://hyperfamily/')
-    if (!allowed) { event.preventDefault(); if (url.startsWith('https://')) shell.openExternal(url) }
+    if (!allowed) {
+      event.preventDefault()
+      if (url.startsWith('https://')) shell.openExternal(url)
+    }
   })
   if (isDev) mainWindow.loadURL('http://localhost:3000/login')
   else mainWindow.loadURL('app://hyperfamily/login/')
   mainWindow.webContents.on('destroyed', () => terminalService?.closeAllFor(mainWindow?.webContents))
-  mainWindow.on('closed', () => { mainWindow = null })
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
 }
 
 const singleInstance = app.requestSingleInstanceLock()
 if (!singleInstance) app.quit()
 else {
-  app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus() } })
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
   app.whenReady().then(() => {
     if (!isDev) registerAppProtocol()
     const csp = isDev
       ? "default-src 'self' http://localhost:3000 ws://localhost:3000; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:3000; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:3000 ws://localhost:3000; font-src 'self' data:"
       : "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline' app:; img-src 'self' data: blob: app:; connect-src 'self' app:; font-src 'self' data: app:"
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [csp] } }))
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) =>
+      callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [csp] } })
+    )
 
     const vault = new SecureVault(app.getPath('userData'))
     // The recovery tool looks in a canonical folder that does not depend on
@@ -140,7 +170,11 @@ else {
     const updateService = new UpdateService(sendEvent)
     // Restore the persisted update channel (main/beta). With nothing stored,
     // prerelease builds follow beta and stable builds follow main.
-    try { updateService.setChannel(database.getSettings().update_channel) } catch { /* default channel stays */ }
+    try {
+      updateService.setChannel(database.getSettings().update_channel)
+    } catch {
+      /* default channel stays */
+    }
     terminalService = new TerminalService(database, sendEvent)
     // Credentials are read fresh on every call so a change in Settings takes
     // effect immediately, without restarting the app.
@@ -149,20 +183,41 @@ else {
         ? require('path').join(process.resourcesPath, 'agent', 'HyperFamilyStoreAgent.exe')
         : require('path').join(__dirname, '../../agent/build/HyperFamilyStoreAgent.exe'),
       getCredentials: () => {
-        try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
+        try {
+          return SmbSessionManager.credentialsFrom(database.getSettings())
+        } catch {
+          return null
+        }
       },
       // Read per call so changing it in Settings applies without a restart.
       getProgramName: () => {
-        try { return database.getSettings().store_program_name || '' } catch { return '' }
+        try {
+          return database.getSettings().store_program_name || ''
+        } catch {
+          return ''
+        }
       }
     })
     storeUpdateServiceRef = storeUpdateService
     const storeInstallService = new StoreInstallService(sendEvent, {
       getCredentials: () => {
-        try { return SmbSessionManager.credentialsFrom(database.getSettings()) } catch { return null }
+        try {
+          return SmbSessionManager.credentialsFrom(database.getSettings())
+        } catch {
+          return null
+        }
       }
     })
-    registerIpcHandlers({ database, remoteService, vpnService, terminalService, updateService, storeUpdateService, storeInstallService, getWindow: () => mainWindow })
+    registerIpcHandlers({
+      database,
+      remoteService,
+      vpnService,
+      terminalService,
+      updateService,
+      storeUpdateService,
+      storeInstallService,
+      getWindow: () => mainWindow
+    })
     registerDeviceWebviewHandlers(ipcMain)
     createWindow()
     pingMonitor = new PingMonitor(database, sendEvent)
@@ -176,12 +231,30 @@ else {
       try {
         const checkouts = database.listDevices().filter((device) => device.device_type === 'Checkout')
         if (checkouts.length) storeUpdateService.checkMany(checkouts).catch(() => {})
-      } catch { /* the page's own Recheck still works if this fails */ }
+      } catch {
+        /* the page's own Recheck still works if this fails */
+      }
     }, 12000)
     startupSweepTimer.unref?.()
   })
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
 }
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
-app.on('before-quit', () => { if (startupSweepTimer) clearTimeout(startupSweepTimer); pingMonitor?.stop(); vpnService?.stop(); terminalService?.stop(); storeUpdateServiceRef?.smb?.releaseAll?.().catch(() => {}); if (database) { try { database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown'); database.close() } catch {} } })
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})
+app.on('before-quit', () => {
+  if (startupSweepTimer) clearTimeout(startupSweepTimer)
+  pingMonitor?.stop()
+  vpnService?.stop()
+  terminalService?.stop()
+  storeUpdateServiceRef?.smb?.releaseAll?.().catch(() => {})
+  if (database) {
+    try {
+      database.audit('System', 'APP_STOP', app.getVersion(), 'Normal shutdown')
+      database.close()
+    } catch {}
+  }
+})

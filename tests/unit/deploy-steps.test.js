@@ -9,7 +9,7 @@ const path = require('path')
  * extracted and evaluated directly — it has no imports of its own.
  */
 function loadCollapseSteps() {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'utils.js'), 'utf8')
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'lib', 'utils.js'), 'utf8')
   const start = source.indexOf('export function collapseSteps')
   assert.notEqual(start, -1, 'collapseSteps must exist in lib/utils.js')
   const body = source.slice(start).replace('export function', 'function')
@@ -39,36 +39,48 @@ test('REGRESSION: a finished step shows once, as finished — not as a stuck spi
   const rows = collapseSteps(steps, true)
   assert.equal(rows.length, 7, 'one row per distinct step')
   assert.equal(rows.filter((row) => row.status === 'running').length, 0, 'nothing may still be spinning')
-  assert.deepEqual(rows.map((row) => row.step), ['source', 'connectivity', 'target', 'backup', 'copy', 'verify', 'finish'])
+  assert.deepEqual(
+    rows.map((row) => row.step),
+    ['source', 'connectivity', 'target', 'backup', 'copy', 'verify', 'finish']
+  )
   assert.equal(rows.find((row) => row.step === 'connectivity').detail, 'answered in 4 ms')
 })
 
 test('a live run still shows the step in progress', () => {
-  const rows = collapseSteps([
-    { step: 'source', status: 'done' },
-    { step: 'copy', status: 'running' }
-  ], false)
+  const rows = collapseSteps(
+    [
+      { step: 'source', status: 'done' },
+      { step: 'copy', status: 'running' }
+    ],
+    false
+  )
   assert.equal(rows.length, 2)
   assert.equal(rows[1].status, 'running', 'an in-flight copy must keep spinning')
 })
 
 test('a retry after a hash mismatch is visible as running again', () => {
-  const rows = collapseSteps([
-    { step: 'copy', status: 'running', detail: 'attempt 1/3' },
-    { step: 'copy', status: 'done', detail: 'attempt 1/3' },
-    { step: 'verify', status: 'failed', detail: 'mismatch' },
-    { step: 'copy', status: 'running', detail: 'attempt 2/3' }
-  ], false)
+  const rows = collapseSteps(
+    [
+      { step: 'copy', status: 'running', detail: 'attempt 1/3' },
+      { step: 'copy', status: 'done', detail: 'attempt 1/3' },
+      { step: 'verify', status: 'failed', detail: 'mismatch' },
+      { step: 'copy', status: 'running', detail: 'attempt 2/3' }
+    ],
+    false
+  )
   const copy = rows.find((row) => row.step === 'copy')
   assert.equal(copy.status, 'running')
   assert.equal(copy.detail, 'attempt 2/3', 'the latest attempt wins')
 })
 
 test('a failure is preserved once the run has settled', () => {
-  const rows = collapseSteps([
-    { step: 'connectivity', status: 'running' },
-    { step: 'connectivity', status: 'failed', detail: 'did not answer' }
-  ], true)
+  const rows = collapseSteps(
+    [
+      { step: 'connectivity', status: 'running' },
+      { step: 'connectivity', status: 'failed', detail: 'did not answer' }
+    ],
+    true
+  )
   assert.equal(rows.length, 1)
   assert.equal(rows[0].status, 'failed', 'settling must never turn a failure into a success')
 })

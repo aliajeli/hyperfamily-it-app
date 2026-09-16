@@ -21,13 +21,27 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     rememberCredentials: (payload) => invoke('auth:remember-credentials', payload),
     rememberedCredentials: () => invoke('auth:remembered-credentials')
   },
-  branches: { list: () => invoke('branches:list'), save: (payload) => invoke('branches:save', payload), remove: (id) => invoke('branches:remove', id), removeAll: () => invoke('branches:remove-all') },
-  devices: { list: () => invoke('devices:list'), save: (payload) => invoke('devices:save', payload), remove: (id) => invoke('devices:remove', id) },
-  monitor: { snapshot: () => invoke('monitor:snapshot'), subscribe: (callback) => subscribe('monitor:update', callback) },
+  branches: {
+    list: () => invoke('branches:list'),
+    save: (payload) => invoke('branches:save', payload),
+    remove: (id) => invoke('branches:remove', id),
+    removeAll: () => invoke('branches:remove-all')
+  },
+  devices: {
+    list: () => invoke('devices:list'),
+    save: (payload) => invoke('devices:save', payload),
+    remove: (id) => invoke('devices:remove', id)
+  },
+  monitor: {
+    snapshot: () => invoke('monitor:snapshot'),
+    subscribe: (callback) => subscribe('monitor:update', callback)
+  },
   settings: { get: () => invoke('settings:get'), save: (patch) => invoke('settings:save', patch) },
   credentials: {
-    list: () => invoke('credentials:list'), reveal: (id) => invoke('credentials:reveal', id),
-    save: (payload) => invoke('credentials:save', payload), remove: (id) => invoke('credentials:remove', id),
+    list: () => invoke('credentials:list'),
+    reveal: (id) => invoke('credentials:reveal', id),
+    save: (payload) => invoke('credentials:save', payload),
+    remove: (id) => invoke('credentials:remove', id),
     mappings: () => invoke('credentials:mappings'),
     map: () => invoke('credentials:credential-map'),
     forDevice: (deviceId) => invoke('credentials:for-device', deviceId),
@@ -119,5 +133,9 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     selectFiles: (options) => invoke('dialog:select-files', options),
     selectDirectory: (options) => invoke('dialog:select-directory', options)
   },
-  app: { info: () => invoke('app:info'), openExternal: (url) => invoke('app:open-external', url), pathExists: (path) => invoke('app:path-exists', path) }
+  app: {
+    info: () => invoke('app:info'),
+    openExternal: (url) => invoke('app:open-external', url),
+    pathExists: (path) => invoke('app:path-exists', path)
+  }
 })

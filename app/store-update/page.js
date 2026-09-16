@@ -1,7 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CloudUpload, FileUp, HardDriveDownload, ListChecks, Loader2, RefreshCw, Settings2, ShoppingCart, ShieldCheck, Wrench, X } from 'lucide-react'
+import {
+  CloudUpload,
+  FileUp,
+  HardDriveDownload,
+  ListChecks,
+  Loader2,
+  RefreshCw,
+  Settings2,
+  ShoppingCart,
+  ShieldCheck,
+  Wrench,
+  X
+} from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchCheckoutsCard from '@/components/store-update/BranchCheckoutsCard'
@@ -30,7 +42,9 @@ function groupCheckouts(branches, devices) {
   return [...groups.values()]
     .map((group) => ({
       ...group,
-      checkouts: group.checkouts.sort((a, b) => (a.checkout_number ?? 999) - (b.checkout_number ?? 999) || a.name.localeCompare(b.name))
+      checkouts: group.checkouts.sort(
+        (a, b) => (a.checkout_number ?? 999) - (b.checkout_number ?? 999) || a.name.localeCompare(b.name)
+      )
     }))
     .sort((a, b) => a.branch.name.localeCompare(b.branch.name))
 }
@@ -44,7 +58,17 @@ export default function StoreUpdatePage() {
   const [versions, setVersions] = useState({})
   const [file, setFile] = useState(null) // { path, name }
   const [deploying, setDeploying] = useState(false)
-  const [agentRun, setAgentRun] = useState({ open: false, running: false, cancelling: false, cancelled: false, runId: null, targets: [], results: [], steps: {}, summary: null })
+  const [agentRun, setAgentRun] = useState({
+    open: false,
+    running: false,
+    cancelling: false,
+    cancelled: false,
+    runId: null,
+    targets: [],
+    results: [],
+    steps: {},
+    summary: null
+  })
   const agentBusyRef = useRef(false)
   // The run the Stop button addresses; kept in a ref so the cancel call always
   // targets the run that is actually in flight.
@@ -52,7 +76,16 @@ export default function StoreUpdatePage() {
   const [dialog, setDialog] = useState({ open: false, run: null })
   // Update Store Commerce: selection, live run, and the last result per checkout.
   const [selected, setSelected] = useState(() => new Set())
-  const [installRun, setInstallRun] = useState({ open: false, running: false, cancelling: false, runId: null, targets: [], results: [], steps: {}, summary: null })
+  const [installRun, setInstallRun] = useState({
+    open: false,
+    running: false,
+    cancelling: false,
+    runId: null,
+    targets: [],
+    results: [],
+    steps: {},
+    summary: null
+  })
   const [installResults, setInstallResults] = useState({})
   const [installView, setInstallView] = useState({ open: false, checkout: null })
   const installBusyRef = useRef(false)
@@ -76,8 +109,10 @@ export default function StoreUpdatePage() {
       api.storeUpdate.onAgentStep((entry) => {
         setAgentRun((previous) => {
           const entries = previous.steps[entry.checkoutId] || []
-          const next = entry.progress && entries.at(-1)?.progress && entries.at(-1).step === entry.step
-            ? [...entries.slice(0, -1), entry] : [...entries, entry]
+          const next =
+            entry.progress && entries.at(-1)?.progress && entries.at(-1).step === entry.step
+              ? [...entries.slice(0, -1), entry]
+              : [...entries, entry]
           return { ...previous, steps: { ...previous.steps, [entry.checkoutId]: next } }
         })
       }),
@@ -85,7 +120,10 @@ export default function StoreUpdatePage() {
         setVersions((previous) => ({ ...previous, [result.checkoutId]: result }))
       }),
       api.storeUpdate.onStep((entry) => {
-        setSteps((previous) => ({ ...previous, [entry.checkoutId]: [...(previous[entry.checkoutId] || []), entry] }))
+        setSteps((previous) => ({
+          ...previous,
+          [entry.checkoutId]: [...(previous[entry.checkoutId] || []), entry]
+        }))
       }),
       api.storeUpdate.onProgress((entry) => {
         setProgress((previous) => ({ ...previous, [entry.checkoutId]: entry }))
@@ -93,7 +131,11 @@ export default function StoreUpdatePage() {
       api.storeUpdate.onInstallStep((entry) => {
         setInstallRun((previous) => {
           const entries = previous.steps[entry.checkoutId] || []
-          return { ...previous, activeId: entry.checkoutId, steps: { ...previous.steps, [entry.checkoutId]: [...entries, entry] } }
+          return {
+            ...previous,
+            activeId: entry.checkoutId,
+            steps: { ...previous.steps, [entry.checkoutId]: [...entries, entry] }
+          }
         })
       })
     ]
@@ -109,7 +151,10 @@ export default function StoreUpdatePage() {
         toast.error(error.message)
         setLoading(false)
       })
-    return () => { alive = false; unsubs.forEach((unsub) => unsub?.()) }
+    return () => {
+      alive = false
+      unsubs.forEach((unsub) => unsub?.())
+    }
   }, [])
 
   /* -------------------------------------------------------- version scan */
@@ -120,12 +165,15 @@ export default function StoreUpdatePage() {
       for (const checkout of checkouts) next[checkout.id] = { state: 'checking' }
       return next
     })
-    getApi().storeUpdate.versions({ checkouts })
+    getApi()
+      .storeUpdate.versions({ checkouts })
       .then(() => toast.success(`Version sweep finished for ${checkouts.length} checkout(s)`))
       .catch((error) => {
         setVersions((previous) => {
           const next = { ...previous }
-          for (const checkout of checkouts) if (next[checkout.id]?.state === 'checking') next[checkout.id] = { state: 'error', error: error.message }
+          for (const checkout of checkouts)
+            if (next[checkout.id]?.state === 'checking')
+              next[checkout.id] = { state: 'error', error: error.message }
           return next
         })
         toast.error(error.message)
@@ -138,45 +186,60 @@ export default function StoreUpdatePage() {
   // all, the branch Recheck, or a single checkout's Recheck.
   useEffect(() => {
     let alive = true
-    getApi().storeUpdate.versionCache?.()
-      .then((cache) => { if (alive && cache) setVersions((previous) => ({ ...cache, ...previous })) })
+    getApi()
+      .storeUpdate.versionCache?.()
+      .then((cache) => {
+        if (alive && cache) setVersions((previous) => ({ ...cache, ...previous }))
+      })
       .catch(() => {})
-    return () => { alive = false }
+    return () => {
+      alive = false
+    }
   }, [])
 
   /** Adopt the exact program name an operator picked from the diagnostic list. */
-  const adoptProgramName = useCallback(async (name) => {
-    try {
-      const next = await getApi().settings.save({ store_program_name: name })
-      setSettings(next)
-      setInspect({ open: false, checkout: null })
-      toast.success(`Now looking for “${name}” — rechecking every checkout`)
-      runSweep(allCheckouts)
-    } catch (error) {
-      toast.error(error.message)
-    }
-  }, [allCheckouts, runSweep])
+  const adoptProgramName = useCallback(
+    async (name) => {
+      try {
+        const next = await getApi().settings.save({ store_program_name: name })
+        setSettings(next)
+        setInspect({ open: false, checkout: null })
+        toast.success(`Now looking for “${name}” — rechecking every checkout`)
+        runSweep(allCheckouts)
+      } catch (error) {
+        toast.error(error.message)
+      }
+    },
+    [allCheckouts, runSweep]
+  )
 
-  const recheck = useCallback(async (checkout) => {
-    if (!settings) return
-    setVersions((previous) => ({ ...previous, [checkout.id]: { state: 'checking' } }))
-    try {
-      const result = await getApi().storeUpdate.version({ checkout })
-      setVersions((previous) => ({ ...previous, [checkout.id]: result }))
-      if (result.state === 'ok') toast.success(`${checkout.name}: Store Commerce v${result.version}`)
-      else if (result.state === 'offline') toast.error(`${checkout.name} is offline`)
-    } catch (error) {
-      setVersions((previous) => ({ ...previous, [checkout.id]: { state: 'error', error: error.message } }))
-      toast.error(error.message)
-    }
-  }, [settings])
+  const recheck = useCallback(
+    async (checkout) => {
+      if (!settings) return
+      setVersions((previous) => ({ ...previous, [checkout.id]: { state: 'checking' } }))
+      try {
+        const result = await getApi().storeUpdate.version({ checkout })
+        setVersions((previous) => ({ ...previous, [checkout.id]: result }))
+        if (result.state === 'ok') toast.success(`${checkout.name}: Store Commerce v${result.version}`)
+        else if (result.state === 'offline') toast.error(`${checkout.name} is offline`)
+      } catch (error) {
+        setVersions((previous) => ({ ...previous, [checkout.id]: { state: 'error', error: error.message } }))
+        toast.error(error.message)
+      }
+    },
+    [settings]
+  )
 
   const importAgents = async (targets, all = false) => {
     if (agentBusyRef.current || deploying || !targets.length) return
     const accepted = await confirm({
-      title: all ? `Import Agent to all ${targets.length} checkout(s)?` : `Import Agent to ${targets[0].name}?`,
-      description: 'The bundled EXE will be compared using SHA-256 and copied to C:\\Agent only if missing or different. A Windows Service will be installed/started with Automatic startup before Login. Existing agents are briefly restarted. Target access must have administrator permissions. The import can be stopped at any time.',
-      confirmLabel: all ? 'Import Agent to all' : 'Import Agent', destructive: false
+      title: all
+        ? `Import Agent to all ${targets.length} checkout(s)?`
+        : `Import Agent to ${targets[0].name}?`,
+      description:
+        'The bundled EXE will be compared using SHA-256 and copied to C:\\Agent only if missing or different. A Windows Service will be installed/started with Automatic startup before Login. Existing agents are briefly restarted. Target access must have administrator permissions. The import can be stopped at any time.',
+      confirmLabel: all ? 'Import Agent to all' : 'Import Agent',
+      destructive: false
     })
     if (!accepted || agentBusyRef.current) return
     agentBusyRef.current = true
@@ -184,32 +247,73 @@ export default function StoreUpdatePage() {
     // reaches the checkout in flight and every checkout still waiting.
     const runId = `agent-${Date.now()}`
     agentRunIdRef.current = runId
-    setAgentRun({ open: true, running: true, cancelling: false, cancelled: false, runId, targets, results: [], steps: {}, summary: null })
+    setAgentRun({
+      open: true,
+      running: true,
+      cancelling: false,
+      cancelled: false,
+      runId,
+      targets,
+      results: [],
+      steps: {},
+      summary: null
+    })
     try {
       const api = getApi().storeUpdate
       const summary = all
         ? await api.importAgentAll({ checkouts: targets, runId })
         : await api.importAgent({ checkout: targets[0], runId }).then((result) => ({
-          runId, total: 1, ok: result.ok ? 1 : 0, failed: result.ok && !result.cancelled ? 0 : result.cancelled ? 0 : 1,
-          cancelled: result.cancelled && !result.skipped ? 1 : 0, skipped: result.skipped ? 1 : 0,
-          cancelledByOperator: Boolean(result.cancelled), results: [result], durationMs: result.durationMs || 0
-        }))
+            runId,
+            total: 1,
+            ok: result.ok ? 1 : 0,
+            failed: result.ok && !result.cancelled ? 0 : result.cancelled ? 0 : 1,
+            cancelled: result.cancelled && !result.skipped ? 1 : 0,
+            skipped: result.skipped ? 1 : 0,
+            cancelledByOperator: Boolean(result.cancelled),
+            results: [result],
+            durationMs: result.durationMs || 0
+          }))
       setAgentRun((previous) => ({
-        ...previous, running: false, cancelling: false, cancelled: Boolean(summary.cancelledByOperator),
-        results: summary.results, summary: { ...summary, durationMs: summary.durationMs ?? summary.results?.reduce((sum, row) => sum + (row.durationMs || 0), 0) }
+        ...previous,
+        running: false,
+        cancelling: false,
+        cancelled: Boolean(summary.cancelledByOperator),
+        results: summary.results,
+        summary: {
+          ...summary,
+          durationMs:
+            summary.durationMs ?? summary.results?.reduce((sum, row) => sum + (row.durationMs || 0), 0)
+        }
       }))
-      if (summary.cancelledByOperator) toast.info('Agent import stopped', { description: 'Every stopped checkout was rolled back to its previous agent.' })
+      if (summary.cancelledByOperator)
+        toast.info('Agent import stopped', {
+          description: 'Every stopped checkout was rolled back to its previous agent.'
+        })
       else if (summary.failed) toast.error(`${summary.failed} agent import(s) failed — see details`)
       else toast.success(`Agent is running on ${summary.ok} checkout(s)`)
       runSweep(targets)
     } catch (error) {
       setAgentRun((previous) => ({
-        ...previous, running: false, cancelling: false,
+        ...previous,
+        running: false,
+        cancelling: false,
         results: targets.map((checkout) => ({ checkoutId: checkout.id, ok: false, error: error.message })),
-        summary: { total: targets.length, ok: 0, failed: targets.length, cancelled: 0, skipped: 0, cancelledByOperator: false, results: [], durationMs: 0 }
+        summary: {
+          total: targets.length,
+          ok: 0,
+          failed: targets.length,
+          cancelled: 0,
+          skipped: 0,
+          cancelledByOperator: false,
+          results: [],
+          durationMs: 0
+        }
       }))
       toast.error(error.message)
-    } finally { agentBusyRef.current = false; agentRunIdRef.current = null }
+    } finally {
+      agentBusyRef.current = false
+      agentRunIdRef.current = null
+    }
   }
 
   /**
@@ -222,15 +326,20 @@ export default function StoreUpdatePage() {
     if (!runId || !agentRun.running || agentRun.cancelling) return
     const accepted = await confirm({
       title: 'Stop the agent import?',
-      description: 'The checkout in progress is rolled back to its previous agent executable and service, and the remaining checkouts are skipped. Nothing is left half-installed.',
-      confirmLabel: 'Stop import', destructive: true
+      description:
+        'The checkout in progress is rolled back to its previous agent executable and service, and the remaining checkouts are skipped. Nothing is left half-installed.',
+      confirmLabel: 'Stop import',
+      destructive: true
     })
     if (!accepted) return
     setAgentRun((previous) => ({ ...previous, cancelling: true }))
     try {
       const state = await getApi().storeUpdate.cancelAgentImport({ runId })
       if (!state?.cancelled) toast.info('That import had already finished')
-      else toast.info('Stopping the import…', { description: 'The current checkout is being rolled back first.' })
+      else
+        toast.info('Stopping the import…', {
+          description: 'The current checkout is being rolled back first.'
+        })
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -247,42 +356,83 @@ export default function StoreUpdatePage() {
   const startInstall = async (targets, { all = false } = {}) => {
     if (installBusyRef.current || anyDeployRunning || !targets.length || !settings) return
     const accepted = await confirm({
-      title: all ? `Update Store Commerce on all ${targets.length} checkout(s)?`
-        : targets.length === 1 ? `Update Store Commerce on ${targets[0].name}?`
-        : `Update Store Commerce on ${targets.length} selected checkout(s)?`,
+      title: all
+        ? `Update Store Commerce on all ${targets.length} checkout(s)?`
+        : targets.length === 1
+          ? `Update Store Commerce on ${targets[0].name}?`
+          : `Update Store Commerce on ${targets.length} selected checkout(s)?`,
       description: `Per checkout: connection check → is Store Commerce open? → close it → verify it is closed → look for Hyper.StoreCommerce.Installer.exe in ${settings.store_update_path} → run it with the install argument using system rights through the agent → report the new version. Checkouts are updated strictly one after another and the batch can be stopped at any time.`,
-      confirmLabel: 'Update Store Commerce', destructive: false
+      confirmLabel: 'Update Store Commerce',
+      destructive: false
     })
     if (!accepted || installBusyRef.current) return
     installBusyRef.current = true
     const runId = `install-${Date.now()}`
     installRunIdRef.current = runId
-    setInstallRun({ open: true, running: true, cancelling: false, runId, targets, results: [], steps: {}, summary: null })
+    setInstallRun({
+      open: true,
+      running: true,
+      cancelling: false,
+      runId,
+      targets,
+      results: [],
+      steps: {},
+      summary: null
+    })
     try {
       const api = getApi().storeUpdate
       const payload = { checkouts: targets, destinationPath: settings.store_update_path, runId }
       const summary = await api.installAll(payload)
       setInstallRun((previous) => ({
-        ...previous, running: false, cancelling: false,
-        results: summary.results, summary: { ...summary, durationMs: summary.durationMs ?? summary.results?.reduce((sum, row) => sum + (row.durationMs || 0), 0) }
+        ...previous,
+        running: false,
+        cancelling: false,
+        results: summary.results,
+        summary: {
+          ...summary,
+          durationMs:
+            summary.durationMs ?? summary.results?.reduce((sum, row) => sum + (row.durationMs || 0), 0)
+        }
       }))
       setInstallResults((previous) => {
         const next = { ...previous }
         for (const row of summary.results) next[row.checkoutId] = row
         return next
       })
-      if (summary.cancelledByOperator) toast.info('Store Commerce update stopped', { description: 'Remaining checkouts were skipped.' })
-      else if (summary.failed) toast.error(`${summary.failed} of ${summary.total} checkout(s) failed — click the red info for details`)
+      if (summary.cancelledByOperator)
+        toast.info('Store Commerce update stopped', { description: 'Remaining checkouts were skipped.' })
+      else if (summary.failed)
+        toast.error(
+          `${summary.failed} of ${summary.total} checkout(s) failed — click the red info for details`
+        )
       else toast.success(`Store Commerce updated on ${summary.ok} checkout(s)`)
       runSweep(targets)
     } catch (error) {
       setInstallRun((previous) => ({
-        ...previous, running: false, cancelling: false,
-        results: targets.map((checkout) => ({ checkoutId: checkout.id, ok: false, error: error.message, steps: [] })),
-        summary: { total: targets.length, ok: 0, failed: targets.length, skipped: 0, cancelledByOperator: false, results: [], durationMs: 0 }
+        ...previous,
+        running: false,
+        cancelling: false,
+        results: targets.map((checkout) => ({
+          checkoutId: checkout.id,
+          ok: false,
+          error: error.message,
+          steps: []
+        })),
+        summary: {
+          total: targets.length,
+          ok: 0,
+          failed: targets.length,
+          skipped: 0,
+          cancelledByOperator: false,
+          results: [],
+          durationMs: 0
+        }
       }))
       toast.error(error.message)
-    } finally { installBusyRef.current = false; installRunIdRef.current = null }
+    } finally {
+      installBusyRef.current = false
+      installRunIdRef.current = null
+    }
   }
 
   const stopInstall = async () => {
@@ -290,8 +440,10 @@ export default function StoreUpdatePage() {
     if (!runId || !installRun.running || installRun.cancelling) return
     const accepted = await confirm({
       title: 'Stop the Store Commerce update?',
-      description: 'The checkout in progress finishes its current step, every remaining checkout is skipped. An installer that is already running on a checkout is not interrupted mid-install.',
-      confirmLabel: 'Stop update', destructive: true
+      description:
+        'The checkout in progress finishes its current step, every remaining checkout is skipped. An installer that is already running on a checkout is not interrupted mid-install.',
+      confirmLabel: 'Stop update',
+      destructive: true
     })
     if (!accepted) return
     setInstallRun((previous) => ({ ...previous, cancelling: true }))
@@ -363,18 +515,36 @@ export default function StoreUpdatePage() {
 
   const finishRun = (summary) => {
     setDeploying(false)
-    setDialog((previous) => previous.run ? { open: true, run: { ...previous.run, summary } } : previous)
-    if (summary.failed > 0) toast.error(`${summary.failed} of ${summary.total} checkout(s) failed — see the summary for details`)
-    else toast.success(`Deployment finished: ${summary.ok}/${summary.total} checkout(s) updated in ${formatDuration(summary.durationMs)}`)
+    setDialog((previous) => (previous.run ? { open: true, run: { ...previous.run, summary } } : previous))
+    if (summary.failed > 0)
+      toast.error(`${summary.failed} of ${summary.total} checkout(s) failed — see the summary for details`)
+    else
+      toast.success(
+        `Deployment finished: ${summary.ok}/${summary.total} checkout(s) updated in ${formatDuration(summary.durationMs)}`
+      )
   }
 
   const deployOne = async (checkout) => {
     if (anyDeployRunning) return
-    if (!file) { toast.error('Choose the update file first') ; return }
+    if (!file) {
+      toast.error('Choose the update file first')
+      return
+    }
     beginRun('single', [checkout])
     try {
-      const result = await getApi().storeUpdate.deploy({ checkout, source: file.path, destinationPath: settings.store_update_path })
-      finishRun({ runId: `single-${Date.now()}`, total: 1, ok: result.ok ? 1 : 0, failed: result.ok ? 0 : 1, results: [result], durationMs: result.durationMs || 0 })
+      const result = await getApi().storeUpdate.deploy({
+        checkout,
+        source: file.path,
+        destinationPath: settings.store_update_path
+      })
+      finishRun({
+        runId: `single-${Date.now()}`,
+        total: 1,
+        ok: result.ok ? 1 : 0,
+        failed: result.ok ? 0 : 1,
+        results: [result],
+        durationMs: result.durationMs || 0
+      })
     } catch (error) {
       setDeploying(false)
       setDialog((previous) => ({ ...previous, open: false }))
@@ -384,8 +554,14 @@ export default function StoreUpdatePage() {
 
   const deployAll = async () => {
     if (anyDeployRunning) return
-    if (!file) { toast.error('Choose the update file first'); return }
-    if (!allCheckouts.length) { toast.error('No checkout is registered in the directory'); return }
+    if (!file) {
+      toast.error('Choose the update file first')
+      return
+    }
+    if (!allCheckouts.length) {
+      toast.error('No checkout is registered in the directory')
+      return
+    }
     const onlineTargets = allCheckouts.filter((checkout) => checkout.hostname || checkout.ip)
     const accepted = await confirm({
       title: `Deploy to ${onlineTargets.length} checkout(s)?`,
@@ -396,7 +572,11 @@ export default function StoreUpdatePage() {
     if (!accepted) return
     beginRun('all', onlineTargets)
     try {
-      const summary = await getApi().storeUpdate.deployAll({ checkouts: onlineTargets, source: file.path, destinationPath: settings.store_update_path })
+      const summary = await getApi().storeUpdate.deployAll({
+        checkouts: onlineTargets,
+        source: file.path,
+        destinationPath: settings.store_update_path
+      })
       finishRun(summary)
     } catch (error) {
       setDeploying(false)
@@ -411,7 +591,11 @@ export default function StoreUpdatePage() {
     const ids = Object.keys(steps)
     if (!ids.length) return
     const activeId = Number(ids[ids.length - 1])
-    setDialog((previous) => (previous.run && previous.run.activeId !== activeId ? { ...previous, run: { ...previous.run, activeId } } : previous))
+    setDialog((previous) =>
+      previous.run && previous.run.activeId !== activeId
+        ? { ...previous, run: { ...previous.run, activeId } }
+        : previous
+    )
   }, [steps, deploying])
 
   /* ----------------------------------------------------------------- UI */
@@ -420,58 +604,102 @@ export default function StoreUpdatePage() {
       <div className="mx-auto max-w-[1600px] space-y-3">
         <div>
           <h1 className="page-title">Update Store App</h1>
-          <p className="page-subtitle">Store Commerce versions across every checkout, and verified file deployment with Jalali-dated backups.</p>
+          <p className="page-subtitle">
+            Store Commerce versions across every checkout, and verified file deployment with Jalali-dated
+            backups.
+          </p>
         </div>
 
         {/* Toolbar: update file, recheck-all and deploy-to-all. */}
         <Card>
           <CardContent className="flex flex-wrap items-center gap-3 p-3">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]"><HardDriveDownload size={18} /></span>
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]">
+                <HardDriveDownload size={18} />
+              </span>
               <div className="min-w-0 flex-1">
                 {file ? (
                   <>
                     <div className="truncate text-sm font-bold text-[rgb(var(--text))]">{file.name}</div>
-                    <div className="truncate font-mono text-xs text-[rgb(var(--muted))]" title={file.path}>{file.path}</div>
+                    <div className="truncate font-mono text-xs text-[rgb(var(--muted))]" title={file.path}>
+                      {file.path}
+                    </div>
                   </>
                 ) : (
                   <>
                     <div className="text-sm font-bold text-[rgb(var(--text))]">No update file selected</div>
-                    <div className="text-xs text-[rgb(var(--muted))]">Destination on every checkout: <span className="font-mono">{settings?.store_update_path || '…'}</span></div>
+                    <div className="text-xs text-[rgb(var(--muted))]">
+                      Destination on every checkout:{' '}
+                      <span className="font-mono">{settings?.store_update_path || '…'}</span>
+                    </div>
                   </>
                 )}
               </div>
               {file && (
-                <button type="button" aria-label="Clear selected file" onClick={() => setFile(null)} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.55)] hover:text-nord-11">
+                <button
+                  type="button"
+                  aria-label="Clear selected file"
+                  onClick={() => setFile(null)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[rgb(var(--muted))] transition hover:bg-[rgb(var(--border)/.55)] hover:text-nord-11"
+                >
                   <X size={14} />
                 </button>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={() => importAgents(allCheckouts, true)} disabled={anyDeployRunning || !allCheckouts.length}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => importAgents(allCheckouts, true)}
+                disabled={anyDeployRunning || !allCheckouts.length}
+              >
                 <ShieldCheck size={14} /> Import Agent to all
               </Button>
               <Button
-                variant="secondary" size="sm"
-                onClick={() => startInstall(allCheckouts.filter((checkout) => selected.has(checkout.id)), {})}
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  startInstall(
+                    allCheckouts.filter((checkout) => selected.has(checkout.id)),
+                    {}
+                  )
+                }
                 disabled={anyDeployRunning || selected.size === 0}
                 title="Run the Store Commerce update pipeline on the ticked checkouts"
               >
                 <ListChecks size={14} /> Update selected{selected.size ? ` (${selected.size})` : ''}
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => startInstall(allCheckouts, { all: true })} disabled={anyDeployRunning || !allCheckouts.length}
-                title="Run the Store Commerce update pipeline on every checkout, one after another">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => startInstall(allCheckouts, { all: true })}
+                disabled={anyDeployRunning || !allCheckouts.length}
+                title="Run the Store Commerce update pipeline on every checkout, one after another"
+              >
                 <Wrench size={14} /> Update all
               </Button>
               <Button variant="secondary" size="sm" onClick={pickFile} disabled={anyDeployRunning}>
                 <FileUp size={14} />
                 {file ? 'Change file…' : 'Select file…'}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => runSweep(allCheckouts)} disabled={anyDeployRunning || !allCheckouts.length || Object.values(versions).some((v) => v.state === 'checking')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => runSweep(allCheckouts)}
+                disabled={
+                  anyDeployRunning ||
+                  !allCheckouts.length ||
+                  Object.values(versions).some((v) => v.state === 'checking')
+                }
+              >
                 <RefreshCw size={14} />
                 Recheck all
               </Button>
-              <Button size="sm" onClick={deployAll} disabled={anyDeployRunning || !file || !allCheckouts.length}>
+              <Button
+                size="sm"
+                onClick={deployAll}
+                disabled={anyDeployRunning || !file || !allCheckouts.length}
+              >
                 <CloudUpload size={14} />
                 Deploy to all
               </Button>
@@ -483,9 +711,13 @@ export default function StoreUpdatePage() {
         {settings && (
           <p className="rounded-xl border border-[rgb(var(--border)/.55)] bg-[rgb(var(--surface)/.45)] px-3 py-2 text-2xs leading-relaxed text-[rgb(var(--muted))]">
             <Settings2 size={12} className="mr-1 inline-block" />
-            The local Agent reads the Store Commerce version from Programs and Features. Import installs it in C:\Agent as an automatic Windows Service. Missing/stopped agents show “Agent is not running”. Update files land in <b className="font-mono">{settings.store_update_path}</b> (changeable in Settings → Store App).
-            Checkouts in another domain are reached with the account from Settings → Store App → Target access.
-            Per checkout: connection check → dated backup of the existing file (<b className="font-mono">14050617-name</b>) → copy → SHA-256 proof, with delete-and-retry on mismatch.
+            The local Agent reads the Store Commerce version from Programs and Features. Import installs it in
+            C:\Agent as an automatic Windows Service. Missing/stopped agents show “Agent is not running”.
+            Update files land in <b className="font-mono">{settings.store_update_path}</b> (changeable in
+            Settings → Store App). Checkouts in another domain are reached with the account from Settings →
+            Store App → Target access. Per checkout: connection check → dated backup of the existing file (
+            <b className="font-mono">14050617-name</b>) → copy → SHA-256 proof, with delete-and-retry on
+            mismatch.
           </p>
         )}
 
@@ -523,7 +755,9 @@ export default function StoreUpdatePage() {
               onUpdateStore={(target) => startInstall([target])}
               onShowInstallResult={showInstallResult}
               installResults={installResults}
-              agentBusyIds={agentRun.running ? new Set(agentRun.targets.map((target) => target.id)) : EMPTY_ID_SET}
+              agentBusyIds={
+                agentRun.running ? new Set(agentRun.targets.map((target) => target.id)) : EMPTY_ID_SET
+              }
               anyDeployRunning={anyDeployRunning}
               hasFile={Boolean(file)}
             />
@@ -579,14 +813,18 @@ export default function StoreUpdatePage() {
       <StoreInstallDialog
         open={installRun.open}
         onOpenChange={(open) => setInstallRun((previous) => ({ ...previous, open }))}
-        run={installRun.runId ? {
-          mode: installRun.targets.length > 1 ? 'all' : 'single',
-          checkouts: installRun.targets,
-          steps: installRun.steps,
-          activeId: installRun.activeId,
-          summary: installRun.summary,
-          cancelling: installRun.cancelling
-        } : null}
+        run={
+          installRun.runId
+            ? {
+                mode: installRun.targets.length > 1 ? 'all' : 'single',
+                checkouts: installRun.targets,
+                steps: installRun.steps,
+                activeId: installRun.activeId,
+                summary: installRun.summary,
+                cancelling: installRun.cancelling
+              }
+            : null
+        }
         running={installRun.running}
         onCancel={stopInstall}
         onClose={() => setInstallRun((previous) => ({ ...previous, open: false }))}
@@ -596,13 +834,24 @@ export default function StoreUpdatePage() {
       <StoreInstallDialog
         open={Boolean(installView.open && installView.checkout && installResults[installView.checkout.id])}
         onOpenChange={(open) => setInstallView((previous) => ({ ...previous, open }))}
-        run={installView.checkout && installResults[installView.checkout.id] ? {
-          mode: 'single',
-          checkouts: [installView.checkout],
-          steps: { [installView.checkout.id]: installResults[installView.checkout.id].steps || [] },
-          summary: { total: 1, ok: installResults[installView.checkout.id].ok ? 1 : 0, failed: installResults[installView.checkout.id].ok ? 0 : 1, skipped: 0, results: [installResults[installView.checkout.id]], durationMs: installResults[installView.checkout.id].durationMs || 0 },
-          cancelling: false
-        } : null}
+        run={
+          installView.checkout && installResults[installView.checkout.id]
+            ? {
+                mode: 'single',
+                checkouts: [installView.checkout],
+                steps: { [installView.checkout.id]: installResults[installView.checkout.id].steps || [] },
+                summary: {
+                  total: 1,
+                  ok: installResults[installView.checkout.id].ok ? 1 : 0,
+                  failed: installResults[installView.checkout.id].ok ? 0 : 1,
+                  skipped: 0,
+                  results: [installResults[installView.checkout.id]],
+                  durationMs: installResults[installView.checkout.id].durationMs || 0
+                },
+                cancelling: false
+              }
+            : null
+        }
         running={false}
         onClose={() => setInstallView((previous) => ({ ...previous, open: false }))}
       />
