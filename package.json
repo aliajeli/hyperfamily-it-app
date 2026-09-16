@@ -1,6 +1,6 @@
 {
   "name": "hyperfamily-branch-monitor",
-  "version": "3.2.6",
+  "version": "3.3.0-beta.1",
   "private": true,
   "description": "Secure Windows desktop monitoring and inventory application for HyperFamily retail branches.",
   "author": "Ali Ajeli Lahiji",
@@ -18,7 +18,7 @@
     "start": "electron .",
     "recovery": "electron . --recovery",
     "lint": "eslint .",
-    "test": "node --test tests/version.test.js tests/changelog.test.js tests/update-channel.test.js tests/software-service.test.js tests/store-update-service.test.js tests/registry-service.test.js tests/wmi-registry-service.test.js tests/store-agent-service.test.js tests/agent-transfer-service.test.js tests/native-agent-binary.test.js tests/about-metadata.test.js tests/store-install-service.test.js tests/directory-export.test.js",
+    "test": "node --test tests/unit/",
     "test:database": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/database.electron-test.js",
     "test:ssh": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/ssh-kex.electron-test.js",
     "test:vpn": "cross-env ELECTRON_RUN_AS_NODE=1 electron --test tests/vpn-connect.electron-test.js",
@@ -27,11 +27,16 @@
     "postinstall": "electron-builder install-app-deps",
     "build:recovery": "npm --prefix electron/recovery install && electron-builder --config electron-builder.recovery.json --publish never",
     "build:agent": "node electron/scripts/build-agent.js",
-    "test:agent": "node --test tests/agent-windows.test.js"
+    "test:agent": "node --test tests/unit/agent-windows.test.js",
+    "version:bump": "node scripts/bump-version.js",
+    "changelog:md": "node scripts/generate-changelog-md.js",
+    "format:check": "prettier --check .",
+    "test:coverage": "c8 --reporter=text-summary node --test tests/unit/"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "better-sqlite3-multiple-ciphers": "^13.0.3",
+    "electron-log": "^5.4.4",
     "electron-updater": "^6.6.2",
     "exceljs": "^4.4.0",
     "ssh2": "^1.17.0"
@@ -45,9 +50,11 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@formkit/auto-animate": "^0.8.2",
     "@hookform/resolvers": "^3.10.0",
     "@phosphor-icons/react": "^2.1.7",
+    "@playwright/test": "^1.63.0",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-label": "^2.1.7",
@@ -56,6 +63,7 @@
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tabs": "^1.1.12",
     "autoprefixer": "^10.4.20",
+    "c8": "^12.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "concurrently": "^9.1.2",

@@ -1,6 +1,24 @@
 {
   "entries": [
     {
+      "version": "3.3.0-beta.1",
+      "date": "2026-09-16",
+      "channel": "beta",
+      "title": "Engineering hardening: self-discovered tests, file logging, nightly UI checks",
+      "changes": {
+        "improved": [
+          "The test runner now discovers every unit test automatically — a new test file can never again be silently skipped by the release pipeline.",
+          "The main process keeps a rotating log file (main.log, 5 MB) with every start and every uncaught fault, so a field machine always has a sendable black box.",
+          "Application windows are fully sandboxed: the renderer reaches the system only through the IPC bridge, never directly.",
+          "Dependency health is enforced on every build: npm audit and Prettier formatting checks run in CI, and Dependabot proposes weekly updates.",
+          "CHANGELOG.md is now generated from the same changelog the About page reads, and a nightly Playwright workflow drives the real UI in Chromium."
+        ],
+        "fixed": [
+          "The withTimeout guard could never fire in a plain Node context (its timer was unref'd), so the promised timeout never settled outside Electron — stalled-UNC protection is now guaranteed everywhere."
+        ]
+      }
+    },
+    {
       "version": "3.2.6",
       "date": "2026-09-16",
       "channel": "main",
@@ -13,9 +31,7 @@
           "Update Store App opens instantly from the sweep that runs at application startup; the page no longer re-scans on open — fresh data comes only from Recheck all, a branch Recheck, or a single checkout's Recheck.",
           "The Store App page now presents each branch as a card with its checkouts and their states, and the Asset inventory scrolls as a whole page with a sticky column header."
         ],
-        "removed": [
-          "POS and Scale device types were retired from the directory."
-        ]
+        "removed": ["POS and Scale device types were retired from the directory."]
       }
     },
     {
@@ -440,9 +456,7 @@
         "improved": [
           "Checkouts can be reached by IP as well as by hostname, and the real product name is found even when it differs from the default."
         ],
-        "fixed": [
-          "Deployment steps no longer stay stuck when a checkout drops out mid-run."
-        ]
+        "fixed": ["Deployment steps no longer stay stuck when a checkout drops out mid-run."]
       }
     },
     {
@@ -462,12 +476,8 @@
       "channel": "beta",
       "title": "Control Panel versions and cross-domain access",
       "changes": {
-        "added": [
-          "A target access account for checkouts that live in another domain."
-        ],
-        "fixed": [
-          "The interface no longer freezes while a checkout is being queried."
-        ]
+        "added": ["A target access account for checkouts that live in another domain."],
+        "fixed": ["The interface no longer freezes while a checkout is being queried."]
       }
     },
     {
