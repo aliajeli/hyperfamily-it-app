@@ -15,6 +15,7 @@
   },
   "files": [
     "electron/**/*",
+    "!electron/**/*.ts",
     "!electron/recovery/node_modules/**",
     "!electron/recovery/package.json",
     "!electron/recovery/package-lock.json",

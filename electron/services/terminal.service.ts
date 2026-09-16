@@ -29,7 +29,7 @@ function loadSshClient() {
   for (const [source, loader] of [
     ['ssh2', () => require('ssh2')],
     ['bundled', () => require('../vendor/ssh2/lib/index.js')]
-  ]) {
+  ] as [string, () => any][]) {
     try {
       const client = loader().Client
       if (typeof client !== 'function') throw new Error('the module did not expose a Client')
@@ -124,6 +124,11 @@ function negotiateTelnet(socket, chunk, state) {
  * write into somebody else's shell.
  */
 class TerminalService {
+  counter
+  database
+  send
+  sessions
+
   constructor(database, sendToRenderer) {
     this.database = database
     this.send = sendToRenderer

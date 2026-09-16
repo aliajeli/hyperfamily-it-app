@@ -1,5 +1,7 @@
 import nextPlugin from '@next/eslint-plugin-next'
 import reactPlugin from 'eslint-plugin-react'
+import tsParser from '@typescript-eslint/parser'
+import tsPlugin from '@typescript-eslint/eslint-plugin'
 
 export default [
   // electron/vendor holds verbatim upstream library sources (ssh2 and its pure
@@ -13,7 +15,12 @@ export default [
       'electron/vendor/**',
       // Capacitor-generated Android project (built with Gradle, not eslint).
       'mobile/android/**',
-      'mobile/www/**'
+      'mobile/www/**',
+      // Emitted by tsc from the .ts sources next to them; lint the sources.
+      'electron/services/*.js',
+      'electron/preload/*.js',
+      'electron/database/*.js',
+      'electron/main/ipc-handlers.js'
     ]
   },
   {
@@ -29,6 +36,45 @@ export default [
       'react/jsx-uses-react': 'off',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-undef': 'error'
+    }
+  },
+  {
+    // TypeScript sources of the Electron layer. tsc does the type checking
+    // (npm run typecheck); eslint only keeps the basic hygiene rules here.
+    files: ['electron/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'script' },
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'writable',
+        process: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setImmediate: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Response: 'readonly',
+        AbortController: 'readonly',
+        FormData: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly'
+      }
+    },
+    plugins: { '@typescript-eslint': tsPlugin },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // Redundant under tsc, which resolves Node/DOM types properly.
+      'no-undef': 'off'
     }
   },
   {

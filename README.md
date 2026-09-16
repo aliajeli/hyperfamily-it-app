@@ -278,9 +278,9 @@ components/             UI, layout, forms, dashboard and settings
 stores/                 Zustand stores
 lib/                    Constants, themes, typography, IPC/browser API adapter
 agent/                  Native Windows service, CMake resources and C++ tests
-electron/main/          Electron lifecycle, preload and IPC handlers
-electron/database/      Encrypted persistence and migrations
-electron/services/      Monitoring, deployment, terminal, VPN and other OS services
+electron/main/          Electron lifecycle, preload and IPC handlers (TypeScript)
+electron/database/      Encrypted persistence and migrations (TypeScript)
+electron/services/      Monitoring, deployment, terminal, VPN and other OS services (TypeScript)
 electron/recovery/      Shared credential recovery core, page and optional standalone shell
 electron/scripts/       Native Agent build and binary verification
 mobile/                 Android companion app (Capacitor shell) — see mobile/README.md

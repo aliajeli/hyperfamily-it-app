@@ -42,6 +42,12 @@ function normalizeSwitchPorts(ports) {
 }
 
 class AppDatabase {
+  db
+  filePath
+  recoveryFilePath
+  userDataPath
+  vault
+
   /** Parses the JSON tag array stored on a note; anything invalid yields []. */
   static parseTags(raw) {
     try {
@@ -118,7 +124,7 @@ class AppDatabase {
         .get()
       const password = admin?.password_recovery ? this.vault.decrypt(admin.password_recovery) : ''
       const previous = this.readRecoveryFile() || {}
-      const payload = JSON.stringify({
+      const payload: any = JSON.stringify({
         v: 2,
         username: admin?.username || '',
         password,
@@ -433,7 +439,7 @@ class AppDatabase {
     return { id: user.id, username: user.username }
   }
 
-  updateCredentials(userId, payload = {}) {
+  updateCredentials(userId, payload: any = {}) {
     const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(Number(userId))
     if (!user || !bcrypt.compareSync(String(payload.currentPassword || ''), user.password))
       throw new Error('Current password is incorrect')
@@ -683,7 +689,7 @@ class AppDatabase {
     })()
   }
 
-  importDirectory(payload = {}, actor = 'Admin') {
+  importDirectory(payload: any = {}, actor = 'Admin') {
     const branchRows = Array.isArray(payload.branches) ? payload.branches : []
     const deviceRows = Array.isArray(payload.devices) ? payload.devices : []
 
@@ -846,7 +852,7 @@ class AppDatabase {
     // which is exactly how assignments used to disappear on their own.
     const hasUnifiedShape =
       mappings && typeof mappings === 'object' && ('types' in mappings || 'devices' in mappings)
-    const unified = hasUnifiedShape
+    const unified: any = hasUnifiedShape
       ? { types: mappings.types ?? null, devices: mappings.devices ?? null }
       : { types: mappings || {}, devices: null }
 
@@ -862,13 +868,13 @@ class AppDatabase {
     this.db.transaction(() => {
       if (unified.types) {
         clearTypes.run()
-        for (const [type, ids] of Object.entries(unified.types)) {
+        for (const [type, ids] of Object.entries(unified.types) as [string, any][]) {
           for (const id of ids || []) insertType.run(type, Number(id))
         }
       }
       if (unified.devices) {
         clearDevices.run()
-        for (const [deviceId, ids] of Object.entries(unified.devices)) {
+        for (const [deviceId, ids] of Object.entries(unified.devices) as [string, any][]) {
           for (const id of ids || []) insertDevice.run(Number(deviceId), Number(id))
         }
       }
@@ -1050,7 +1056,7 @@ class AppDatabase {
       .map((row) => ({ ...row, tags: AppDatabase.parseTags(row.tags) }))
   }
 
-  saveNote(payload = {}, actor = 'System') {
+  saveNote(payload: any = {}, actor = 'System') {
     const name = String(payload.name || '').trim()
     if (!name) throw new Error('A note needs a name')
     const body = typeof payload.body === 'string' ? payload.body : ''
@@ -1094,7 +1100,7 @@ class AppDatabase {
       .all()
   }
 
-  saveSnippet(payload = {}, actor = 'System') {
+  saveSnippet(payload: any = {}, actor = 'System') {
     const name = String(payload.name || '').trim()
     // Multi-line snippets are supported: only the line endings are normalised
     // and the outer blank space trimmed, so a whole configuration block keeps

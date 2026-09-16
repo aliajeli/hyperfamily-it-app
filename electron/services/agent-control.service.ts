@@ -38,7 +38,10 @@ function runSc(host, args, allowed = []) {
 }
 
 class AgentControl {
-  constructor(options = {}) {
+  runPs
+  sc
+
+  constructor(options: any = {}) {
     this.runPs = options.runPs || defaultRunPs
     this.sc = options.sc || runSc
   }

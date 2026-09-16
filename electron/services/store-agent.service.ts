@@ -60,7 +60,7 @@ const AGENT_IMPORT_STEPS = [
  * on every chunk (progress keeps the read alive) — only a genuinely stalled
  * link or an absurd total duration fails.
  */
-async function readWithIdleDeadline(file, options = {}) {
+async function readWithIdleDeadline(file, options: any = {}) {
   const idleTimeoutMs = options.idleTimeoutMs ?? HEARTBEAT_IDLE_READ_MS
   const maxReadMs = options.maxReadMs ?? HEARTBEAT_MAX_READ_MS
   const maxBytes = options.maxBytes ?? MAX_INVENTORY_BYTES
@@ -151,7 +151,26 @@ function validateSnapshot(raw, now = Date.now()) {
 }
 
 class StoreAgentService {
-  constructor(options = {}) {
+  control
+  copy
+  delay
+  getCredentials
+  hash
+  heartbeatPollMs
+  heartbeatWaitMs
+  locks
+  mapPath
+  now
+  platform
+  reach
+  realFs
+  runs
+  send
+  smb
+  sourcePath
+  transferOptions
+
+  constructor(options: any = {}) {
     this.platform = options.platform || process.platform
     this.realFs = this.platform === 'win32' || Boolean(options.agentPathMapper)
     this.sourcePath = options.sourcePath || path.join(__dirname, '../../agent/build', AGENT_EXE)
@@ -304,7 +323,7 @@ class StoreAgentService {
    * every checkout so one Stop halts the whole batch. Called on its own, the
    * run is created here and released when the import settles.
    */
-  async importOne(checkout, options = {}) {
+  async importOne(checkout, options: any = {}) {
     const startedAt = Date.now()
     const steps = []
     // Pipeline steps still open when the run ends; they are closed as 'done'
@@ -315,7 +334,7 @@ class StoreAgentService {
       steps.push(entry)
       this.send('store-update:agent-step', { checkoutId: checkout.id, name: checkout.name, ...entry })
     }
-    const record = (step, detail, progress, status = 'done') => {
+    const record = (step: any, detail: any, progress?: any, status = 'done') => {
       const at = new Date().toISOString()
       const base = { step, detail, at }
       const last = steps.at(-1)
@@ -418,7 +437,7 @@ class StoreAgentService {
     }
   }
 
-  async install(host, record, options = {}) {
+  async install(host, record, options: any = {}) {
     const signal = options.signal
     this.throwIfCancelled(signal, `Import to ${host}`)
     record('source', `Checking the bundled agent before import to ${host}`, null, 'running')
@@ -626,7 +645,7 @@ class StoreAgentService {
    * Serial batch import. One Stop cancels the checkout in flight and every
    * checkout still waiting; the ones already finished keep their result.
    */
-  async importAll(checkouts, options = {}) {
+  async importAll(checkouts, options: any = {}) {
     const list = Array.isArray(checkouts) ? checkouts : []
     const ownRun = options.signal ? null : this.registerRun(options.runId)
     const runId = options.runId || ownRun.id

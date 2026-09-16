@@ -128,6 +128,23 @@ function findFortiClient(configuredPath) {
 }
 
 class VPNService {
+  database
+  forticlientRunning
+  gateway
+  globalBaseline
+  healthTimer
+  lastLive
+  mode
+  process
+  sendEvent
+  serviceRunning
+  state
+  stats
+  tlsDowngraded
+  tlsProfileIndex
+  tunnelUp
+  userDataPath
+
   constructor(database, userDataPath, sendEvent) {
     this.database = database
     this.userDataPath = userDataPath
@@ -304,7 +321,7 @@ class VPNService {
   static ipv4Addresses() {
     const found = []
     try {
-      for (const [name, addresses] of Object.entries(os.networkInterfaces())) {
+      for (const [name, addresses] of Object.entries(os.networkInterfaces()) as [string, any][]) {
         for (const address of addresses || []) {
           const isV4 = address.family === 4 || address.family === 'IPv4'
           if (!isV4 || address.internal) continue
@@ -339,7 +356,7 @@ class VPNService {
    * description). The former implementation spawned up to six separate
    * processes per tick, which was a major source of background CPU churn.
    */
-  static combinedHealthProbe() {
+  static combinedHealthProbe(): Promise<any> {
     if (process.platform !== 'win32')
       return Promise.resolve({ serviceRunning: false, processRunning: false, adapterByDescription: false })
     return new Promise((resolve) => {
@@ -777,7 +794,7 @@ class VPNService {
 
     const target = `https://${profile.gateway}:${profile.port}/remote/logincheck`
     try {
-      const reply = await this.portalRequest(profile)
+      const reply: any = await this.portalRequest(profile)
       const verdict = VPNService.verdict(reply)
       const bodyText = reply.body || ''
       return {
@@ -818,7 +835,7 @@ class VPNService {
       throw new Error('The global VPN mode is only available in the Windows desktop build')
     const executable = findFortiClient(settings.forticlient_path)
     if (!executable) {
-      const error = new Error(
+      const error: any = new Error(
         'FortiClient VPN is not installed on this computer. Install the FortiClient VPN client, then try the Global mode again.'
       )
       error.code = 'FORTICLIENT_MISSING'
@@ -919,7 +936,7 @@ class VPNService {
             }
           })
         if (!executable) continue
-        await new Promise((resolve) =>
+        await new Promise<void>((resolve) =>
           execFile(executable, command.args, { windowsHide: true, timeout: 15000 }, () => resolve())
         )
       }

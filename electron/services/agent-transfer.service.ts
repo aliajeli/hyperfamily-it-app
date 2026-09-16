@@ -42,7 +42,7 @@ function formatProgress({ bytes, totalBytes, elapsedMs, bytesPerSecond }) {
  * copy. It is treated exactly like the internal deadlines: the pipeline is
  * aborted, the streams are drained, and only then does the caller run its
  * rollback, so no staging file or lock is left behind. */
-async function runTransfer(task, options = {}) {
+async function runTransfer(task, options: any = {}) {
   const idleTimeoutMs = options.idleTimeoutMs ?? TRANSFER_IDLE_MS
   const maxDurationMs = options.maxDurationMs ?? TRANSFER_MAX_MS
   if (![idleTimeoutMs, maxDurationMs].every((value) => Number.isFinite(value) && value > 0))
@@ -140,7 +140,7 @@ async function runTransfer(task, options = {}) {
   }
 }
 
-async function hashFile(file, options = {}) {
+async function hashFile(file, options: any = {}) {
   return runTransfer(
     async ({ signal, advance }) => {
       const hash = crypto.createHash('sha256')
@@ -164,7 +164,7 @@ async function hashFile(file, options = {}) {
   )
 }
 
-async function copyFile(source, destination, options = {}) {
+async function copyFile(source, destination, options: any = {}) {
   return runTransfer(
     async ({ signal, advance, idleTimeoutMs }) => {
       const input = (options.createReadStream || fs.createReadStream)(source, {

@@ -27,7 +27,7 @@ function probePort(host, port, timeoutMs = 3000) {
     const startedAt = Date.now()
     const socket = new net.Socket()
     let settled = false
-    const done = (open, error) => {
+    const done = (open: boolean, error?: any) => {
       if (settled) return
       settled = true
       socket.destroy()
@@ -47,7 +47,7 @@ function probePort(host, port, timeoutMs = 3000) {
  * `status` is 'online' as soon as SMB answers. ICMP runs in parallel purely
  * for the latency badge, so a firewall that hides echo replies costs nothing.
  */
-async function checkReachable(host, options = {}) {
+async function checkReachable(host, options: any = {}) {
   const port = options.port || SMB_PORT
   const timeoutMs = options.timeoutMs || 3000
   const probe = options.probePort || probePort

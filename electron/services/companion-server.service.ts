@@ -50,8 +50,8 @@ function newToken() {
 function lanAddresses() {
   return Object.values(os.networkInterfaces())
     .flat()
-    .filter((entry) => entry && entry.family === 'IPv4' && !entry.internal)
-    .map((entry) => entry.address)
+    .filter((entry: any) => entry && entry.family === 'IPv4' && !entry.internal)
+    .map((entry: any) => entry.address)
 }
 
 function createCompanionServer({ database, exportRoot, appVersion }) {
@@ -59,7 +59,7 @@ function createCompanionServer({ database, exportRoot, appVersion }) {
   let current = { running: false, port: 0, error: null }
 
   function readConfig() {
-    let config = {}
+    let config: any = {}
     try {
       config = JSON.parse(database.getSettings().companion_server || '{}')
     } catch {

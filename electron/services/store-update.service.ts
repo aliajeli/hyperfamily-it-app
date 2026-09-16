@@ -99,7 +99,27 @@ const MAX_COPY_ATTEMPTS = 3
  * platform with plain directories standing in for UNC paths.
  */
 class StoreUpdateService {
-  constructor(sendEvent, options = {}) {
+  getProgramName
+
+  agent
+  checkTimeoutMs
+  commands
+  copyImpl
+  copyTimeoutMs
+  defaultProgramName
+  exists
+  getCredentials
+  mapPath
+  platform
+  probe
+  reach
+  reachTimeoutMs
+  realFs
+  sendEvent
+  smb
+  versionCache
+
+  constructor(sendEvent, options: any = {}) {
     this.sendEvent = typeof sendEvent === 'function' ? sendEvent : () => {}
     this.platform = options.platform || process.platform
     // Reachability is a TCP probe of the SMB port, not ICMP: a firewalled but

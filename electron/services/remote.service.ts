@@ -34,6 +34,8 @@ function resolveExecutable(configured, candidates) {
 }
 
 class RemoteService {
+  database
+
   constructor(database) {
     this.database = database
   }
@@ -57,7 +59,7 @@ class RemoteService {
     const target = `${device.name || device.device_type} (${device.ip})`
 
     try {
-      let result = { success: true }
+      let result: any = { success: true }
       if (method === 'rdp') await this.rdp(device, credential)
       else if (method === 'teamviewer') this.teamviewer(device)
       else if (method === 'winbox') this.winbox(device, credential)
@@ -82,7 +84,7 @@ class RemoteService {
   async rdp(device, credential) {
     this.requireWindows('Remote Desktop')
     if (!credential) throw new Error('Assign a credential to this device in Settings → Credentials first')
-    await new Promise((resolve, reject) =>
+    await new Promise<void>((resolve, reject) =>
       execFile(
         'cmdkey.exe',
         [`/generic:TERMSRV/${device.ip}`, `/user:${credential.username}`, `/pass:${credential.password}`],

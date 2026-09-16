@@ -569,7 +569,7 @@ async function createImportTemplate(database, outputPath = null, actor = 'Admin'
   return { success: true, path: filePath }
 }
 
-function readSheetRows(worksheet, requiredHeaders, errors, options = {}) {
+function readSheetRows(worksheet, requiredHeaders, errors, options: any = {}) {
   const required = options.required !== false
   if (!worksheet) {
     if (required) errors.push(`Missing required worksheet "${options.sheetName || 'Unknown'}"`)
@@ -771,7 +771,7 @@ async function parseImportWorkbook(filePath) {
       errors.push(`${rowLabel}: this device is duplicated in the workbook`)
     if (branchCode && type && ip) deviceKeys.add(deviceKey)
 
-    const device = {
+    const device: any = {
       branch_code: branchCode,
       device_type: type,
       is_dashboard_visible: parseDashboard(row.values.Dashboard, rowLabel, errors),
@@ -853,7 +853,7 @@ async function importDirectory(database, inputPath = null, actor = 'Admin') {
   return { ...result, path: filePath, layout: payload.layout }
 }
 
-async function exportInventory(database, filters = {}, outputPath = null) {
+async function exportInventory(database, filters: any = {}, outputPath = null) {
   let rows = database.listInventory()
   if (filters.branch && filters.branch !== 'all')
     rows = rows.filter((row) => String(row.branch_id) === String(filters.branch))

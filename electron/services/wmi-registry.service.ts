@@ -66,7 +66,7 @@ function runWmiQuery(request, timeoutMs, exec = execFile) {
       { timeout: timeoutMs, windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
       (error, stdout) => {
         if (error) {
-          const failure = new Error(
+          const failure: any = new Error(
             error.killed
               ? 'WMI registry query timed out — check the target WMI/DCOM firewall rules'
               : 'WMI registry read failed — check Settings → Store App → Target access, WMI permissions and WMI/DCOM firewall rules'
@@ -82,7 +82,7 @@ function runWmiQuery(request, timeoutMs, exec = execFile) {
   })
 }
 
-async function listProgramsViaWmi(host, options = {}) {
+async function listProgramsViaWmi(host, options: any = {}) {
   const clean = String(host || '')
     .trim()
     .replace(/^\\+/, '')

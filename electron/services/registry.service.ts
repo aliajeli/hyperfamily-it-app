@@ -77,7 +77,7 @@ function parseRegQuery(output) {
  * Every program registered on `host` ('' or 'localhost' → this machine).
  * `reg.exe` is spawned once per hive, in parallel, each with its own deadline.
  */
-async function listRemotePrograms(host, options = {}) {
+async function listRemotePrograms(host, options: any = {}) {
   const exec = options.exec || runReg
   const timeoutMs = options.timeoutMs || 25000
   const clean = String(host || '')
@@ -94,7 +94,7 @@ async function listRemotePrograms(host, options = {}) {
     // `code` lets the caller decide whether another strategy is worth trying:
     // a stopped service is recoverable, denied credentials are not.
     const fail = (message, code) => {
-      const error = new Error(message)
+      const error: any = new Error(message)
       error.code = code
       throw error
     }
@@ -155,7 +155,7 @@ function pickProgram(programs, needle) {
  * can be slightly stale, which is why this is only ever the second choice and
  * the result is flagged as such.
  */
-async function readHiveOverShare(host, options = {}) {
+async function readHiveOverShare(host, options: any = {}) {
   const exec = options.exec || runReg
   const copyFile = options.copyFile
   const stat = options.stat || require('fs/promises').stat
@@ -187,7 +187,7 @@ async function readHiveOverShare(host, options = {}) {
     }
   }
   if (!copied) {
-    const error = new Error(`No readable registry backup found on ${clean}`)
+    const error: any = new Error(`No readable registry backup found on ${clean}`)
     error.code = 'HIVE_UNAVAILABLE'
     throw error
   }
@@ -195,7 +195,7 @@ async function readHiveOverShare(host, options = {}) {
   try {
     const load = await exec(['load', `HKLM\\${mountName}`, localCopy], options.timeoutMs || 25000)
     if (!load.ok) {
-      const error = new Error(`Could not open the registry backup copied from ${clean}`)
+      const error: any = new Error(`Could not open the registry backup copied from ${clean}`)
       error.code = 'HIVE_LOAD_FAILED'
       throw error
     }

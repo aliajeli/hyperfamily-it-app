@@ -46,7 +46,23 @@ const PIPELINE = [
 ]
 
 class StoreInstallService {
-  constructor(sendEvent, options = {}) {
+  agent
+  commands
+  getCredentials
+  installerFile
+  mapDestination
+  minCommandAgent
+  platform
+  probe
+  reach
+  reachTimeoutMs
+  realFs
+  runs
+  sendEvent
+  smb
+  stepTimeoutMs
+
+  constructor(sendEvent, options: any = {}) {
     this.sendEvent = typeof sendEvent === 'function' ? sendEvent : () => {}
     this.platform = options.platform || process.platform
     this.reach = options.reach || checkReachable
@@ -114,7 +130,7 @@ class StoreInstallService {
 
   #throwIfCancelled(signal, label = 'The Store Commerce update') {
     if (signal?.aborted) {
-      const error = new Error(`${label} was stopped by the operator`)
+      const error: any = new Error(`${label} was stopped by the operator`)
       error.cancelled = true
       throw error
     }
@@ -125,7 +141,7 @@ class StoreInstallService {
    * whole timeline plus the command answer (exit code, installer output,
    * versions before/after) for the per-checkout info popup.
    */
-  async installOne(checkout, options = {}) {
+  async installOne(checkout, options: any = {}) {
     if (!this.realFs) throw new Error('Updating Store Commerce is only available on Windows')
     const destinationPath = String(options.destinationPath || '').trim()
     if (!destinationPath) throw new Error('Set the deploy destination folder in Settings → Store App first')
@@ -391,7 +407,7 @@ class StoreInstallService {
    * each machine finish before the next starts — and ends with an
    * `install-finished` summary event.
    */
-  async installAll(checkouts, options = {}) {
+  async installAll(checkouts, options: any = {}) {
     const runId = options.runId || `install-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     this.#registerRun(runId)
     const results = new Array(checkouts.length)

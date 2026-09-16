@@ -51,7 +51,11 @@ function qualifyUser(domain, username) {
 }
 
 class SmbSessionManager {
-  constructor(options = {}) {
+  exec
+  platform
+  sessions
+
+  constructor(options: any = {}) {
     this.exec = options.exec || run
     this.platform = options.platform || process.platform
     // host (lowercase) → { count, ready: Promise<void> }
@@ -59,7 +63,7 @@ class SmbSessionManager {
   }
 
   /** Credentials as stored in Settings → Store App → Target access. */
-  static credentialsFrom(settings = {}) {
+  static credentialsFrom(settings: any = {}) {
     return {
       domain: String(settings.target_domain || '').trim(),
       username: String(settings.target_admin_user || '').trim(),

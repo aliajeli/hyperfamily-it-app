@@ -97,7 +97,7 @@ function sha256File(file) {
 
 /** Streamed copy that reports how many bytes have landed so far. */
 function streamCopy(source, target, total, onProgress) {
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     let written = 0
     let settled = false
     const read = fs.createReadStream(source)
@@ -136,7 +136,14 @@ function streamCopy(source, target, total, onProgress) {
  * be exercised by plain `node --test` on any platform.
  */
 class SoftwareService {
-  constructor(sendEvent, options = {}) {
+  cache
+  cacheAt
+  copyTimeoutMs
+  platform
+  runPs
+  sendEvent
+
+  constructor(sendEvent, options: any = {}) {
     this.sendEvent = typeof sendEvent === 'function' ? sendEvent : () => {}
     this.platform = options.platform || process.platform
     this.runPs = options.runPs || defaultRunPs
@@ -161,7 +168,7 @@ class SoftwareService {
    *    for any file, installed or not)
    *  - `{ name }`  → programs whose registered name contains the text
    */
-  async checkVersion(payload = {}) {
+  async checkVersion(payload: any = {}) {
     const filePath = String(payload.path || '').trim()
     const name = String(payload.name || '').trim()
     if (filePath) return this.getFileVersion(filePath)
@@ -194,7 +201,7 @@ class SoftwareService {
       '  FileDescription = $v.FileDescription',
       '} | ConvertTo-Json -Compress'
     ].join('; ')
-    let info = {}
+    let info: any = {}
     try {
       info = JSON.parse(String(await this.runPs(script)).trim() || '{}')
     } catch {
@@ -221,7 +228,7 @@ class SoftwareService {
    * One bad file never aborts the batch: it is recorded as `error` and the
    * run continues with the next file.
    */
-  async copyFiles(payload = {}) {
+  async copyFiles(payload: any = {}) {
     const sources = (Array.isArray(payload.sources) ? payload.sources : [])
       .map((value) => String(value || '').trim())
       .filter(Boolean)
@@ -247,7 +254,7 @@ class SoftwareService {
       const source = sources[index]
       const target = path.join(destination, path.basename(source))
       let lastEmit = 0
-      const emit = (state, extra = {}) => {
+      const emit = (state, extra: any = {}) => {
         // Streams report per 64 KB chunk; the UI only needs ~10 updates/s.
         // The final (100 %) chunk always goes through — otherwise a file that
         // copies inside one throttle window would never show any progress.

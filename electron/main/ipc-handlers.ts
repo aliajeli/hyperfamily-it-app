@@ -423,7 +423,7 @@ function registerIpcHandlers({
 
   ipcMain.handle(
     'dialog:select-file',
-    secure(async (_event, options = {}) => {
+    secure(async (_event, options: any = {}) => {
       const result = await dialog.showOpenDialog(getWindow(), {
         title: options.title || 'Select file',
         properties: ['openFile'],
@@ -435,7 +435,7 @@ function registerIpcHandlers({
   // Multi-file and folder variants underpin the version checker's copy tool.
   ipcMain.handle(
     'dialog:select-files',
-    secure(async (_event, options = {}) => {
+    secure(async (_event, options: any = {}) => {
       const result = await dialog.showOpenDialog(getWindow(), {
         title: options.title || 'Select files',
         properties: ['openFile', 'multiSelections'],
@@ -446,7 +446,7 @@ function registerIpcHandlers({
   )
   ipcMain.handle(
     'dialog:select-directory',
-    secure(async (_event, options = {}) => {
+    secure(async (_event, options: any = {}) => {
       const result = await dialog.showOpenDialog(getWindow(), {
         title: options.title || 'Select folder',
         properties: ['openDirectory', 'createDirectory']

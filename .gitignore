@@ -22,3 +22,9 @@ agent/obj/
 agent/build/
 
 test-artifacts/
+
+# TypeScript build artifacts for the Electron layer (sources are .ts, these are emitted in place).
+electron/services/*.js
+electron/preload/*.js
+electron/database/*.js
+electron/main/ipc-handlers.js

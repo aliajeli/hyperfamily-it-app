@@ -27,6 +27,12 @@ function pingHost(host, timeoutMs = 1000) {
 }
 
 class PingMonitor {
+  database
+  lastFingerprint
+  running
+  sendEvent
+  timer
+
   constructor(database, sendEvent) {
     this.database = database
     this.sendEvent = sendEvent

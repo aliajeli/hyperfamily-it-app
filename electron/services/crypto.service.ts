@@ -4,6 +4,11 @@ const path = require('path')
 const { safeStorage } = require('electron')
 
 class SecureVault {
+  fallbackKey
+
+  databaseKeyPath
+  keyPath
+
   constructor(userDataPath) {
     this.keyPath = path.join(userDataPath, '.vault-key')
     this.databaseKeyPath = path.join(userDataPath, '.database-key')

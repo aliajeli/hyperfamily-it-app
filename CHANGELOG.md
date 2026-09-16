@@ -3,6 +3,15 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.6.0-beta.1
+
+**The Electron layer moves to TypeScript**
+
+_Released 2026-09-16 · beta channel_
+
+### Improved
+- All OS services, the IPC layer, the preload bridge and the database engine are now TypeScript sources, checked by the compiler on every build and every CI run.
+- The TypeScript migration compiles in place, so installs, updates and stored data behave exactly as before.
 ## 3.5.0-beta.1
 
 **Companion APK ships on GitHub Releases with in-app updates**

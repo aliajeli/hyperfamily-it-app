@@ -32,6 +32,18 @@ const REQUEST_HEADERS = { 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: 'a
  * Install always ends with the new version running.
  */
 class UpdateService {
+  paused
+
+  cancellationToken
+  channel
+  fallbackAbort
+  installerPath
+  lastUpdaterError
+  latestInstaller
+  rateWindow
+  sendEvent
+  status
+
   constructor(sendEvent) {
     this.sendEvent = sendEvent
     this.status = { ...UpdateService.idleStatus() }
@@ -117,7 +129,15 @@ class UpdateService {
    * chunk, because raw per-chunk timings jump around enough to make the
    * on-screen speed unreadable.
    */
-  reportProgress({ transferred, total, bytesPerSecond }) {
+  reportProgress({
+    transferred,
+    total,
+    bytesPerSecond
+  }: {
+    transferred: any
+    total: any
+    bytesPerSecond?: any
+  }) {
     if (this.paused) return
     const now = Date.now()
     if (!this.rateWindow || this.rateWindow.start > now) this.resetRate(transferred, now)
@@ -484,7 +504,7 @@ class UpdateService {
         }
       }
       this.reportProgress({ transferred, total })
-      await new Promise((resolve, reject) => handle.end((error) => (error ? reject(error) : resolve())))
+      await new Promise<void>((resolve, reject) => handle.end((error) => (error ? reject(error) : resolve())))
     } catch (error) {
       handle.destroy()
       try {

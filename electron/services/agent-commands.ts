@@ -35,13 +35,21 @@ function normalizeHost(host) {
 }
 
 function cancelledError(label = 'Agent command') {
-  const error = new Error(`${label} was stopped by the operator`)
+  const error: any = new Error(`${label} was stopped by the operator`)
   error.cancelled = true
   return error
 }
 
 class AgentCommands {
-  constructor(options = {}) {
+  delay
+  mapPath
+  now
+  randomId
+  readFile
+  unlink
+  writeFile
+
+  constructor(options: any = {}) {
     this.mapPath =
       options.agentPathMapper ||
       ((host, relative = '') =>
@@ -60,7 +68,7 @@ class AgentCommands {
    * execute later, after an agent update), on cancellation and on malformed
    * answers.
    */
-  async sendCommand(host, command, options = {}) {
+  async sendCommand(host, command, options: any = {}) {
     const action = String(command?.action || '').trim()
     if (!ACTIONS.has(action)) throw new Error(`Unsupported agent command “${action}”`)
     const targetPath = command.path != null ? String(command.path) : ''
