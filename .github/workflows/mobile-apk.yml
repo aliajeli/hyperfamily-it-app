@@ -1,22 +1,33 @@
-# Build the Android companion APK and attach it to the published release,
-# so phones can self-update from GitHub Releases like the desktop app does.
+# Build the Android companion APK and attach it to the release, so phones can
+# self-update from GitHub Releases like the desktop app does.
 #
-# Signing: set repository secrets HF_KEYSTORE_BASE64 (base64 of the keystore
+# Called as a reusable workflow by the release workflows once the release is
+# published (token-created releases fire no `release` events, dispatching
+# needs the file on the default branch, and `workflow_run` would too — a
+# same-ref `uses:` call has neither limitation).
+#
+# Signing: repository secrets HF_KEYSTORE_BASE64 (base64 of the keystore
 # file), HF_KEYSTORE_PASSWORD, HF_KEY_ALIAS, HF_KEY_PASSWORD. Without them the
-# workflow still builds, but uploads an -unsigned APK that cannot update
-# previous installs.
+# build still runs but the APK goes out -unsigned and cannot update previous
+# installs.
 name: Mobile APK
 
 on:
-  # Dispatched by the release workflows once a release is published (token-
-  # created releases fire no `release` events, and `workflow_run` would need
-  # this file on the default branch). Manual dispatch builds an artifact.
   workflow_dispatch:
     inputs:
       release_tag:
         description: 'Attach the APK to this release tag (empty = build artifact only)'
         required: false
         default: ''
+  workflow_call:
+    inputs:
+      release_tag:
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   apk:
@@ -73,13 +84,18 @@ jobs:
           ls -la HyperFamily-Companion-*.apk
 
       - name: Attach APK to release
-        if: ${{ inputs.release_tag != '' }}
+        if: ${{ github.event_name == 'workflow_call' || inputs.release_tag != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ inputs.release_tag }}" HyperFamily-Companion-*.apk --clobber
+        run: |
+          TAG='${{ inputs.release_tag }}'
+          if [ -z "$TAG" ]; then
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          gh release upload "$TAG" HyperFamily-Companion-*.apk --clobber
 
       - name: Upload build artifact
-        if: ${{ inputs.release_tag == '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: companion-apk

@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: write
-  actions: write # dispatching the companion APK workflow
 
 jobs:
   release:
@@ -82,11 +81,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build the companion APK for this release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run mobile-apk.yml --ref "${GITHUB_REF_NAME}" -f release_tag="${GITHUB_REF_NAME}"
-
       # electron-builder creates the GitHub release as a draft by default, and a
       # draft is invisible to electron-updater. Force it public so the in-app
       # updater can see this version and download the installer.
@@ -124,3 +118,10 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Companion APK for the same tag, built on Linux right after the release
+  # exists. The called workflow derives the tag from package.json.
+  apk:
+    needs: release
+    uses: ./.github/workflows/mobile-apk.yml
+    secrets: inherit
