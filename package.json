@@ -70,7 +70,7 @@
     "postcss": "^8.5.26",
     "prettier": "^3.4.2",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "react-dom": "19.3.0",
     "react-hook-form": "^7.54.2",
     "recharts": "^3.10.1",
     "sonner": "^1.7.2",
