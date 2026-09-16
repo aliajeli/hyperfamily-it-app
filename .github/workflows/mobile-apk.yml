@@ -12,7 +12,7 @@ on:
   # token-created releases do not fire `release` events for other workflows —
   # so hook onto the completion of those workflows instead.
   workflow_run:
-    workflows: ['Beta Release', 'Stable Release']
+    workflows: ['Beta Release', 'Release']
     types: [completed]
   workflow_dispatch:
 
