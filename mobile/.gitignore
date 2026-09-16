@@ -5,3 +5,4 @@ android/local.properties
 android/build/
 .gradle/
 *.keystore
+HyperFamily-Companion-*.apk

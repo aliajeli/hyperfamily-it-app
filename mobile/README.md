@@ -31,6 +31,27 @@ server); the phone is a thin, token-protected shell around it.
    The debug APK lands in `android/app/build/outputs/apk/debug/`.
    For a signed release: **Build → Generate Signed Bundle / APK**.
 
+### Headless build (Linux server / CI — no Android Studio)
+
+The exact recipe verified on a plain Ubuntu container (Capacitor 7 needs
+**JDK 21** — JDK 17 fails with `invalid source release: 21`):
+
+```bash
+# JDK 21 (Adoptium) + Android command-line tools
+curl -sL -o jdk21.tar.gz "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"
+tar xzf jdk21.tar.gz && export JAVA_HOME=$PWD/jdk-21*
+curl -sL -o cmdtools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+unzip -q cmdtools.zip && mkdir -p android-sdk/cmdline-tools && mv cmdline-tools android-sdk/cmdline-tools/latest
+export ANDROID_HOME=$PWD/android-sdk
+yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses > /dev/null
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+cd mobile/android
+echo "sdk.dir=$ANDROID_HOME" > local.properties
+./gradlew assembleDebug --no-daemon
+# → app/build/outputs/apk/debug/app-debug.apk (~4 MB)
+```
+
 ## Use it
 
 1. On the workstation: **Settings → General → Companion server (Android)** —
