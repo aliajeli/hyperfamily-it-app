@@ -38,6 +38,15 @@ setJson('electron/recovery/package-lock.json', (d) => {
   d.version = version
   if (d.packages && d.packages['']) d.packages[''].version = version
 })
+// The companion app must track the workstation version: the in-app updater
+// compares its versionName against the release tag.
+setJson('mobile/package.json', (d) => {
+  d.version = version
+})
+setJson('mobile/package-lock.json', (d) => {
+  d.version = version
+  if (d.packages && d.packages['']) d.packages[''].version = version
+})
 
 // The changelog must carry the new version, sorted with the app's own
 // comparator so `node --test tests/unit/` keeps passing.
