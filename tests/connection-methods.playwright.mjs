@@ -50,10 +50,10 @@ const close = async () => {
   await p.waitForTimeout(400)
 }
 
-// 1. all ten device cards are listed
+// 1. all eight device cards are listed (POS and Scale were retired in 3.2.5)
 t(
-  'all ten device cards are shown',
-  (await p.locator('[aria-label^="Open connection methods for"]').count()) === 10
+  'all eight device cards are shown',
+  (await p.locator('[aria-label^="Open connection methods for"]').count()) === 8
 )
 
 // 2. spec defaults are the starred chip per type (inside the dialog)
@@ -65,9 +65,7 @@ const LABEL = {
   NVR: 'NVR',
   Server: 'Server',
   Checkout: 'Checkout',
-  Client: 'Client',
-  Scale: 'Scale',
-  POS: 'POS'
+  Client: 'Client'
 }
 const spec = {
   Router: 'Winbox',
@@ -77,9 +75,7 @@ const spec = {
   NVR: 'Browser with auto sign-in',
   Server: 'Remote Desktop',
   Checkout: 'Remote Desktop',
-  Client: 'Remote Desktop',
-  Scale: 'External browser',
-  POS: 'TeamViewer'
+  Client: 'Remote Desktop'
 }
 for (const [type, label] of Object.entries(spec)) {
   await open(LABEL[type])
