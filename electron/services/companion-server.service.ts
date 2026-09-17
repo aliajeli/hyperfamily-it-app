@@ -161,7 +161,23 @@ function createCompanionServer({ database, exportRoot, appVersion }) {
     'POST /api/branches/remove': { handler: (body) => database.deleteBranch(Number(body?.id), 'Companion') },
     'POST /api/devices/remove': { handler: (body) => database.deleteDevice(Number(body?.id), 'Companion') },
     'GET /api/settings': { handler: () => database.getSettings() },
-    'POST /api/settings': { handler: (body) => database.saveSettings(body || {}, 'Companion') }
+    'POST /api/settings': { handler: (body) => database.saveSettings(body || {}, 'Companion') },
+    // v3.9.0: the rest of the reading/writing surface, so the phone is a full
+    // companion — notes, terminal snippets, inventory and credentials.
+    'GET /api/notes': { handler: () => database.listNotes() },
+    'POST /api/notes': { handler: (body) => database.saveNote(body || {}, 'Companion') },
+    'POST /api/notes/remove': {
+      handler: (body) => database.deleteNote(Number(body?.id), 'Companion')
+    },
+    'GET /api/snippets': { handler: () => database.listSnippets() },
+    'POST /api/snippets': { handler: (body) => database.saveSnippet(body || {}, 'Companion') },
+    'POST /api/snippets/remove': {
+      handler: (body) => database.deleteSnippet(Number(body?.id), 'Companion')
+    },
+    'GET /api/inventory': { handler: () => database.listInventory() },
+    'GET /api/credentials': { handler: () => database.listCredentials() },
+    'GET /api/credentials/map': { handler: () => database.getCredentialMap() },
+    'GET /api/credentials/overview': { handler: () => database.listDeviceCredentialOverview() }
   }
 
   function serveStatic(request, response, pathname) {

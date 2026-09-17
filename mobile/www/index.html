@@ -263,6 +263,7 @@
         />
         <button id="connect" type="submit">Connect</button>
         <button id="scan" type="button" class="secondary">Scan QR code</button>
+        <button id="checkupdate" type="button" class="secondary">Check for updates</button>
         <button id="forget" type="button" class="secondary hidden">Forget this server</button>
         <p class="note">
           On the workstation: Settings → General → Companion server (Android) → enable it, then enter the
@@ -426,6 +427,12 @@
           })
       })
       scanCancel.addEventListener('click', stopScan)
+
+      // Updates work with no workstation in reach: they come straight from
+      // GitHub Releases, so a stranded phone can still update itself (v3.9.0).
+      document.getElementById('checkupdate').addEventListener('click', function () {
+        checkUpdate(true)
+      })
 
       forget.addEventListener('click', function () {
         localStorage.removeItem(KEY)

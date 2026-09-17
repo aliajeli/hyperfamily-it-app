@@ -12,7 +12,7 @@ const { createCompanionServer } = require('../../electron/services/companion-ser
  */
 function fakeDatabase(initial = {}) {
   const settings = { ping_history_count: 30, ...initial }
-  return {
+  const database = {
     settings,
     getSettings: () => ({ ...settings }),
     saveSettings: (patch) => Object.assign(settings, patch),
@@ -28,8 +28,36 @@ function fakeDatabase(initial = {}) {
     saveBranch: (data) => ({ saved: data }),
     saveDevice: (data) => ({ saved: data }),
     deleteBranch: (id) => ({ deleted: id }),
-    deleteDevice: (id) => ({ deleted: id })
+    deleteDevice: (id) => ({ deleted: id }),
+    notes: [],
+    listNotes: () => [...database.notes],
+    saveNote: (payload) => {
+      const saved = { id: payload.id || database.notes.length + 1, name: payload.name, ...payload }
+      if (payload.id) database.notes = database.notes.map((n) => (n.id === payload.id ? saved : n))
+      else database.notes.push(saved)
+      return saved
+    },
+    deleteNote: (id) => {
+      database.notes = database.notes.filter((n) => n.id !== id)
+      return { deleted: id }
+    },
+    snippets: [],
+    listSnippets: () => [...database.snippets],
+    saveSnippet: (payload) => {
+      const saved = { id: payload.id || database.snippets.length + 1, ...payload }
+      database.snippets.push(saved)
+      return saved
+    },
+    deleteSnippet: (id) => {
+      database.snippets = database.snippets.filter((n) => n.id !== id)
+      return { deleted: id }
+    },
+    listInventory: () => [{ id: 1, name: 'CO-01', kind: 'Checkout' }],
+    listCredentials: () => [{ id: 1, label: 'Admin' }],
+    getCredentialMap: () => ({ 9: [1] }),
+    listDeviceCredentialOverview: () => [{ device_id: 9, assigned: 1 }]
   }
+  return database
 }
 
 function tempExport() {
@@ -193,6 +221,54 @@ test('API answers carry CORS headers so the phone WebView can read them', async 
       assert.equal(preflight.headers.get('access-control-allow-origin'), '*')
       assert.match(preflight.headers.get('access-control-allow-methods') || '', /POST/)
       assert.match(preflight.headers.get('access-control-allow-headers') || '', /authorization/)
+    }
+  )
+})
+
+/**
+ * v3.9.0: the phone is a full companion — notes/snippets/inventory/credentials
+ * ride the same token gate as everything else.
+ */
+test('notes, snippets, inventory and credentials are exposed to the phone', async () => {
+  await withServer(
+    { companion_server: JSON.stringify({ token: 'full-token', port: 0 }) },
+    async (_service, state) => {
+      const base = `http://127.0.0.1:${state.port}`
+      const headers = { authorization: 'Bearer full-token', connection: 'close' }
+      const jsonHeaders = { ...headers, 'content-type': 'application/json' }
+
+      // Notes round-trip through the real HTTP surface.
+      const created = await (
+        await fetch(`${base}/api/notes`, {
+          method: 'POST',
+          headers: jsonHeaders,
+          body: JSON.stringify({ name: 'VLAN plan', body: '172.18/24' })
+        })
+      ).json()
+      const listed = await (await fetch(`${base}/api/notes`, { headers })).json()
+      assert.equal(listed.length, 1)
+      assert.equal(listed[0].name, 'VLAN plan')
+      const removed = await (
+        await fetch(`${base}/api/notes/remove`, {
+          method: 'POST',
+          headers: jsonHeaders,
+          body: JSON.stringify({ id: created.id })
+        })
+      ).json()
+      assert.equal(removed.deleted, created.id)
+
+      const snippets = await (await fetch(`${base}/api/snippets`, { headers })).json()
+      assert.equal(Array.isArray(snippets), true)
+      const inventory = await (await fetch(`${base}/api/inventory`, { headers })).json()
+      assert.equal(inventory[0].name, 'CO-01')
+      const credentials = await (await fetch(`${base}/api/credentials`, { headers })).json()
+      assert.equal(credentials[0].label, 'Admin')
+      const overview = await (await fetch(`${base}/api/credentials/overview`, { headers })).json()
+      assert.equal(overview[0].device_id, 9)
+
+      // Without the token the new surface stays closed, exactly like the old one.
+      const denied = await fetch(`${base}/api/notes`, { headers: { connection: 'close' } })
+      assert.equal(denied.status, 401)
     }
   )
 })

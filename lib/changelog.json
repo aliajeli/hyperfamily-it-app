@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "3.9.0-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "The phone becomes a full companion",
+      "changes": {
+        "added": [
+          "The Companion app is no longer limited to the dashboard: Notes, Terminal snippets, Inventory and the Credentials overview now open and read/write from the phone, on the same token-gated API as the desktop.",
+          "The connect screen gained an explicit “Check for updates” button — updates come straight from GitHub Releases, so the app can update itself even before it has a workstation connection."
+        ]
+      }
+    },
+    {
       "version": "3.8.2-beta.1",
       "date": "2026-09-17",
       "channel": "beta",

@@ -3,6 +3,15 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.9.0-beta.1
+
+**The phone becomes a full companion**
+
+_Released 2026-09-17 · beta channel_
+
+### Added
+- The Companion app is no longer limited to the dashboard: Notes, Terminal snippets, Inventory and the Credentials overview now open and read/write from the phone, on the same token-gated API as the desktop.
+- The connect screen gained an explicit “Check for updates” button — updates come straight from GitHub Releases, so the app can update itself even before it has a workstation connection.
 ## 3.8.2-beta.1
 
 **Phone app can reach the workstation again**

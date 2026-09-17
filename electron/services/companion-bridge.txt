@@ -146,6 +146,46 @@
       save: function (patch) {
         return call('POST', '/api/settings', patch)
       }
+    },
+    // v3.9.0: notes, terminal snippets, inventory and credentials now work
+    // from the phone too — same token gate, same database as the desktop.
+    notes: {
+      list: function () {
+        return call('GET', '/api/notes')
+      },
+      save: function (payload) {
+        return call('POST', '/api/notes', payload)
+      },
+      remove: function (id) {
+        return call('POST', '/api/notes/remove', { id: id })
+      }
+    },
+    snippets: {
+      list: function () {
+        return call('GET', '/api/snippets')
+      },
+      save: function (payload) {
+        return call('POST', '/api/snippets', payload)
+      },
+      remove: function (id) {
+        return call('POST', '/api/snippets/remove', { id: id })
+      }
+    },
+    inventory: {
+      list: function () {
+        return call('GET', '/api/inventory')
+      }
+    },
+    credentials: {
+      list: function () {
+        return call('GET', '/api/credentials')
+      },
+      map: function () {
+        return call('GET', '/api/credentials/map')
+      },
+      overview: function () {
+        return call('GET', '/api/credentials/overview')
+      }
     }
   }
 
