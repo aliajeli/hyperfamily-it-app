@@ -151,3 +151,48 @@ test('configure persists enabled/port, rotateToken changes the token, autostart 
   await assert.rejects(() => service.configure({ port: 99999 }), /between 1 and 65535/)
   await assert.rejects(() => service.configure({ port: 'abc' }), /between 1 and 65535/)
 })
+
+/**
+ * REGRESSION (v3.8.2): the phone's connect screen probes /api/health from the
+ * Capacitor origin (https://localhost). Without CORS headers the WebView
+ * discards the response and reports "Could not reach that server" even though
+ * the server answered — the exact field failure this pins down.
+ */
+test('API answers carry CORS headers so the phone WebView can read them', async () => {
+  await withServer(
+    { companion_server: JSON.stringify({ token: 'cors-token', port: 0 }) },
+    async (_service, state) => {
+      const base = `http://127.0.0.1:${state.port}`
+      const health = await fetch(`${base}/api/health`, {
+        headers: { origin: 'https://localhost', connection: 'close' }
+      })
+      assert.equal(health.status, 200)
+      assert.equal(health.headers.get('access-control-allow-origin'), '*')
+
+      const guarded = await fetch(`${base}/api/branches`, {
+        headers: {
+          authorization: 'Bearer cors-token',
+          origin: 'https://localhost',
+          connection: 'close'
+        }
+      })
+      assert.equal(guarded.status, 200)
+      assert.equal(guarded.headers.get('access-control-allow-origin'), '*')
+
+      // Preflight for a token-bearing POST from the foreign origin.
+      const preflight = await fetch(`${base}/api/devices`, {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://localhost',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'authorization, content-type',
+          connection: 'close'
+        }
+      })
+      assert.equal(preflight.status, 204)
+      assert.equal(preflight.headers.get('access-control-allow-origin'), '*')
+      assert.match(preflight.headers.get('access-control-allow-methods') || '', /POST/)
+      assert.match(preflight.headers.get('access-control-allow-headers') || '', /authorization/)
+    }
+  )
+})

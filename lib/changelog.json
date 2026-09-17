@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "version": "3.8.2-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "Phone app can reach the workstation again",
+      "changes": {
+        "fixed": [
+          "Fixed the Companion app failing to connect with “Could not reach that server” even on the same network: Android 9+ silently blocked the plain-HTTP requests to the workstation — the app is now allowed to talk to the local network again.",
+          "The companion server now answers with CORS headers, so the phone's reachability probe can actually read the response instead of discarding it.",
+          "The connection failure message now also points at the Windows firewall (private networks) as a possible cause."
+        ]
+      }
+    },
+    {
       "version": "3.8.1-beta.1",
       "date": "2026-09-17",
       "channel": "beta",

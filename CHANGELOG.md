@@ -3,6 +3,16 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.8.2-beta.1
+
+**Phone app can reach the workstation again**
+
+_Released 2026-09-17 · beta channel_
+
+### Fixed
+- Fixed the Companion app failing to connect with “Could not reach that server” even on the same network: Android 9+ silently blocked the plain-HTTP requests to the workstation — the app is now allowed to talk to the local network again.
+- The companion server now answers with CORS headers, so the phone's reachability probe can actually read the response instead of discarding it.
+- The connection failure message now also points at the Windows firewall (private networks) as a possible cause.
 ## 3.8.1-beta.1
 
 **Interface styling restored**

@@ -39,6 +39,20 @@ const MIME = {
   '.webmanifest': 'application/manifest+json'
 }
 
+/*
+ * CORS for the companion app. The phone's connect screen runs on the
+ * Capacitor origin (https://localhost) and pre-checks reachability with a
+ * cross-origin GET /api/health before navigating — without these headers the
+ * WebView discards the response and the server looks unreachable even when
+ * it answers. `*` is safe here: every non-health route still requires the
+ * companion token, and the server only exists on the store LAN.
+ */
+const CORS_HEADERS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type'
+}
+
 const BRIDGE_FILE = path.join(__dirname, 'companion-bridge.txt')
 const DEFAULT_PORT = 8420
 
@@ -89,7 +103,8 @@ function createCompanionServer({ database, exportRoot, appVersion }) {
     response.writeHead(status, {
       'content-type': 'application/json; charset=utf-8',
       'content-length': Buffer.byteLength(payload),
-      'cache-control': 'no-store'
+      'cache-control': 'no-store',
+      ...CORS_HEADERS
     })
     response.end(payload)
   }
@@ -182,6 +197,11 @@ function createCompanionServer({ database, exportRoot, appVersion }) {
   async function handle(request, response) {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`)
     try {
+      // CORS preflight (a token-bearing POST triggers one from a foreign origin).
+      if (request.method === 'OPTIONS') {
+        response.writeHead(204, { 'cache-control': 'no-store', ...CORS_HEADERS })
+        return response.end()
+      }
       if (url.pathname === '/companion-bridge.js') {
         const bridge = fs.readFileSync(BRIDGE_FILE, 'utf8')
         response.writeHead(200, {
