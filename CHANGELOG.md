@@ -3,6 +3,20 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.8.0-beta.1
+
+**Pair the phone app with one QR scan**
+
+_Released 2026-09-17 · beta channel_
+
+### Added
+- Settings → General → Companion server now shows a QR code that encodes the address, port and token together — with a picker when the workstation has several network addresses.
+
+### Improved
+- The HyperFamily Companion app gained a “Scan QR code” button: one scan of the code on the workstation fills the address, port and token and connects — manual entry still works as before.
+
+### Fixed
+- The Companion connection screen never displayed its status and error messages; messages like “Could not reach that server” are now shown correctly.
 ## 3.7.0-beta.1
 
 **The interface moves to TypeScript and becomes component-driven**

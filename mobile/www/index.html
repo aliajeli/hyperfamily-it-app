@@ -180,6 +180,46 @@
         color: #4c566a;
         margin-top: 14px;
       }
+
+      /* QR scanner overlay (v3.8.0): full-screen camera with a scan box. */
+      .scan-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(20, 23, 28, 0.94);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 20px;
+      }
+      .scan-overlay.hidden {
+        display: none;
+      }
+      #reader {
+        width: min(84vw, 22rem);
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: #000;
+      }
+      #reader video {
+        border-radius: 13px;
+      }
+      .scan-hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-align: center;
+        max-width: 20rem;
+        line-height: 1.5;
+      }
+      .scan-overlay button {
+        width: auto;
+        padding: 0.6rem 1.6rem;
+        margin-top: 0;
+      }
     </style>
   </head>
   <body>
@@ -222,20 +262,35 @@
           required
         />
         <button id="connect" type="submit">Connect</button>
+        <button id="scan" type="button" class="secondary">Scan QR code</button>
         <button id="forget" type="button" class="secondary hidden">Forget this server</button>
         <p class="note">
           On the workstation: Settings → General → Companion server (Android) → enable it, then enter the
-          address and token shown there. Both devices must be on the same store network.
+          address and token shown there — or scan the QR code shown on that card. Both devices must be on the
+          same store network.
         </p>
       </form>
       <div class="update hidden" id="update"></div>
       <p class="appver" id="appver"></p>
     </div>
 
+    <!-- Full-screen scanner, opened by “Scan QR code” (v3.8.0). -->
+    <div id="scan-overlay" class="scan-overlay hidden">
+      <div id="reader"></div>
+      <p class="scan-hint">
+        Point the camera at the QR code shown under Settings → General → Companion server on the workstation.
+      </p>
+      <button id="scan-cancel" type="button" class="secondary">Cancel</button>
+    </div>
+
+    <!-- Bundled locally: QR decoding must work with no internet access. -->
+    <script src="vendor/html5-qrcode.min.js"></script>
     <script>
       var KEY = 'hyperfamily.server'
       var form = document.getElementById('form')
-      var status = document.getElementById('status')
+      // NOT `var status`: window.status is a legacy read-only accessor that a
+      // top-level var can never shadow, so messages would vanish silently.
+      var statusEl = document.getElementById('status')
       var connect = document.getElementById('connect')
       var forget = document.getElementById('forget')
 
@@ -250,8 +305,8 @@
         localStorage.setItem(KEY, JSON.stringify(config))
       }
       function show(message, isError) {
-        status.textContent = message
-        status.className = 'status' + (isError ? ' error' : '')
+        statusEl.textContent = message
+        statusEl.className = 'status' + (isError ? ' error' : '')
       }
       function health(url) {
         var controller = new AbortController()
@@ -288,6 +343,11 @@
           token: document.getElementById('token').value.trim()
         }
         if (!config.host) return show('Enter the server address', true)
+        connectWith(config)
+      })
+
+      // Shared by the form and the QR scanner: health-check, then hand over.
+      function connectWith(config) {
         connect.disabled = true
         show('Connecting to ' + config.host + ':' + config.port + '…')
         health('http://' + config.host + ':' + config.port)
@@ -303,7 +363,69 @@
               true
             )
           })
+      }
+
+      // ---- QR pairing (v3.8.0): one scan fills address, port and token ----
+      var scanBtn = document.getElementById('scan')
+      var scanOverlay = document.getElementById('scan-overlay')
+      var scanCancel = document.getElementById('scan-cancel')
+      var scanner = null
+
+      // The workstation encodes http://host:port/?companion=token — the very
+      // URL that is typed by hand, so anything else is rejected as foreign.
+      function parseCompanionUrl(text) {
+        try {
+          var url = new URL(text)
+          if (!/^https?:$/.test(url.protocol)) return null
+          var token = url.searchParams.get('companion')
+          if (!url.hostname || !token) return null
+          return {
+            host: url.hostname,
+            port: Number(url.port) || 8420,
+            token: decodeURIComponent(token)
+          }
+        } catch (e) {
+          return null
+        }
+      }
+      function stopScan() {
+        if (scanner) {
+          try {
+            scanner.stop().then(function () {
+              scanner.clear()
+            })
+          } catch (e) {
+            /* scanner already down */
+          }
+          scanner = null
+        }
+        scanOverlay.className = 'scan-overlay hidden'
+      }
+      scanBtn.addEventListener('click', function () {
+        if (!window.Html5Qrcode) return show('QR scanning is unavailable in this build', true)
+        scanOverlay.className = 'scan-overlay'
+        scanner = new window.Html5Qrcode('reader')
+        scanner
+          .start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            function (text) {
+              var config = parseCompanionUrl(text)
+              stopScan()
+              if (!config) return show('That QR code is not a HyperFamily pairing code', true)
+              fill(config)
+              connectWith(config)
+            },
+            function () {
+              /* per-frame decode misses are normal */
+            }
+          )
+          .catch(function (error) {
+            stopScan()
+            show('Camera unavailable: ' + (error && error.message ? error.message : error), true)
+          })
       })
+      scanCancel.addEventListener('click', stopScan)
 
       forget.addEventListener('click', function () {
         localStorage.removeItem(KEY)

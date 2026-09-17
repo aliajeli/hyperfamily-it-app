@@ -1,6 +1,23 @@
 {
   "entries": [
     {
+      "version": "3.8.0-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "Pair the phone app with one QR scan",
+      "changes": {
+        "added": [
+          "Settings → General → Companion server now shows a QR code that encodes the address, port and token together — with a picker when the workstation has several network addresses."
+        ],
+        "improved": [
+          "The HyperFamily Companion app gained a “Scan QR code” button: one scan of the code on the workstation fills the address, port and token and connects — manual entry still works as before."
+        ],
+        "fixed": [
+          "The Companion connection screen never displayed its status and error messages; messages like “Could not reach that server” are now shown correctly."
+        ]
+      }
+    },
+    {
       "version": "3.7.0-beta.1",
       "date": "2026-09-17",
       "channel": "beta",

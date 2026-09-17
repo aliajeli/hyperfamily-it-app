@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Smartphone, Copy, Check, RefreshCw, TriangleAlert } from 'lucide-react'
+import { Smartphone, Copy, Check, RefreshCw, ScanLine, TriangleAlert } from 'lucide-react'
+import QRCode from 'qrcode'
 import { toast } from 'sonner'
 import {
   Button,
@@ -81,6 +82,40 @@ export default function CompanionServerCard() {
 
   const unsupported = state && state.supported === false
   const urls = (state?.addresses || []).map((address) => `http://${address}:${state?.port || 8420}`)
+
+  /**
+   * QR pairing: the code encodes the very same URL the operator would type
+   * by hand (http://host:port/?companion=token), so one scan in the phone app
+   * fills the address, the port and the token at once. Which address is
+   * encoded follows the picker below when the workstation has several.
+   */
+  const [qrAddress, setQrAddress] = useState('')
+  const [qrData, setQrData] = useState('')
+  useEffect(() => {
+    if (!state?.running || !state.token) {
+      setQrData('')
+      return
+    }
+    const addresses: string[] = state.addresses || []
+    const address = addresses.includes(qrAddress) ? qrAddress : addresses[0]
+    if (!address) {
+      setQrData('')
+      return
+    }
+    const url = `http://${address}:${state.port || 8420}/?companion=${encodeURIComponent(state.token)}`
+    let alive = true
+    // Fixed high-contrast colours: a QR must stay scannable in every theme.
+    QRCode.toDataURL(url, { width: 320, margin: 1, color: { dark: '#1c2027', light: '#ffffff' } })
+      .then((data) => {
+        if (alive) setQrData(data)
+      })
+      .catch(() => {
+        if (alive) setQrData('')
+      })
+    return () => {
+      alive = false
+    }
+  }, [state, qrAddress])
 
   return (
     <Card>
@@ -197,6 +232,47 @@ export default function CompanionServerCard() {
                     New token
                   </Button>
                 </div>
+
+                {/* One scan replaces typing the address, port and token. */}
+                {qrData ? (
+                  <div className="mt-1 flex items-start gap-3 rounded-xl border bg-[rgb(var(--surface)/.45)] p-2.5">
+                    <img
+                      src={qrData}
+                      width={128}
+                      height={128}
+                      alt="QR code for pairing the HyperFamily Companion app"
+                      className="shrink-0 rounded-lg border bg-white p-1"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">
+                        <ScanLine size={12} />
+                        Pair by QR code
+                      </span>
+                      {urls.length > 1 ? (
+                        <select
+                          aria-label="Address encoded in the QR code"
+                          value={
+                            (state.addresses || []).includes(qrAddress)
+                              ? qrAddress
+                              : (state.addresses || [])[0]
+                          }
+                          onChange={(event) => setQrAddress(event.target.value)}
+                          className="mt-1 w-full rounded-md border bg-[rgb(var(--canvas)/.6)] px-1.5 py-1 font-mono text-xs"
+                        >
+                          {(state.addresses || []).map((address) => (
+                            <option key={address} value={address}>
+                              {address}
+                            </option>
+                          ))}
+                        </select>
+                      ) : null}
+                      <p className="mt-1 text-2xs leading-relaxed text-[rgb(var(--muted))]">
+                        In the phone app tap <b>Scan QR code</b> and point the camera here — the address, port
+                        and token are filled in automatically.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
