@@ -39,6 +39,82 @@ export default [
     }
   },
   {
+    // TypeScript renderer (Next.js). Type checking belongs to tsc; eslint
+    // keeps the Next/React rules and the native-dialog ban.
+    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}', 'stores/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } },
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        navigator: 'readonly',
+        CustomEvent: 'readonly',
+        Event: 'readonly',
+        FileReader: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        console: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        ResizeObserver: 'readonly',
+        MutationObserver: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        AbortController: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        URLSearchParams: 'readonly',
+        FormData: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
+        getComputedStyle: 'readonly',
+        process: 'readonly'
+      }
+    },
+    plugins: { '@next/next': nextPlugin, react: reactPlugin, '@typescript-eslint': tsPlugin },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+      'react/jsx-uses-vars': 'error',
+      'react/jsx-uses-react': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-undef': 'off',
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'confirm',
+          message:
+            'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.'
+        },
+        { name: 'alert', message: 'Use toast() from sonner instead of native alert().' },
+        { name: 'prompt', message: 'Use a themed dialog instead of native prompt().' }
+      ],
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'window',
+          property: 'confirm',
+          message:
+            'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.'
+        },
+        {
+          object: 'window',
+          property: 'alert',
+          message: 'Use toast() from sonner instead of native alert().'
+        },
+        { object: 'window', property: 'prompt', message: 'Use a themed dialog instead of native prompt().' }
+      ]
+    }
+  },
+  {
     // TypeScript sources of the Electron layer. tsc does the type checking
     // (npm run typecheck); eslint only keeps the basic hygiene rules here.
     files: ['electron/**/*.ts'],
@@ -204,7 +280,7 @@ export default [
   },
   {
     // The single sanctioned use: the fallback when no ConfirmProvider is mounted.
-    files: ['components/ui/ConfirmDialog.jsx'],
+    files: ['components/ui/ConfirmDialog.tsx'],
     rules: { 'no-restricted-properties': 'off' }
   }
 ]

@@ -4,14 +4,14 @@ const fs = require('fs')
 const path = require('path')
 
 /**
- * `lib/utils.js` is an ES module consumed by Next. Rather than pulling a
+ * `lib/utils.ts` is an ES module consumed by Next. Rather than pulling a
  * transpiler into `node --test`, the one pure function under test is
  * extracted and evaluated directly — it has no imports of its own.
  */
 function loadCollapseSteps() {
-  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'lib', 'utils.js'), 'utf8')
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'lib', 'utils.ts'), 'utf8')
   const start = source.indexOf('export function collapseSteps')
-  assert.notEqual(start, -1, 'collapseSteps must exist in lib/utils.js')
+  assert.notEqual(start, -1, 'collapseSteps must exist in lib/utils.ts')
   const body = source.slice(start).replace('export function', 'function')
   return new Function(`${body}; return collapseSteps`)()
 }
