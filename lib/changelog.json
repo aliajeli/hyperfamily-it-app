@@ -1,6 +1,18 @@
 {
   "entries": [
     {
+      "version": "3.8.1-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "Interface styling restored",
+      "changes": {
+        "fixed": [
+          "Fixed a critical styling regression from v3.7.0-beta.1: the stylesheet generator was still scanning only the old .js/.jsx sources, so after the TypeScript migration no layout classes were emitted and the whole interface rendered unstyled. Scanning now covers .ts/.tsx and every screen looks exactly as designed again.",
+          "The automated interface suite now asserts that real computed styles are applied, so a silently empty stylesheet can never pass the tests again."
+        ]
+      }
+    },
+    {
       "version": "3.8.0-beta.1",
       "date": "2026-09-17",
       "channel": "beta",

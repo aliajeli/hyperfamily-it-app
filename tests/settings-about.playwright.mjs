@@ -251,10 +251,27 @@ for (let attempt = 1; attempt <= 4; attempt++) {
     await page.getByLabel('Target domain', { exact: true }).fill('')
     await page.getByRole('button', { name: 'Save target access', exact: true }).click()
     await expect(page.getByText('Enter the domain of the target machines', { exact: false })).toBeVisible()
+
+    // Tailwind regression (v3.8.1): when the content globs stopped matching the
+    // TypeScript sources, the utility layer vanished and the entire interface
+    // lost its layout — invisible to DOM-only assertions. Probe real computed
+    // styles so a silently empty stylesheet can never pass again.
+    const utilityStyles = await page.evaluate(() => {
+      const probe = document.createElement('div')
+      probe.className = 'flex rounded-2xl'
+      document.body.appendChild(probe)
+      const computed = getComputedStyle(probe)
+      const result = { display: computed.display, radius: computed.borderRadius }
+      probe.remove()
+      return result
+    })
+    expect(utilityStyles.display).toBe('flex')
+    expect(utilityStyles.radius).toBe('16px') // rounded-2xl = 1rem, computed in px
+
     expect(errors).toEqual([])
 
     console.log(
-      'PASS: Settings relocation, validation, save/reload/tab switch, product and password preservation, IPC payloads, busy/error states, About version/stack/compact card, light/dark responsive layout, no browser exceptions'
+      'PASS: Settings relocation, validation, save/reload/tab switch, product and password preservation, IPC payloads, busy/error states, About version/stack/compact card, light/dark responsive layout, Tailwind utilities applied, no browser exceptions'
     )
     await browser.close()
     break

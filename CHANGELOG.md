@@ -3,6 +3,15 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.8.1-beta.1
+
+**Interface styling restored**
+
+_Released 2026-09-17 · beta channel_
+
+### Fixed
+- Fixed a critical styling regression from v3.7.0-beta.1: the stylesheet generator was still scanning only the old .js/.jsx sources, so after the TypeScript migration no layout classes were emitted and the whole interface rendered unstyled. Scanning now covers .ts/.tsx and every screen looks exactly as designed again.
+- The automated interface suite now asserts that real computed styles are applied, so a silently empty stylesheet can never pass the tests again.
 ## 3.8.0-beta.1
 
 **Pair the phone app with one QR scan**
