@@ -3,6 +3,16 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.7.0-beta.1
+
+**The interface moves to TypeScript and becomes component-driven**
+
+_Released 2026-09-17 · beta channel_
+
+### Improved
+- The entire interface (every screen, component, store and library) migrated to TypeScript; `npm run typecheck` now type-checks both the main process and the interface on every build.
+- 16 new reusable components extracted from the largest screens — Notes, About, Login and Update Store App — with their pure presentation logic split into standalone modules.
+- The refactored screens are ~60% smaller each while looking and behaving exactly the same; the automated interface test suite passes unchanged.
 ## 3.6.0-beta.1
 
 **The Electron layer moves to TypeScript**
