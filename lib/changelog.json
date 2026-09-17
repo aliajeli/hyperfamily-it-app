@@ -8,7 +8,7 @@
       "changes": {
         "improved": [
           "The entire interface (every screen, component, store and library) migrated to TypeScript; `npm run typecheck` now type-checks both the main process and the interface on every build.",
-          "16 new reusable components extracted from the largest screens — Notes, About, Login and Update Store App — with their pure presentation logic split into standalone modules.",
+          "Sixteen new reusable components extracted from the largest screens — Notes, About, Login and Update Store App — with their pure presentation logic split into standalone modules.",
           "The refactored screens are ~60% smaller each while looking and behaving exactly the same; the automated interface test suite passes unchanged."
         ]
       }
