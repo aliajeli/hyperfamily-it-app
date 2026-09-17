@@ -741,7 +741,9 @@ export function applyTheme(themeOrId: any, customColors?: any) {
     const palette = Object.fromEntries(
       PALETTE_KEYS.map((key) => [key, value[key]]).filter(([, channel]) => channel)
     )
-    window.hyperfamily?.remote?.palette?.(palette)
+    // Fire-and-forget: a rejected promise here is an unhandled rejection that
+    // kills the whole page under Next's error boundary (companion bridge).
+    window.hyperfamily?.remote?.palette?.(palette)?.catch?.(() => {})
     window.dispatchEvent(
       new CustomEvent('hyperfamily:theme', { detail: { id: value.id, mode: value.mode, palette } })
     )

@@ -3,6 +3,15 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.9.1-beta.1
+
+**Every companion page renders again**
+
+_Released 2026-09-17 · beta channel_
+
+### Fixed
+- Fixed “Application error: a client-side exception” on every phone page except the dashboard: desktop-only calls like the theme broadcast and the update/step subscribers rejected instead of degrading, and the unhandled rejection killed the whole page. The companion bridge now hands back silent no-op subscriptions and a resolved theme call, while data methods still explain themselves with a toast.
+- Added an automated sweep that boots the real companion server against the real build and opens all eight pages like the phone does — this class of crash can no longer ship unnoticed.
 ## 3.9.0-beta.1
 
 **The phone becomes a full companion**

@@ -55,6 +55,26 @@
     }
   }
 
+  /* Subscriber-shaped methods (update.subscribe, storeUpdate.onStep, …) are
+   * called on page mount and their return value is used as the unsubscribe
+   * function. A rejected promise there is an UNHANDLED rejection that Next
+   * turns into "Application error: a client-side exception" — the whole page
+   * dies. They therefore hand back a silent no-op subscription instead, while
+   * data methods keep degrading loudly so the UI can toast the reason. */
+  var SUBSCRIBERS = {
+    subscribe: 1,
+    onStatus: 1,
+    onStep: 1,
+    onProgress: 1,
+    onVersion: 1,
+    onAgentStep: 1,
+    onInstallStep: 1,
+    onDataChange: 1
+  }
+  function silentSubscription() {
+    return function () {}
+  }
+
   var monitorListeners = new Set()
   var monitorTimer = null
 
@@ -200,7 +220,15 @@
         {},
         {
           get: function (_target, method) {
-            return unavailable(property + '.' + String(method))
+            var name = String(method)
+            if (SUBSCRIBERS[name]) return silentSubscription
+            // Cosmetic fire-and-forget (the auxiliary-window theme); a reject
+            // here would be an unhandled rejection on every theme apply.
+            if (name === 'palette')
+              return function () {
+                return Promise.resolve(null)
+              }
+            return unavailable(property + '.' + name)
           }
         }
       )
