@@ -10,7 +10,7 @@ import NotificationCenter from './NotificationCenter'
 // notifications, account). This frees a full title row on every screen.
 export default function Header({ user }: any) {
   return (
-    <header className="app-header drag-region fixed right-0 top-0 flex h-14 items-center justify-end border-b bg-[rgb(var(--canvas)/.76)] px-3.5 backdrop-blur-xl md:px-5">
+    <header className="app-header drag-region fixed right-0 top-0 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-end border-b bg-[rgb(var(--canvas)/.76)] px-3.5 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:px-5">
       <div className="no-drag flex items-center gap-2.5">
         <GlobalSearch />
         <VPNButton />

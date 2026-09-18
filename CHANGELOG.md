@@ -3,6 +3,14 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.10.0-beta.1
+
+**Release 3.10.0-beta.1**
+
+_Released 2026-09-18 · beta channel_
+
+### Improved
+- Describe here, in one readable line each, what changed for the operator in 3.10.0-beta.1.
 ## 3.9.1-beta.1
 
 **Every companion page renders again**

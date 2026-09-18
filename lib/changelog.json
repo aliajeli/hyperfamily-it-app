@@ -1,6 +1,31 @@
 {
   "entries": [
     {
+      "version": "3.10.0-beta.1",
+      "date": "2026-09-18",
+      "channel": "beta",
+      "title": "Release 3.10.0-beta.1",
+      "changes": {
+        "improved": [
+          "Describe here, in one readable line each, what changed for the operator in 3.10.0-beta.1."
+        ]
+      },
+      "highlights": [
+        "Phone navigation is now a single row: four everyday screens plus a “More” sheet for the rest",
+        "Pages no longer hide under the status bar — the header, content and bottom bar all respect the phone safe areas",
+        "Real switch terminal on the phone: open a console, type commands and watch live output from the workstation",
+        "Inventory is mobile-friendly: stacked cards with status, address and identifiers instead of a ten-column table",
+        "Phone pages are now verified by an automated sweep that fails the build on layout regressions"
+      ],
+      "details": [
+        "Sidebar: the mobile bottom bar keeps Dashboard, Devices, Notes and Terminal; Inventory, Store Update, Settings, About and Sign out move into an animated “More” sheet so nothing wraps to a second row",
+        "Layout: viewport-fit=cover with safe-area insets on the header, main content and bottom bar keeps content clear of notches and gesture bars on every page",
+        "Terminal: the companion server streams real SSH/Telnet sessions from the workstation terminal service through new /api/terminal endpoints, and the bridge fans the output out to the on-screen emulator",
+        "Inventory: phones get one card per asset (type, status, branch, IP, model, location, asset code, connection) with the same actions menu as the desktop table",
+        "Sweep: the companion test suite now signs in with a seeded session, asserts the one-row bottom bar and the inventory card layout, and covers the new terminal endpoints including the 501 fallback"
+      ]
+    },
+    {
       "version": "3.9.1-beta.1",
       "date": "2026-09-17",
       "channel": "beta",

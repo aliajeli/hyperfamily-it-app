@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Boxes, Download, Search, SlidersHorizontal, Wifi } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
-import InventoryTable from '@/components/inventory/InventoryTable'
+import InventoryTable, { InventoryCards } from '@/components/inventory/InventoryTable'
 import { Button, Card, Input, Select, Skeleton } from '@/components/ui'
 import { DEVICE_TYPES } from '@/lib/constants'
 import { getApi } from '@/lib/api'
@@ -193,7 +193,10 @@ export default function InventoryPage() {
               ))}
             </div>
           ) : (
-            <InventoryTable devices={filtered} />
+            <>
+              <InventoryTable devices={filtered} />
+              <InventoryCards devices={filtered} />
+            </>
           )}
         </Card>
       </div>

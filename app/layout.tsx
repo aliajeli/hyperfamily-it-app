@@ -14,6 +14,16 @@ export const metadata = {
   description: 'Secure retail branch and device monitoring'
 }
 
+// viewport-fit=cover lets the WebView expose the notch/status-bar insets as
+// env(safe-area-inset-*), which the header and the bottom navigation pad with
+// on phones (v3.10.0).
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#2e3440'
+}
+
 /**
  * Theme palettes, reduced to just what the boot script needs and inlined into
  * the document. Reading the database is asynchronous and only possible after

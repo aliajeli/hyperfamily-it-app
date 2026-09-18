@@ -75,6 +75,49 @@
     return function () {}
   }
 
+  // Live terminal (v3.10.0): the workstation streams each session's output
+  // into a ring buffer; this poller drains it and fans out to the xterm
+  // emulator exactly like the desktop's IPC events do.
+  var terminalListeners = { data: new Set(), status: new Set() }
+  var terminalTimer = null
+  var terminalSeq = 0
+
+  function pollTerminal() {
+    call('GET', '/api/terminal/events?after=' + terminalSeq)
+      .then(function (events) {
+        ;(events || []).forEach(function (event) {
+          terminalSeq = Math.max(terminalSeq, event.seq || 0)
+          var set =
+            event.channel === 'terminal:data' ? terminalListeners.data : terminalListeners.status
+          set.forEach(function (listener) {
+            try {
+              listener(event.payload)
+            } catch (e) {
+              /* one broken listener must not stop the others */
+            }
+          })
+        })
+      })
+      .catch(function () {
+        /* transient hiccups retry on the next tick */
+      })
+  }
+
+  function terminalSubscribe(kind) {
+    return function (callback) {
+      terminalListeners[kind].add(callback)
+      if (!terminalTimer) terminalTimer = window.setInterval(pollTerminal, 700)
+      pollTerminal()
+      return function () {
+        terminalListeners[kind].delete(callback)
+        if (!terminalListeners.data.size && !terminalListeners.status.size && terminalTimer) {
+          window.clearInterval(terminalTimer)
+          terminalTimer = null
+        }
+      }
+    }
+  }
+
   var monitorListeners = new Set()
   var monitorTimer = null
 
@@ -206,6 +249,28 @@
       overview: function () {
         return call('GET', '/api/credentials/overview')
       }
+    },
+    // The real switch console, streamed from the workstation (v3.10.0).
+    terminal: {
+      targets: function () {
+        return call('GET', '/api/terminal/targets')
+      },
+      open: function (payload) {
+        return call('POST', '/api/terminal/open', payload)
+      },
+      write: function (payload) {
+        return call('POST', '/api/terminal/write', payload)
+      },
+      resize: function (payload) {
+        return call('POST', '/api/terminal/resize', payload).catch(function () {
+          /* cosmetic */
+        })
+      },
+      close: function (sessionId) {
+        return call('POST', '/api/terminal/close', { sessionId: sessionId })
+      },
+      onData: terminalSubscribe('data'),
+      onStatus: terminalSubscribe('status')
     }
   }
 

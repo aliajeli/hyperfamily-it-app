@@ -48,7 +48,8 @@ export default function InventoryTable({ devices }: any) {
   return (
     // No inner scroll container: the whole page scrolls, and the column
     // header sticks just below the fixed app header while it does.
-    <div className="w-full">
+    // Phones get a stacked card list instead of the ten-column grid (v3.10.0).
+    <div className="hidden w-full md:block">
       <table className="w-full table-fixed text-left text-2xs">
         <colgroup>
           {columns.map((column) => (
@@ -173,5 +174,71 @@ export default function InventoryTable({ devices }: any) {
         </tbody>
       </table>
     </div>
+  )
+}
+
+/**
+ * Phone layout (v3.10.0): one card per asset with the facts an operator
+ * actually checks on the floor — name, type, status, address, identifiers —
+ * instead of ten squeezed columns.
+ */
+export function InventoryCards({ devices }: any) {
+  if (!devices.length)
+    return (
+      <EmptyState
+        icon={<Boxes />}
+        title="No matching assets"
+        description="Change the active filters or add devices to your branch directory."
+      />
+    )
+  return (
+    <ul className="space-y-1.5 p-2 md:hidden">
+      {devices.map((device) => {
+        const title = deviceTitle(device)
+        const connection = connectionDetails(device)
+        return (
+          <li
+            key={device.id}
+            className="rounded-xl border bg-[rgb(var(--surface)/.5)] p-2.5 transition hover:border-[rgb(var(--primary)/.4)]"
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-block shrink-0 rounded-md bg-[rgb(var(--primary)/.1)] px-1.5 py-0.5 text-xs font-bold text-[rgb(var(--primary))]">
+                {typeLabel(device.device_type)}
+              </span>
+              <b className="min-w-0 flex-1 truncate text-xs" title={title}>
+                {title}
+              </b>
+              <Badge
+                status={device.status || 'unknown'}
+                className="shrink-0 whitespace-nowrap px-1.5 py-0.5 text-xs capitalize"
+              >
+                {device.status || 'unknown'}
+              </Badge>
+              <DeviceActionsMenu device={device} size={14} className="h-7 w-7 shrink-0" />
+            </div>
+            <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+              <span className="truncate text-[rgb(var(--muted))]" title={device.branch_name}>
+                {device.branch_name}
+                {device.branch_code ? ` · ${device.branch_code}` : ''}
+              </span>
+              <span className="truncate font-mono" title={device.ip}>
+                {device.ip}
+                {device.port ? `:${device.port}` : ''}
+              </span>
+              <span className="truncate text-[rgb(var(--muted))]" title={device.model || ''}>
+                {device.model || '—'}
+              </span>
+              <span className="truncate text-[rgb(var(--muted))]" title={device.location || ''}>
+                {device.location || '—'}
+              </span>
+              <span className="truncate font-mono text-[rgb(var(--muted))]" title={device.asset_code || ''}>
+                {device.asset_code || ''}
+              </span>
+              <span className="truncate text-[rgb(var(--muted))]">{connection.join(' · ') || ''}</span>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

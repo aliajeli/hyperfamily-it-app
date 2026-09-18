@@ -706,7 +706,10 @@ function registerIpcHandlers({
   const companionServer = createCompanionServer({
     database,
     exportRoot: path.resolve(__dirname, '../../out'),
-    appVersion: require('../../package.json').version
+    appVersion: require('../../package.json').version,
+    // The phone terminal reuses the very same SSH/Telnet service as the
+    // desktop console (v3.10.0).
+    terminal: terminalService
   })
   ipcMain.handle(
     'companion:state',

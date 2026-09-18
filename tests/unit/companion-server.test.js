@@ -71,9 +71,14 @@ function tempExport() {
   return dir
 }
 
-async function withServer(initialSettings, run) {
+async function withServer(initialSettings, run, terminal = null) {
   const database = fakeDatabase(initialSettings)
-  const service = createCompanionServer({ database, exportRoot: tempExport(), appVersion: '0.0.0-test' })
+  const service = createCompanionServer({
+    database,
+    exportRoot: tempExport(),
+    appVersion: '0.0.0-test',
+    terminal
+  })
   const state = await service.start()
   try {
     await run(service, state, database)
@@ -269,6 +274,79 @@ test('notes, snippets, inventory and credentials are exposed to the phone', asyn
       // Without the token the new surface stays closed, exactly like the old one.
       const denied = await fetch(`${base}/api/notes`, { headers: { connection: 'close' } })
       assert.equal(denied.status, 401)
+    }
+  )
+})
+
+/**
+ * v3.10.0: the phone opens real switch consoles through the terminal service.
+ * The service believes it talks to a renderer WebContents; here the synthetic
+ * sender's send() is the tap that proves the event pipeline reaches HTTP.
+ */
+test('the phone can open a terminal session and stream its output', async () => {
+  const fakeTerminal = {
+    sender: null,
+    targets: () => [{ id: 1, name: 'Main', devices: [{ id: 9, name: 'SW-01' }] }],
+    open: (_options, sender) => {
+      fakeTerminal.sender = sender
+      return { sessionId: 'sess-1' }
+    },
+    write: () => {},
+    resize: () => {},
+    close: () => {}
+  }
+  await withServer(
+    { companion_server: JSON.stringify({ token: 'term-token', port: 0 }) },
+    async (_service, state) => {
+      const base = `http://127.0.0.1:${state.port}`
+      const headers = { authorization: 'Bearer term-token', connection: 'close' }
+      const json = { ...headers, 'content-type': 'application/json' }
+
+      const targets = await (await fetch(`${base}/api/terminal/targets`, { headers })).json()
+      assert.equal(targets[0].name, 'Main')
+
+      const opened = await (
+        await fetch(`${base}/api/terminal/open`, {
+          method: 'POST',
+          headers: json,
+          body: JSON.stringify({ deviceId: 9, cols: 80, rows: 24 })
+        })
+      ).json()
+      assert.equal(opened.sessionId, 'sess-1')
+      assert.ok(fakeTerminal.sender, 'the service must receive the companion sender')
+
+      // The service streams through the sender; the phone drains /events.
+      fakeTerminal.sender.send('terminal:data', { sessionId: 'sess-1', data: 'SW-01#' })
+      fakeTerminal.sender.send('terminal:status', { sessionId: 'sess-1', state: 'connected' })
+      const events = await (await fetch(`${base}/api/terminal/events?after=0`, { headers })).json()
+      assert.equal(events.length, 2)
+      assert.equal(events[0].channel, 'terminal:data')
+      assert.equal(events[0].payload.data, 'SW-01#')
+      const drained = await (
+        await fetch(`${base}/api/terminal/events?after=${events[1].seq}`, { headers })
+      ).json()
+      assert.equal(drained.length, 0)
+
+      await (
+        await fetch(`${base}/api/terminal/write`, {
+          method: 'POST',
+          headers: json,
+          body: JSON.stringify({ sessionId: 'sess-1', data: 'show version\r' })
+        })
+      ).json()
+    },
+    fakeTerminal
+  )
+})
+
+test('without a terminal service the endpoints answer 501, not a crash', async () => {
+  await withServer(
+    { companion_server: JSON.stringify({ token: 'no-term', port: 0 }) },
+    async (_service, state) => {
+      const response = await fetch(`http://127.0.0.1:${state.port}/api/terminal/targets`, {
+        headers: { authorization: 'Bearer no-term', connection: 'close' }
+      })
+      assert.equal(response.status, 501)
     }
   )
 })

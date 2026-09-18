@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -11,6 +12,7 @@ import {
   Settings,
   Info,
   LogOut,
+  MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
   Store
@@ -30,8 +32,16 @@ const navItems = [
   { href: '/about', label: 'About', icon: Info }
 ]
 
+// The phone bar stays one row: the four everyday screens plus a “More” sheet
+// that nests the rest (v3.10.0). Desktop keeps the full rail.
+const PRIMARY_HREFS = ['/dashboard', '/devices', '/notes', '/terminal']
+
 export default function Sidebar({ collapsed, setCollapsed, onLogout }: any) {
   const pathname = usePathname()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const primary = navItems.filter((item) => PRIMARY_HREFS.includes(item.href))
+  const more = navItems.filter((item) => !PRIMARY_HREFS.includes(item.href))
+  const moreActive = more.some((item) => pathname.startsWith(item.href))
   return (
     <>
       <aside className="app-rail glass fixed inset-y-0 left-0 hidden flex-col border-y-0 border-l-0 md:flex">
@@ -157,11 +167,68 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }: any) {
         </div>
       </aside>
 
+      {/* One row on the phone: four everyday screens plus “More”; the sheet
+          nests the rest so thumbs never hunt and nothing wraps (v3.10.0). */}
+      <AnimatePresence>
+        {moreOpen && (
+          <>
+            <motion.button
+              type="button"
+              aria-label="Close menu"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMoreOpen(false)}
+              className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] md:hidden"
+            />
+            <motion.nav
+              aria-label="More sections"
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              className="glass fixed inset-x-2 bottom-[calc(4.6rem+env(safe-area-inset-bottom))] z-40 grid grid-cols-5 gap-1 rounded-2xl p-1.5 shadow-xl md:hidden"
+            >
+              {more.map((item) => {
+                const active = pathname.startsWith(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    aria-label={item.label}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-xl py-2 text-2xs font-semibold text-[rgb(var(--muted))] transition',
+                      active && 'bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]'
+                    )}
+                  >
+                    <item.icon size={18} />
+                    <span className="max-w-full truncate px-1">{item.label}</span>
+                  </Link>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreOpen(false)
+                  onLogout()
+                }}
+                aria-label="Sign out"
+                className="flex flex-col items-center gap-1 rounded-xl py-2 text-2xs font-semibold text-nord-11 transition hover:bg-nord-11/10"
+              >
+                <LogOut size={18} />
+                <span>Sign out</span>
+              </button>
+            </motion.nav>
+          </>
+        )}
+      </AnimatePresence>
+
       <nav
         aria-label="Mobile navigation"
-        className="glass fixed inset-x-2 bottom-2 z-40 grid grid-cols-6 gap-1 rounded-2xl p-1.5 shadow-xl md:hidden"
+        className="glass fixed inset-x-2 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-40 grid grid-cols-5 gap-1 rounded-2xl p-1.5 shadow-xl md:hidden"
       >
-        {navItems.map((item) => {
+        {primary.map((item) => {
           const active = pathname.startsWith(item.href)
           return (
             <Link
@@ -180,12 +247,16 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }: any) {
         })}
         <button
           type="button"
-          onClick={onLogout}
-          aria-label="Sign out"
-          title="Sign out"
-          className="grid h-11 place-items-center rounded-xl text-nord-11 transition hover:bg-nord-11/10"
+          onClick={() => setMoreOpen((open) => !open)}
+          aria-label="More sections"
+          aria-expanded={moreOpen}
+          title="More"
+          className={cn(
+            'grid h-11 place-items-center rounded-xl text-[rgb(var(--muted))] transition',
+            (moreActive || moreOpen) && 'bg-[rgb(var(--primary)/.13)] text-[rgb(var(--primary))]'
+          )}
         >
-          <LogOut size={19} />
+          <MoreHorizontal size={19} />
         </button>
       </nav>
     </>

@@ -129,7 +129,11 @@ export default function AppShell({ children, compact = false }: any) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className={`app-main min-h-[100dvh] ${compact ? 'px-3 pb-20 pt-[68px] md:px-4 md:pb-4' : 'px-3 pb-20 pt-[72px] md:px-5 md:pb-6'}`}
+        className={`app-main min-h-[100dvh] ${
+          compact
+            ? 'px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] md:px-4 md:pb-4 md:pt-[68px]'
+            : 'px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(4.5rem+env(safe-area-inset-top))] md:px-5 md:pb-6 md:pt-[72px]'
+        }`}
       >
         {children}
       </motion.main>

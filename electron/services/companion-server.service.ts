@@ -68,7 +68,26 @@ function lanAddresses() {
     .map((entry: any) => entry.address)
 }
 
-function createCompanionServer({ database, exportRoot, appVersion }) {
+function createCompanionServer({ database, exportRoot, appVersion, terminal = null }) {
+  /* Live terminal sessions for the phone (v3.10.0). The terminal service
+   * streams its output to a WebContents "sender"; the phone has none, so it
+   * gets a synthetic sender whose send() feeds this ring buffer, and the
+   * bridge drains it by polling /api/terminal/events. */
+  const terminalEvents = []
+  let terminalSeq = 0
+  const companionSender = {
+    id: 'companion',
+    isDestroyed: () => false,
+    send: (channel, payload) => {
+      terminalSeq += 1
+      terminalEvents.push({ seq: terminalSeq, channel, payload })
+      if (terminalEvents.length > 2000) terminalEvents.splice(0, terminalEvents.length - 2000)
+    }
+  }
+  const requireTerminal = () => {
+    if (!terminal) throw Object.assign(new Error('Terminal is not available in this build'), { status: 501 })
+    return terminal
+  }
   let server = null
   let current = { running: false, port: 0, error: null }
 
@@ -177,7 +196,50 @@ function createCompanionServer({ database, exportRoot, appVersion }) {
     'GET /api/inventory': { handler: () => database.listInventory() },
     'GET /api/credentials': { handler: () => database.listCredentials() },
     'GET /api/credentials/map': { handler: () => database.getCredentialMap() },
-    'GET /api/credentials/overview': { handler: () => database.listDeviceCredentialOverview() }
+    'GET /api/credentials/overview': { handler: () => database.listDeviceCredentialOverview() },
+    // Interactive terminal over the LAN (v3.10.0): the exact service the
+    // desktop uses, token-gated, streamed through the event ring buffer.
+    'GET /api/terminal/targets': { handler: () => requireTerminal().targets() },
+    'POST /api/terminal/open': {
+      handler: (body) =>
+        requireTerminal().open(
+          {
+            deviceId: Number(body?.deviceId),
+            cols: Number(body?.cols) || 80,
+            rows: Number(body?.rows) || 24
+          },
+          companionSender,
+          'Companion'
+        )
+    },
+    'POST /api/terminal/write': {
+      handler: (body) => {
+        requireTerminal().write(String(body?.sessionId), String(body?.data ?? ''), companionSender)
+        return { ok: true }
+      }
+    },
+    'POST /api/terminal/resize': {
+      handler: (body) => {
+        requireTerminal().resize(
+          String(body?.sessionId),
+          { cols: Number(body?.cols) || 80, rows: Number(body?.rows) || 24 },
+          companionSender
+        )
+        return { ok: true }
+      }
+    },
+    'POST /api/terminal/close': {
+      handler: (body) => {
+        requireTerminal().close(String(body?.sessionId), 'Closed from the companion app')
+        return { ok: true }
+      }
+    },
+    'GET /api/terminal/events': {
+      handler: (_body, url) => {
+        const after = Number(url.searchParams.get('after') || 0)
+        return terminalEvents.filter((event) => event.seq > after)
+      }
+    }
   }
 
   function serveStatic(request, response, pathname) {
@@ -236,7 +298,7 @@ function createCompanionServer({ database, exportRoot, appVersion }) {
           })
         }
         const body = request.method === 'POST' ? await readBody(request) : null
-        return sendJson(response, 200, route.handler(body))
+        return sendJson(response, 200, route.handler(body, url))
       }
       return serveStatic(request, response, url.pathname)
     } catch (error) {
