@@ -71,8 +71,16 @@ function TerminalWorkspaceInner() {
   const [showSnippets, setShowSnippets] = useState(false)
   const [grid, setGrid] = useState<any>({ cols: 80, rows: 24 })
   const [busyDeviceId, setBusyDeviceId] = useState<any>(null)
+  const [isMobile, setIsMobile] = useState(false)
   const sessionRef = useRef(null)
   const autoConnectedRef = useRef(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   sessionRef.current = session
 
@@ -259,7 +267,7 @@ function TerminalWorkspaceInner() {
               'h-[calc(100vh-7rem)] min-h-[420px]'
         )}
       >
-        <header className="flex flex-wrap items-center gap-3">
+        <header className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
           <div className="flex items-center gap-2.5">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]">
               <TerminalSquare size={20} />
@@ -313,46 +321,61 @@ function TerminalWorkspaceInner() {
           </div>
         </header>
 
-        {/* Branch strip */}
+        {/* Branch strip - desktop pills, mobile select */}
         <div
           className={cn(
-            'flex items-center gap-2 overflow-x-auto rounded-2xl border bg-[rgb(var(--surface))] p-2',
+            'rounded-2xl border bg-[rgb(var(--surface))] p-2',
             fullscreen && 'hidden'
           )}
         >
-          <Building2 size={14} className="ml-1 shrink-0 text-[rgb(var(--muted))]" />
-          {loading &&
-            !branches.length &&
-            [0, 1, 2].map((key) => <Skeleton key={key} className="h-8 w-32 shrink-0" />)}
-          {branches.map((branch) => (
-            <button
-              key={branch.id}
-              type="button"
-              onClick={() => setActiveBranchId(branch.id)}
-              className={cn(
-                'relative shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors',
-                branch.id === activeBranchId
-                  ? 'text-[rgb(var(--primary))]'
-                  : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))]'
+          {isMobile ? (
+            <div className="flex items-center gap-2">
+              <Building2 size={14} className="shrink-0 text-[rgb(var(--muted))]" />
+              <select
+                value={activeBranchId || ''}
+                onChange={(e) => setActiveBranchId(Number(e.target.value))}
+                className="min-w-0 flex-1 rounded-xl border bg-[rgb(var(--canvas))] px-3 py-2.5 text-sm font-bold outline-none"
+              >
+                {branches.map((branch: any) => (
+                  <option key={branch.id} value={branch.id}>{branch.name} — {branch.switches.length} switches</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <Building2 size={14} className="ml-1 shrink-0 text-[rgb(var(--muted))]" />
+              {loading && !branches.length && [0,1,2].map((key) => <Skeleton key={key} className="h-8 w-32 shrink-0" />)}
+              {branches.map((branch: any) => (
+                <button
+                  key={branch.id}
+                  type="button"
+                  onClick={() => setActiveBranchId(branch.id)}
+                  className={cn(
+                    'relative shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors',
+                    branch.id === activeBranchId
+                      ? 'text-[rgb(var(--primary))]'
+                      : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))]'
+                  )}
+                >
+                  {branch.id === activeBranchId && (
+                    <motion.span
+                      layoutId="terminal-branch-pill"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                      className="absolute inset-0 rounded-xl bg-[rgb(var(--primary)/.13)]"
+                    />
+                  )}
+                  <span className="relative flex items-center gap-1.5">
+                    {branch.name}
+                    <span className="rounded-md bg-[rgb(var(--border)/.7)] px-1.5 text-xs">
+                      {branch.switches.length}
+                    </span>
+                  </span>
+                </button>
+              ))}
+              {!loading && !branches.length && (
+                <span className="px-2 text-2xs text-[rgb(var(--muted))]">No branch has a switch yet.</span>
               )}
-            >
-              {branch.id === activeBranchId && (
-                <motion.span
-                  layoutId="terminal-branch-pill"
-                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                  className="absolute inset-0 rounded-xl bg-[rgb(var(--primary)/.13)]"
-                />
-              )}
-              <span className="relative flex items-center gap-1.5">
-                {branch.name}
-                <span className="rounded-md bg-[rgb(var(--border)/.7)] px-1.5 text-xs">
-                  {branch.switches.length}
-                </span>
-              </span>
-            </button>
-          ))}
-          {!loading && !branches.length && (
-            <span className="px-2 text-2xs text-[rgb(var(--muted))]">No branch has a switch yet.</span>
+            </div>
           )}
         </div>
 
@@ -364,8 +387,8 @@ function TerminalWorkspaceInner() {
           )}
         >
           <div className="flex min-h-0 flex-col gap-3">
-            {/* Switch chips for the selected branch */}
-            <div className={cn('flex flex-wrap gap-2', fullscreen && 'hidden')}>
+            {/* Switch chips - mobile stacked */}
+            <div className={cn('flex flex-wrap gap-2', isMobile && 'grid grid-cols-1', fullscreen && 'hidden')}>
               <AnimatePresence initial={false} mode="popLayout">
                 {(activeBranch?.switches || []).map((device) => {
                   const isActive = session?.deviceId === device.id && live

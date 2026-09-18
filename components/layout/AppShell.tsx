@@ -131,8 +131,8 @@ export default function AppShell({ children, compact = false }: any) {
         transition={{ duration: 0.3 }}
         className={`app-main min-h-[100dvh] ${
           compact
-            ? 'px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))] md:px-4 md:pb-4 md:pt-[68px]'
-            : 'px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(4.5rem+env(safe-area-inset-top))] md:px-5 md:pb-6 md:pt-[72px]'
+            ? 'px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(3.75rem+env(safe-area-inset-top))] md:px-4 md:pb-4 md:pt-[60px]'
+            : 'px-2.5 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(3.75rem+env(safe-area-inset-top))] md:px-5 md:pb-6 md:pt-[64px]'
         }`}
       >
         {children}

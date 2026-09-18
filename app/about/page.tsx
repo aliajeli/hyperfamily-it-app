@@ -9,11 +9,13 @@ import SupportCard from '@/components/about/SupportCard'
 import TechStackCard from '@/components/about/TechStackCard'
 import UpdateChangelogDialog from '@/components/about/UpdateChangelogDialog'
 import UpdatePanel from '@/components/about/UpdatePanel'
-import { getApi } from '@/lib/api'
+import { getApi, isElectron } from '@/lib/api'
 import { DEVELOPER_EMAIL, REPO } from '@/lib/about-presentation'
 import { APP_VERSION } from '@/lib/constants'
 
 export default function AboutPage() {
+  const [isElectronEnv, setIsElectronEnv] = useState(true)
+
   const [info, setInfo] = useState<any>({ version: APP_VERSION, platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState<any>(null)
   const [checking, setChecking] = useState(false)
@@ -33,6 +35,10 @@ export default function AboutPage() {
     etaSeconds: null
   })
   const [installing, setInstalling] = useState(false)
+
+  useEffect(() => {
+    try { setIsElectronEnv(isElectron()) } catch { setIsElectronEnv(false) }
+  }, [])
 
   useEffect(() => {
     const api = getApi()
@@ -275,8 +281,8 @@ export default function AboutPage() {
 
         <AboutHero info={info} channel={channel} />
 
-        <div className="grid gap-2.5 lg:grid-cols-[1.15fr_.85fr]">
-          <UpdatePanel
+        <div className={`grid gap-2.5 ${isElectronEnv ? 'lg:grid-cols-[1.15fr_.85fr]' : ''}`}>
+          {isElectronEnv && <UpdatePanel
             info={info}
             update={update}
             checking={checking}
@@ -296,7 +302,7 @@ export default function AboutPage() {
             onInstall={install}
             onOpenChangelog={() => setChangelogOpen(true)}
             onExternal={external}
-          />
+          />}
           <SupportCard onEmail={emailDeveloper} onExternal={external} />
         </div>
 

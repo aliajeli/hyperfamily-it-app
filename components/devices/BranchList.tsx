@@ -1,8 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Building2, Check, Pencil, Trash2, Warehouse } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Button, Select } from '@/components/ui'
 
 export default function BranchList({
   branches,
@@ -12,6 +13,14 @@ export default function BranchList({
   onEdit,
   onDelete
 }: any) {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   if (!branches.length) {
     return (
       <div className="flex min-w-0 flex-1 items-center rounded-xl border border-dashed px-3 py-2 text-xs text-[rgb(var(--muted))]">
@@ -20,10 +29,51 @@ export default function BranchList({
     )
   }
 
+  if (isMobile) {
+    const selected = branches.find((b: any) => b.id === selectedBranchId)
+    return (
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <Select
+          value={String(selectedBranchId || '')}
+          onChange={(e: any) => {
+            const b = branches.find((x: any) => String(x.id) === e.target.value)
+            if (b) onSelect(b)
+          }}
+          className="w-full rounded-xl border bg-[rgb(var(--surface))] px-3 py-2.5 text-sm font-bold"
+        >
+          {branches.map((branch: any) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.name} — {branch.code} ({deviceCounts[branch.id] || 0} devices)
+            </option>
+          ))}
+        </Select>
+        {selected && (
+          <div className="flex items-center justify-between rounded-xl border bg-[rgb(var(--primary)/.08)] px-3 py-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--primary))] text-white shrink-0"><Building2 size={13} /></span>
+              <div className="min-w-0">
+                <b className="block truncate text-xs">{selected.name}</b>
+                <span className="flex items-center gap-1 text-2xs text-[rgb(var(--muted))]">
+                  <span className="font-mono font-bold">{selected.code}</span>
+                  {selected.warehouse_code && <><span>·</span><span className="flex items-center gap-0.5"><Warehouse size={8} />{selected.warehouse_code}</span></>}
+                  <span>· {deviceCounts[selected.id] || 0} devices</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(selected)}><Pencil size={13} /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-nord-11" onClick={() => onDelete(selected)}><Trash2 size={13} /></Button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1">
       <AnimatePresence initial={false}>
-        {branches.map((branch, index) => {
+        {branches.map((branch: any, index: number) => {
           const selected = branch.id === selectedBranchId
           return (
             <motion.article

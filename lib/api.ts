@@ -1030,17 +1030,53 @@ function browserApi() {
       subscribe: () => () => {}
     },
     update: {
-      check: async () => ({
-        currentVersion: APP_VERSION,
-        latestVersion: APP_VERSION,
-        hasUpdate: false,
-        releaseNotes: '',
-        downloaded: false,
-        downloading: false,
-        paused: false,
-        percent: 0,
-        isPackaged: false
-      }),
+      channel: async () => {
+        try {
+          const ch = typeof window !== 'undefined' ? window.localStorage.getItem('hyperfamily.update.channel') : null
+          return { channel: ch || 'main', currentVersion: APP_VERSION, currentIsPrerelease: String(APP_VERSION).includes('-') }
+        } catch { return { channel: 'main', currentVersion: APP_VERSION, currentIsPrerelease: false } }
+      },
+      setChannel: async (channel) => {
+        try { if (typeof window !== 'undefined') window.localStorage.setItem('hyperfamily.update.channel', channel === 'beta' ? 'beta' : 'main') } catch {}
+        return { channel: channel === 'beta' ? 'beta' : 'main', currentVersion: APP_VERSION, currentIsPrerelease: String(APP_VERSION).includes('-') }
+      },
+      check: async () => {
+        try {
+          return {
+            currentVersion: APP_VERSION || '3.2.6',
+            channel: (typeof window !== 'undefined' && window.localStorage.getItem('hyperfamily.update.channel')) || 'main',
+            latestVersion: APP_VERSION || '3.2.6',
+            hasUpdate: false,
+            isDowngrade: false,
+            releaseNotes: 'You are running the latest version (browser preview).',
+            publishedAt: null,
+            downloadUrl: null,
+            downloadSize: 0,
+            downloadName: null,
+            downloaded: false,
+            downloading: false,
+            paused: false,
+            percent: 0,
+            isPackaged: false,
+            canInstall: false
+          }
+        } catch {
+          return {
+            currentVersion: APP_VERSION || '3.2.6',
+            channel: 'main',
+            latestVersion: APP_VERSION || '3.2.6',
+            hasUpdate: false,
+            isDowngrade: false,
+            releaseNotes: '',
+            downloaded: false,
+            downloading: false,
+            paused: false,
+            percent: 0,
+            isPackaged: false,
+            canInstall: false
+          }
+        }
+      },
       state: async () => ({
         downloading: false,
         paused: false,
@@ -1644,7 +1680,17 @@ function browserApi() {
         onVersion: (cb) => buses.version.subscribe(cb),
         onStep: (cb) => buses.step.subscribe(cb),
         onProgress: (cb) => buses.progress.subscribe(cb),
-        onFinished: (cb) => buses.finished.subscribe(cb)
+        onFinished: (cb) => buses.finished.subscribe(cb),
+        listServerFiles: async (dir) => {
+          const base = dir || 'C:\\Store Commerce\\Updates'
+          const mockFiles = [
+            { name: 'Hyper.StoreCommerce.Installer.exe', path: base + '\\Hyper.StoreCommerce.Installer.exe', size: 4812032, modified: new Date().toISOString(), isDirectory: false, isFile: true },
+            { name: 'StoreCommerce_9.60.24100.1.msi', path: base + '\\StoreCommerce_9.60.24100.1.msi', size: 12400000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
+            { name: 'Hyper.Commerce_2.19.15.zip', path: base + '\\Hyper.Commerce_2.19.15.zip', size: 3200000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
+            { name: 'backup', path: base + '\\backup', size: 0, modified: new Date().toISOString(), isDirectory: true, isFile: false }
+          ]
+          return { directory: base, parent: 'C:\\Store Commerce', files: mockFiles }
+        }
       }
     })(),
     audit: { list: async () => readState().audit.slice(0, 100) },
@@ -1655,14 +1701,56 @@ function browserApi() {
         platform: 'Browser preview',
         dataPath: 'Local browser storage'
       }),
-      openExternal: async (url) => window.open(url, '_blank', 'noopener,noreferrer')
+      openExternal: async (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+      listServerFiles: async (dir) => {
+        const base = dir || 'C:\\Store Commerce\\Updates'
+        const mockFiles = [
+          { name: 'Hyper.StoreCommerce.Installer.exe', path: base + '\\Hyper.StoreCommerce.Installer.exe', size: 4812032, modified: new Date().toISOString(), isDirectory: false, isFile: true },
+          { name: 'StoreCommerce_9.60.24100.1.msi', path: base + '\\StoreCommerce_9.60.24100.1.msi', size: 12400000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
+          { name: 'Hyper.Commerce_2.19.15.zip', path: base + '\\Hyper.Commerce_2.19.15.zip', size: 3200000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
+          { name: 'backup', path: base + '\\backup', size: 0, modified: new Date().toISOString(), isDirectory: true, isFile: false }
+        ]
+        return { directory: base, parent: 'C:\\Store Commerce', files: mockFiles }
+      }
     }
   }
 }
 
-let fallback
-export function getApi() {
-  if (typeof window !== 'undefined' && window.hyperfamily) return window.hyperfamily
-  if (!fallback && typeof window !== 'undefined') fallback = browserApi()
-  return fallback
+let fallback:any
+export function isElectron() {
+  try {
+    if (typeof window === 'undefined') return false
+    const api = (window as any).hyperfamily
+    if (api?.platform === 'electron') return true
+    return false
+  } catch { return false }
+}
+
+export function getApi(): any {
+  try {
+    if (typeof window !== 'undefined' && (window as any).hyperfamily) {
+      const api = (window as any).hyperfamily
+      // Android wrapper may provide incomplete object - merge with browser fallback
+      if (!api.update?.check || !api.app?.info) {
+        const fb = browserApi()
+        return {
+          ...fb,
+          ...api,
+          update: { ...fb.update, ...(api.update || {}) },
+          app: { ...fb.app, ...(api.app || {}) },
+          storeUpdate: { ...fb.storeUpdate, ...(api.storeUpdate || {}) },
+          dialog: { ...fb.dialog, ...(api.dialog || {}) },
+          auth: { ...fb.auth, ...(api.auth || {}) }
+        }
+      }
+      return api
+    }
+    if (!fallback && typeof window !== 'undefined') fallback = browserApi()
+    return fallback
+  } catch {
+    try {
+      if (!fallback && typeof window !== 'undefined') fallback = browserApi()
+      return fallback
+    } catch { return undefined }
+  }
 }

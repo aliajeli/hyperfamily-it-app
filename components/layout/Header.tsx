@@ -1,19 +1,28 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import GlobalSearch from './GlobalSearch'
 import VPNButton from './VPNButton'
 import NotificationCenter from './NotificationCenter'
+import { getApi } from '@/lib/api'
 
-// The header no longer repeats the page title — every page renders its own
-// compact heading, so the strip is purely global tools (search, VPN state,
-// notifications, account). This frees a full title row on every screen.
 export default function Header({ user }: any) {
+  const [isElectronEnv, setIsElectronEnv] = useState(true)
+  useEffect(() => {
+    try {
+      const api = getApi()
+      setIsElectronEnv(api?.platform === 'electron')
+    } catch {
+      setIsElectronEnv(false)
+    }
+  }, [])
+
   return (
     <header className="app-header drag-region fixed right-0 top-0 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-end border-b bg-[rgb(var(--canvas)/.76)] px-3.5 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:px-5">
       <div className="no-drag flex items-center gap-2.5">
         <GlobalSearch />
-        <VPNButton />
+        {isElectronEnv && <VPNButton />}
         <NotificationCenter />
         <div className="hidden items-center gap-2 border-l pl-3 sm:flex">
           <motion.div

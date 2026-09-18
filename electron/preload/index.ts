@@ -127,6 +127,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
     onInstallFinished: (callback) => subscribe('store-update:install-finished', callback),
     testAccess: (payload) => invoke('store-update:test-access', payload),
     installed: (payload) => invoke('store-update:installed', payload),
+    listServerFiles: (dir) => invoke('store-update:list-server-files', dir),
     onVersion: (callback) => subscribe('store-update:version', callback),
     onStep: (callback) => subscribe('store-update:step', callback),
     onProgress: (callback) => subscribe('store-update:progress', callback),
@@ -141,6 +142,7 @@ contextBridge.exposeInMainWorld('hyperfamily', {
   app: {
     info: () => invoke('app:info'),
     openExternal: (url) => invoke('app:open-external', url),
-    pathExists: (path) => invoke('app:path-exists', path)
+    pathExists: (path) => invoke('app:path-exists', path),
+    listServerFiles: (dir) => invoke('app:list-server-files', dir)
   }
 })

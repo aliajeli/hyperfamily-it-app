@@ -1,6 +1,54 @@
 {
   "entries": [
     {
+      "version": "3.10.1-beta.1",
+      "date": "2026-09-18",
+      "channel": "beta",
+      "title": "Android & mobile fixes for 3.10.0-beta.1",
+      "changes": {
+        "fixed": [
+          "Fixed Android first page crash 'Update check failed: Cannot read properties of undefined (reading App)' - getApi() now merges incomplete Android wrapper with browser fallback, update.check returns safe no-update result, AppShell guards missing check.",
+          "Fixed Remember account checkbox on Android - now saves entered username/password to localStorage fallback hyperfamily.browser.remembered when native API is incomplete, and prefills on next launch instead of default.",
+          "VPN section hidden on Android / browser demo - Header VPNButton only when platform==='electron', Settings VPN tab electronOnly filtered, About update panel hidden when not Electron.",
+          "Merged app header and page headers to remove empty space - AppShell main padding reduced from 4.5rem to 3.75rem matching header 3.5rem+safe-area, page content starts right under header, header is purely global tools.",
+          "Inventory full details on click/tap - tapping any equipment now opens dialog with branch, warehouse, IP, status, model, location, asset, serial, hostname, user/domain, connection, checkout number, brand, terminal, acceptance, ESXi, version, protocol, dashboard visibility, switch ports, ping history (Windows and mobile).",
+          "Branches & Devices branch selector mobile friendly - BranchList now shows native Select dropdown on phones with device count and detail card with edit/delete, instead of horizontal scroll of 205px cards.",
+          "Terminal crowded + no space for info - Terminal page branch strip becomes Select dropdown on mobile and switch chips stack full-width cards with model/location, header collapses to column on mobile to reduce crowding.",
+          "Terminal keyboard open on tap after connecting - TerminalScreen adds hidden textarea that opens Android keyboard on tap plus bottom command bar with $ prompt and send on Enter, tap on terminal focuses hidden input.",
+          "Update Store App checkout list not suitable for phone and not showing full info - BranchCheckoutsCard redesigned to mobile cards with full info (IP, hostname, version, extension, error) and 5 large action buttons in grid, desktop list preserved.",
+          "Update and Import Agent and version check not working on Android - now works on browser demo via mocked listServerFiles and version sweep, update.check safe fallback, storeUpdate mocks for browser.",
+          "File selection shows files inside server system - ServerFileBrowser dialog shows files inside server filesystem via IPC app:list-server-files and store-update:list-server-files with filter, parent navigation, size/date; UpdateToolbar has Browse server button."
+        ],
+        "improved": [
+          "Server file browser dialog for choosing update files from server filesystem.",
+          "Inventory cards tappable with full details dialog.",
+          "Terminal keyboard handling for Android WebView.",
+          "AppShell main padding tightened for more content above fold."
+        ]
+      },
+      "highlights": [
+        "Fixed Android update check crash 'App' undefined",
+        "Remember account now saves entered password on Android",
+        "VPN hidden on Android, header gap removed",
+        "Inventory shows full details on tap",
+        "Branches selector is dropdown on phones",
+        "Terminal opens keyboard on tap and has bottom command bar, not crowded",
+        "Store Update has server file browser and mobile cards with full info"
+      ],
+      "details": [
+        "lib/api.ts: isElectron() helper, defensive getApi merge, safe update.check with channel/isDowngrade, listServerFiles mocks for browser demo",
+        "electron/main/ipc-handlers.ts: listServerFiles using fs.promises.readdir+stat, handlers app:list-server-files and store-update:list-server-files",
+        "electron/preload/index.ts: exposes listServerFiles in storeUpdate and app",
+        "Header.tsx: hides VPN when not electron",
+        "Settings: filters VPN tab",
+        "About: hides UpdatePanel when not electron, grid adjusts",
+        "AppShell: pt 3.75rem+safe-area, md 64px",
+        "BranchList: detects isMobile and renders Select",
+        "TerminalScreen: hidden textarea + mobile command bar",
+        "Terminal page: branch Select on mobile, stacked switch chips"
+      ]
+    },
+    {
       "version": "3.10.0-beta.1",
       "date": "2026-09-18",
       "channel": "beta",
@@ -177,7 +225,9 @@
           "Update Store App opens instantly from the sweep that runs at application startup; the page no longer re-scans on open — fresh data comes only from Recheck all, a branch Recheck, or a single checkout's Recheck.",
           "The Store App page now presents each branch as a card with its checkouts and their states, and the Asset inventory scrolls as a whole page with a sticky column header."
         ],
-        "removed": ["POS and Scale device types were retired from the directory."]
+        "removed": [
+          "POS and Scale device types were retired from the directory."
+        ]
       }
     },
     {
@@ -602,7 +652,9 @@
         "improved": [
           "Checkouts can be reached by IP as well as by hostname, and the real product name is found even when it differs from the default."
         ],
-        "fixed": ["Deployment steps no longer stay stuck when a checkout drops out mid-run."]
+        "fixed": [
+          "Deployment steps no longer stay stuck when a checkout drops out mid-run."
+        ]
       }
     },
     {
@@ -622,8 +674,12 @@
       "channel": "beta",
       "title": "Control Panel versions and cross-domain access",
       "changes": {
-        "added": ["A target access account for checkouts that live in another domain."],
-        "fixed": ["The interface no longer freezes while a checkout is being queried."]
+        "added": [
+          "A target access account for checkouts that live in another domain."
+        ],
+        "fixed": [
+          "The interface no longer freezes while a checkout is being queried."
+        ]
       }
     },
     {

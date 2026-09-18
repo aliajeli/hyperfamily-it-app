@@ -28,10 +28,10 @@ import ThemeSettings from '@/components/settings/ThemeSettings'
 import TypographySettings from '@/components/settings/TypographySettings'
 import DashboardSettings from '@/components/settings/DashboardSettings'
 import { Card, Skeleton, Tabs, TabsContent } from '@/components/ui'
-import { getApi } from '@/lib/api'
+import { getApi, isElectron } from '@/lib/api'
 import { DEFAULT_SETTINGS } from '@/lib/constants'
 
-const tabs = [
+const allTabs = [
   { value: 'general', label: 'General', icon: <SlidersHorizontal size={14} /> },
   { value: 'store-app', label: 'Store App', icon: <Store size={14} /> },
   { value: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
@@ -40,7 +40,7 @@ const tabs = [
   { value: 'connections', label: 'Connections', icon: <PlugZap size={14} /> },
   { value: 'devices', label: 'Device tools', icon: <MonitorCog size={14} /> },
   { value: 'terminal', label: 'Terminal & web', icon: <TerminalSquare size={14} /> },
-  { value: 'vpn', label: 'VPN', icon: <Shield size={14} /> },
+  { value: 'vpn', label: 'VPN', icon: <Shield size={14} />, electronOnly: true } as any,
   { value: 'theme', label: 'Theme', icon: <Palette size={14} /> },
   { value: 'typography', label: 'Fonts', icon: <Type size={14} /> }
 ]
@@ -48,13 +48,17 @@ const tabs = [
 export default function SettingsPage() {
   const [tab, setTab] = useState('general')
   const [settings, setSettings] = useState<any>(null)
+  const [isElectronEnv, setIsElectronEnv] = useState(true)
 
   useEffect(() => {
+    try { setIsElectronEnv(isElectron()) } catch { setIsElectronEnv(false) }
     getApi()
       .settings.get()
       .then((value) => setSettings({ ...DEFAULT_SETTINGS, ...value }))
       .catch((error) => toast.error(error.message))
   }, [])
+
+  const tabs = (allTabs as any).filter((t: any) => !(t.electronOnly && !isElectronEnv))
 
   return (
     <AppShell>
@@ -98,9 +102,11 @@ export default function SettingsPage() {
               <TabsContent value="terminal">
                 <TerminalSettings settings={settings} onSaved={setSettings} />
               </TabsContent>
-              <TabsContent value="vpn">
-                <VPNSettings settings={settings} onSaved={setSettings} />
-              </TabsContent>
+              {isElectronEnv && (
+                <TabsContent value="vpn">
+                  <VPNSettings settings={settings} onSaved={setSettings} />
+                </TabsContent>
+              )}
               <TabsContent value="theme">
                 <ThemeSettings settings={settings} onSaved={setSettings} />
               </TabsContent>

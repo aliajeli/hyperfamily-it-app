@@ -15,13 +15,27 @@ import LoginBackdrop from '@/components/login/LoginBackdrop'
 import RecoveryDialog from '@/components/login/RecoveryDialog'
 import { wait } from '@/lib/timing'
 
+const REMEMBER_KEY = 'hyperfamily.browser.remembered'
+
+function readRememberedSync() {
+  try {
+    if (typeof window === 'undefined') return null
+    const raw = window.localStorage.getItem(REMEMBER_KEY)
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    if (data?.username) return { username: String(data.username), password: String(data.password || ''), remember: true }
+  } catch {}
+  return null
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const reduceMotion = useReducedMotion()
   const { user, hydrated, login } = useAuthStore()
-  // Defaults only apply on a brand-new machine; the "remember me" copy
-  // (v2.0.22) replaces them as soon as it is read back.
-  const [form, setForm] = useState<any>({ username: 'Admin', password: 'Admin', remember: true })
+  const [form, setForm] = useState<any>(() => {
+    const remembered = typeof window !== 'undefined' ? readRememberedSync() : null
+    return remembered || { username: 'Admin', password: 'Admin', remember: true }
+  })
   const [showPassword, setShowPassword] = useState(false)
   // Starts false on the server AND the client so hydration always matches;
   // reduced-motion short-circuits the intro right after mount.
@@ -36,17 +50,24 @@ export default function LoginPage() {
     if (reduceMotion) setIntroComplete(true)
   }, [reduceMotion])
 
-  // Prefill the last successfully signed-in credentials when they were saved.
   useEffect(() => {
-    getApi()
-      .auth.rememberedCredentials?.()
-      .then((saved) => {
-        if (!saved?.username) return
-        setForm({ username: saved.username, password: saved.password, remember: true })
-      })
-      .catch(() => {
-        /* prefill is best-effort */
-      })
+    try {
+      const api = getApi()
+      if (api?.auth?.rememberedCredentials) {
+        api.auth.rememberedCredentials().then((saved) => {
+          if (saved?.username) setForm({ username: saved.username, password: saved.password || '', remember: true })
+        }).catch(() => {
+          const sync = readRememberedSync()
+          if (sync) setForm(sync)
+        })
+      } else {
+        const sync = readRememberedSync()
+        if (sync) setForm(sync)
+      }
+    } catch {
+      const sync = readRememberedSync()
+      if (sync) setForm(sync)
+    }
   }, [])
 
   const finishIntro = useCallback(() => setIntroComplete(true), [])
