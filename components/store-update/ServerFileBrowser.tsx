@@ -54,50 +54,93 @@ export default function ServerFileBrowser({ open, onOpenChange, onSelect }: any)
           <div className="shrink-0 border-b p-4 pb-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <DialogPrimitive.Title className="flex items-center gap-2 text-sm font-black"><HardDrive size={16} /> Choose file from server</DialogPrimitive.Title>
-                <DialogPrimitive.Description className="mt-1 truncate font-mono text-2xs text-[rgb(var(--muted))]">{listing.directory || 'Loading...'}</DialogPrimitive.Description>
+                <DialogPrimitive.Title className="flex items-center gap-2 text-sm font-black">
+                  <HardDrive size={16} /> Choose file from server
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Description className="mt-1 truncate font-mono text-2xs text-[rgb(var(--muted))]">
+                  {listing.directory || 'Loading...'}
+                </DialogPrimitive.Description>
               </div>
               <DialogPrimitive.Close asChild>
-                <button className="grid h-8 w-8 place-items-center rounded-lg text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.5)]"><X size={16} /></button>
+                <button className="grid h-8 w-8 place-items-center rounded-lg text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.5)]">
+                  <X size={16} />
+                </button>
               </DialogPrimitive.Close>
             </div>
             <div className="mt-3 flex gap-2">
-              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by name..." className="h-9 flex-1 rounded-lg border bg-[rgb(var(--surface))] px-3 text-sm outline-none focus:border-[rgb(var(--primary))]" />
-              <Button variant="secondary" size="sm" onClick={() => load(dir)} disabled={loading}>{loading && <Loader2 size={14} className="animate-spin" />} Refresh</Button>
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter by name..."
+                className="h-9 flex-1 rounded-lg border bg-[rgb(var(--surface))] px-3 text-sm outline-none focus:border-[rgb(var(--primary))]"
+              />
+              <Button variant="secondary" size="sm" onClick={() => load(dir)} disabled={loading}>
+                {loading && <Loader2 size={14} className="animate-spin" />} Refresh
+              </Button>
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto p-2">
             {loading ? (
-              <div className="grid place-items-center gap-2 py-16 text-sm text-[rgb(var(--muted))]"><Loader2 size={18} className="animate-spin" /> Loading...</div>
+              <div className="grid place-items-center gap-2 py-16 text-sm text-[rgb(var(--muted))]">
+                <Loader2 size={18} className="animate-spin" /> Loading...
+              </div>
             ) : (
               <ul className="space-y-0.5">
                 {listing.parent && (
                   <li>
-                    <button type="button" onClick={() => load(listing.parent)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-bold hover:bg-[rgb(var(--border)/.4)]">
-                      <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--border)/.5)]"><ArrowUp size={14} /></span> ..
+                    <button
+                      type="button"
+                      onClick={() => load(listing.parent)}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-bold hover:bg-[rgb(var(--border)/.4)]"
+                    >
+                      <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--border)/.5)]">
+                        <ArrowUp size={14} />
+                      </span>{' '}
+                      ..
                     </button>
                   </li>
                 )}
                 {filtered.map((f: any) => (
                   <li key={f.path}>
                     {f.isDirectory ? (
-                      <button type="button" onClick={() => load(f.path)} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-[rgb(var(--border)/.4)]">
-                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-500/15 text-amber-600"><Folder size={16} /></span>
+                      <button
+                        type="button"
+                        onClick={() => load(f.path)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-[rgb(var(--border)/.4)]"
+                      >
+                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-500/15 text-amber-600">
+                          <Folder size={16} />
+                        </span>
                         <span className="min-w-0 flex-1 truncate font-semibold">{f.name}</span>
                       </button>
                     ) : (
-                      <button type="button" onClick={() => { onSelect(f.path); onOpenChange(false) }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-[rgb(var(--primary)/.08)] hover:text-[rgb(var(--primary))]">
-                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[rgb(var(--primary)/.1)] text-[rgb(var(--primary))]"><File size={16} /></span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelect(f.path)
+                          onOpenChange(false)
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-[rgb(var(--primary)/.08)] hover:text-[rgb(var(--primary))]"
+                      >
+                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[rgb(var(--primary)/.1)] text-[rgb(var(--primary))]">
+                          <File size={16} />
+                        </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium">{f.name}</span>
-                          <span className="text-2xs text-[rgb(var(--muted))]">{formatSize(f.size)} • {new Date(f.modified).toLocaleString()}</span>
+                          <span className="text-2xs text-[rgb(var(--muted))]">
+                            {formatSize(f.size)} • {new Date(f.modified).toLocaleString()}
+                          </span>
                         </span>
                       </button>
                     )}
                   </li>
                 ))}
-                {filtered.length === 0 && <li className="py-10 text-center text-sm text-[rgb(var(--muted))]">No files match filter</li>}
+                {filtered.length === 0 && (
+                  <li className="py-10 text-center text-sm text-[rgb(var(--muted))]">
+                    No files match filter
+                  </li>
+                )}
               </ul>
             )}
           </div>

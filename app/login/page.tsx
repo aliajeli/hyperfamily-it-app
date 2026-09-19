@@ -23,7 +23,8 @@ function readRememberedSync() {
     const raw = window.localStorage.getItem(REMEMBER_KEY)
     if (!raw) return null
     const data = JSON.parse(raw)
-    if (data?.username) return { username: String(data.username), password: String(data.password || ''), remember: true }
+    if (data?.username)
+      return { username: String(data.username), password: String(data.password || ''), remember: true }
   } catch {}
   return null
 }
@@ -54,12 +55,16 @@ export default function LoginPage() {
     try {
       const api = getApi()
       if (api?.auth?.rememberedCredentials) {
-        api.auth.rememberedCredentials().then((saved) => {
-          if (saved?.username) setForm({ username: saved.username, password: saved.password || '', remember: true })
-        }).catch(() => {
-          const sync = readRememberedSync()
-          if (sync) setForm(sync)
-        })
+        api.auth
+          .rememberedCredentials()
+          .then((saved) => {
+            if (saved?.username)
+              setForm({ username: saved.username, password: saved.password || '', remember: true })
+          })
+          .catch(() => {
+            const sync = readRememberedSync()
+            if (sync) setForm(sync)
+          })
       } else {
         const sync = readRememberedSync()
         if (sync) setForm(sync)

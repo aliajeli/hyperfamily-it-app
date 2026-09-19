@@ -322,12 +322,7 @@ function TerminalWorkspaceInner() {
         </header>
 
         {/* Branch strip - desktop pills, mobile select */}
-        <div
-          className={cn(
-            'rounded-2xl border bg-[rgb(var(--surface))] p-2',
-            fullscreen && 'hidden'
-          )}
-        >
+        <div className={cn('rounded-2xl border bg-[rgb(var(--surface))] p-2', fullscreen && 'hidden')}>
           {isMobile ? (
             <div className="flex items-center gap-2">
               <Building2 size={14} className="shrink-0 text-[rgb(var(--muted))]" />
@@ -337,14 +332,18 @@ function TerminalWorkspaceInner() {
                 className="min-w-0 flex-1 rounded-xl border bg-[rgb(var(--canvas))] px-3 py-2.5 text-sm font-bold outline-none"
               >
                 {branches.map((branch: any) => (
-                  <option key={branch.id} value={branch.id}>{branch.name} — {branch.switches.length} switches</option>
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} — {branch.switches.length} switches
+                  </option>
                 ))}
               </select>
             </div>
           ) : (
             <div className="flex items-center gap-2 overflow-x-auto">
               <Building2 size={14} className="ml-1 shrink-0 text-[rgb(var(--muted))]" />
-              {loading && !branches.length && [0,1,2].map((key) => <Skeleton key={key} className="h-8 w-32 shrink-0" />)}
+              {loading &&
+                !branches.length &&
+                [0, 1, 2].map((key) => <Skeleton key={key} className="h-8 w-32 shrink-0" />)}
               {branches.map((branch: any) => (
                 <button
                   key={branch.id}
@@ -388,7 +387,9 @@ function TerminalWorkspaceInner() {
         >
           <div className="flex min-h-0 flex-col gap-3">
             {/* Switch chips - mobile stacked */}
-            <div className={cn('flex flex-wrap gap-2', isMobile && 'grid grid-cols-1', fullscreen && 'hidden')}>
+            <div
+              className={cn('flex flex-wrap gap-2', isMobile && 'grid grid-cols-1', fullscreen && 'hidden')}
+            >
               <AnimatePresence initial={false} mode="popLayout">
                 {(activeBranch?.switches || []).map((device) => {
                   const isActive = session?.deviceId === device.id && live

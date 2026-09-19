@@ -51,7 +51,11 @@ export default function SettingsPage() {
   const [isElectronEnv, setIsElectronEnv] = useState(true)
 
   useEffect(() => {
-    try { setIsElectronEnv(isElectron()) } catch { setIsElectronEnv(false) }
+    try {
+      setIsElectronEnv(isElectron())
+    } catch {
+      setIsElectronEnv(false)
+    }
     getApi()
       .settings.get()
       .then((value) => setSettings({ ...DEFAULT_SETTINGS, ...value }))

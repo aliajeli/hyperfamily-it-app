@@ -50,19 +50,45 @@ export default function BranchList({
         {selected && (
           <div className="flex items-center justify-between rounded-xl border bg-[rgb(var(--primary)/.08)] px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--primary))] text-white shrink-0"><Building2 size={13} /></span>
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-[rgb(var(--primary))] text-white shrink-0">
+                <Building2 size={13} />
+              </span>
               <div className="min-w-0">
                 <b className="block truncate text-xs">{selected.name}</b>
                 <span className="flex items-center gap-1 text-2xs text-[rgb(var(--muted))]">
                   <span className="font-mono font-bold">{selected.code}</span>
-                  {selected.warehouse_code && <><span>·</span><span className="flex items-center gap-0.5"><Warehouse size={8} />{selected.warehouse_code}</span></>}
+                  {selected.warehouse_code && (
+                    <>
+                      <span>·</span>
+                      <span className="flex items-center gap-0.5">
+                        <Warehouse size={8} />
+                        {selected.warehouse_code}
+                      </span>
+                    </>
+                  )}
                   <span>· {deviceCounts[selected.id] || 0} devices</span>
                 </span>
               </div>
             </div>
             <div className="flex gap-1">
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(selected)}><Pencil size={13} /></Button>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-nord-11" onClick={() => onDelete(selected)}><Trash2 size={13} /></Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onEdit(selected)}
+              >
+                <Pencil size={13} />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-nord-11"
+                onClick={() => onDelete(selected)}
+              >
+                <Trash2 size={13} />
+              </Button>
             </div>
           </div>
         )}

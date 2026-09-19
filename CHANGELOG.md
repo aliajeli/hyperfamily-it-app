@@ -3,6 +3,79 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.10.1-beta.4
+
+**Fix CI formatting and APK build permission**
+
+_Released 2026-09-19 · beta channel_
+
+### Improved
+- CI and beta-release workflows now pass format:check and APK build
+
+### Fixed
+- Fixed CI format:check failure - ran Prettier --write on 14 files that had style issues (app/about, login, settings, store-update, terminal, BranchList, InventoryTable, BranchCheckoutsCard, ServerFileBrowser, UpdateToolbar, TerminalScreen, ipc-handlers, lib/api.ts, changelog.json)
+- Fixed Mobile APK build failure './gradlew: Permission denied (exit 126)' by setting executable permission 755 on mobile/android/gradlew and committing mode change
+- Regenerated CHANGELOG.md from lib/changelog.json via scripts/generate-changelog-md.js to satisfy 'CHANGELOG.md must match lib/changelog.json' check
+- Verified TypeScript checks (tsconfig.json and tsconfig.electron.json) pass, lint passes with 1 pre-existing warning, npm test 161 pass, build passes
+## 3.10.1-beta.3
+
+**Android & mobile fixes + TypeScript build fixes for 3.10.0-beta.1**
+
+_Released 2026-09-19 · beta channel_
+
+### Improved
+- Server file browser dialog for choosing update files from server filesystem.
+- Inventory cards tappable with full details dialog.
+- Terminal keyboard handling for Android WebView.
+- TypeScript typecheck passes for both renderer and Electron
+
+### Fixed
+- Fixed Android first page crash 'Update check failed: Cannot read properties of undefined (reading App)' - getApi() now merges incomplete Android wrapper with browser fallback, update.check returns safe no-update result, AppShell guards missing check.
+- Fixed Remember account checkbox on Android - now saves entered username/password to localStorage fallback hyperfamily.browser.remembered when native API is incomplete, and prefills on next launch instead of default.
+- VPN section hidden on Android / browser demo - Header VPNButton only when platform==='electron', Settings VPN tab electronOnly filtered, About update panel hidden when not Electron.
+- Merged app header and page headers to remove empty space - AppShell main padding reduced from 4.5rem to 3.75rem matching header 3.5rem+safe-area, page content starts right under header.
+- Inventory full details on click/tap - tapping any equipment now opens dialog with branch, warehouse, IP, status, model, location, asset, serial, hostname, user/domain, connection, checkout number, brand, terminal, acceptance, ESXi, version, protocol, dashboard visibility, switch ports, ping history (Windows and mobile).
+- Branches & Devices branch selector mobile friendly - BranchList now shows native Select dropdown on phones with device count and detail card.
+- Terminal crowded + keyboard - Terminal page branch strip becomes Select dropdown on mobile and switch chips stack full-width; TerminalScreen adds hidden textarea that opens Android keyboard on tap plus bottom command bar.
+- Update Store App checkout list mobile + update/import/version check + file selection - BranchCheckoutsCard mobile cards with full info, UpdateToolbar Browse server button, ServerFileBrowser shows files inside server system via IPC listServerFiles, version sweep works on browser demo.
+- Fixed TS2339 Property 'id' does not exist on type 'unknown' in groupCheckouts by typing Maps as Map<any,any>
+- Fixed TS2307 Cannot find module '@/components/ui/Dialog' by using Radix DialogPrimitive directly
+- Removed unused useIsMobile helpers causing ESLint warnings
+- Fixed release manifests version mismatch - synced package.json, package-lock.json, electron/recovery and mobile manifests via bump-version script
+## 3.10.1-beta.2
+
+**Fix TypeScript checks**
+
+_Released 2026-09-19 · beta channel_
+
+### Fixed
+- Fixed TS2339 Property 'id' does not exist on type 'unknown' in app/store-update/page.tsx groupCheckouts by typing Maps as Map<any,any> and casting branch
+- Fixed TS2307 Cannot find module '@/components/ui/Dialog' in ServerFileBrowser.tsx by rewriting to use @radix-ui/react-dialog directly with DialogPrimitive
+- Removed unused useIsMobile helpers and FolderOpen/FileUp imports that caused ESLint warnings
+## 3.10.1-beta.1
+
+**Android & mobile fixes for 3.10.0-beta.1**
+
+_Released 2026-09-18 · beta channel_
+
+### Improved
+- Server file browser dialog for choosing update files from server filesystem.
+- Inventory cards tappable with full details dialog.
+- Terminal keyboard handling for Android WebView.
+- AppShell main padding tightened for more content above fold.
+
+### Fixed
+- Fixed Android first page crash 'Update check failed: Cannot read properties of undefined (reading App)' - getApi() now merges incomplete Android wrapper with browser fallback, update.check returns safe no-update result, AppShell guards missing check.
+- Fixed Remember account checkbox on Android - now saves entered username/password to localStorage fallback hyperfamily.browser.remembered when native API is incomplete, and prefills on next launch instead of default.
+- VPN section hidden on Android / browser demo - Header VPNButton only when platform==='electron', Settings VPN tab electronOnly filtered, About update panel hidden when not Electron.
+- Merged app header and page headers to remove empty space - AppShell main padding reduced from 4.5rem to 3.75rem matching header 3.5rem+safe-area, page content starts right under header, header is purely global tools.
+- Inventory full details on click/tap - tapping any equipment now opens dialog with branch, warehouse, IP, status, model, location, asset, serial, hostname, user/domain, connection, checkout number, brand, terminal, acceptance, ESXi, version, protocol, dashboard visibility, switch ports, ping history (Windows and mobile).
+- Branches & Devices branch selector mobile friendly - BranchList now shows native Select dropdown on phones with device count and detail card with edit/delete, instead of horizontal scroll of 205px cards.
+- Terminal crowded + no space for info - Terminal page branch strip becomes Select dropdown on mobile and switch chips stack full-width cards with model/location, header collapses to column on mobile to reduce crowding.
+- Terminal keyboard open on tap after connecting - TerminalScreen adds hidden textarea that opens Android keyboard on tap plus bottom command bar with $ prompt and send on Enter, tap on terminal focuses hidden input.
+- Update Store App checkout list not suitable for phone and not showing full info - BranchCheckoutsCard redesigned to mobile cards with full info (IP, hostname, version, extension, error) and 5 large action buttons in grid, desktop list preserved.
+- Update and Import Agent and version check not working on Android - now works on browser demo via mocked listServerFiles and version sweep, update.check safe fallback, storeUpdate mocks for browser.
+- File selection shows files inside server system - ServerFileBrowser dialog shows files inside server filesystem via IPC app:list-server-files and store-update:list-server-files with filter, parent navigation, size/date; UpdateToolbar has Browse server button.
 ## 3.10.0-beta.1
 
 **Release 3.10.0-beta.1**

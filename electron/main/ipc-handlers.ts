@@ -457,20 +457,43 @@ function registerIpcHandlers({
 
   // Server file browser — lists files inside server system for update file selection
   const listServerFiles = async (dirPath) => {
-    const settings = (() => { try { return database.getSettings() } catch { return {} } })()
-    const defaultDir = settings.store_update_path || app.getPath('downloads') || app.getPath('userData') || process.cwd()
+    const settings = (() => {
+      try {
+        return database.getSettings()
+      } catch {
+        return {}
+      }
+    })()
+    const defaultDir =
+      settings.store_update_path || app.getPath('downloads') || app.getPath('userData') || process.cwd()
     const targetDir = String(dirPath || '').trim() || defaultDir
     try {
       const entries = await fs.promises.readdir(targetDir, { withFileTypes: true })
-      const files = await Promise.all(entries.map(async (entry) => {
-        const fullPath = path.join(targetDir, entry.name)
-        try {
-          const stat = await fs.promises.stat(fullPath)
-          return { name: entry.name, path: fullPath, size: stat.size, modified: stat.mtime.toISOString(), isDirectory: entry.isDirectory(), isFile: entry.isFile() }
-        } catch {
-          return { name: entry.name, path: fullPath, size: 0, modified: new Date().toISOString(), isDirectory: entry.isDirectory(), isFile: entry.isFile() }
-        }
-      }))
+      const files = await Promise.all(
+        entries.map(async (entry) => {
+          const fullPath = path.join(targetDir, entry.name)
+          try {
+            const stat = await fs.promises.stat(fullPath)
+            return {
+              name: entry.name,
+              path: fullPath,
+              size: stat.size,
+              modified: stat.mtime.toISOString(),
+              isDirectory: entry.isDirectory(),
+              isFile: entry.isFile()
+            }
+          } catch {
+            return {
+              name: entry.name,
+              path: fullPath,
+              size: 0,
+              modified: new Date().toISOString(),
+              isDirectory: entry.isDirectory(),
+              isFile: entry.isFile()
+            }
+          }
+        })
+      )
       files.sort((a, b) => {
         if (a.isDirectory && !b.isDirectory) return -1
         if (!a.isDirectory && b.isDirectory) return 1
@@ -483,8 +506,14 @@ function registerIpcHandlers({
     }
   }
 
-  ipcMain.handle('app:list-server-files', secure((_event, dir) => listServerFiles(dir)))
-  ipcMain.handle('store-update:list-server-files', secure((_event, dir) => listServerFiles(dir)))
+  ipcMain.handle(
+    'app:list-server-files',
+    secure((_event, dir) => listServerFiles(dir))
+  )
+  ipcMain.handle(
+    'store-update:list-server-files',
+    secure((_event, dir) => listServerFiles(dir))
+  )
 
   // Update Store App: Store Commerce version sweeps and file deployments.
   // `secure` is required because these run on machines reachable over SMB.

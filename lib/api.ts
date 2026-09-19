@@ -1032,19 +1032,35 @@ function browserApi() {
     update: {
       channel: async () => {
         try {
-          const ch = typeof window !== 'undefined' ? window.localStorage.getItem('hyperfamily.update.channel') : null
-          return { channel: ch || 'main', currentVersion: APP_VERSION, currentIsPrerelease: String(APP_VERSION).includes('-') }
-        } catch { return { channel: 'main', currentVersion: APP_VERSION, currentIsPrerelease: false } }
+          const ch =
+            typeof window !== 'undefined' ? window.localStorage.getItem('hyperfamily.update.channel') : null
+          return {
+            channel: ch || 'main',
+            currentVersion: APP_VERSION,
+            currentIsPrerelease: String(APP_VERSION).includes('-')
+          }
+        } catch {
+          return { channel: 'main', currentVersion: APP_VERSION, currentIsPrerelease: false }
+        }
       },
       setChannel: async (channel) => {
-        try { if (typeof window !== 'undefined') window.localStorage.setItem('hyperfamily.update.channel', channel === 'beta' ? 'beta' : 'main') } catch {}
-        return { channel: channel === 'beta' ? 'beta' : 'main', currentVersion: APP_VERSION, currentIsPrerelease: String(APP_VERSION).includes('-') }
+        try {
+          if (typeof window !== 'undefined')
+            window.localStorage.setItem('hyperfamily.update.channel', channel === 'beta' ? 'beta' : 'main')
+        } catch {}
+        return {
+          channel: channel === 'beta' ? 'beta' : 'main',
+          currentVersion: APP_VERSION,
+          currentIsPrerelease: String(APP_VERSION).includes('-')
+        }
       },
       check: async () => {
         try {
           return {
             currentVersion: APP_VERSION || '3.2.6',
-            channel: (typeof window !== 'undefined' && window.localStorage.getItem('hyperfamily.update.channel')) || 'main',
+            channel:
+              (typeof window !== 'undefined' && window.localStorage.getItem('hyperfamily.update.channel')) ||
+              'main',
             latestVersion: APP_VERSION || '3.2.6',
             hasUpdate: false,
             isDowngrade: false,
@@ -1684,10 +1700,38 @@ function browserApi() {
         listServerFiles: async (dir) => {
           const base = dir || 'C:\\Store Commerce\\Updates'
           const mockFiles = [
-            { name: 'Hyper.StoreCommerce.Installer.exe', path: base + '\\Hyper.StoreCommerce.Installer.exe', size: 4812032, modified: new Date().toISOString(), isDirectory: false, isFile: true },
-            { name: 'StoreCommerce_9.60.24100.1.msi', path: base + '\\StoreCommerce_9.60.24100.1.msi', size: 12400000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
-            { name: 'Hyper.Commerce_2.19.15.zip', path: base + '\\Hyper.Commerce_2.19.15.zip', size: 3200000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
-            { name: 'backup', path: base + '\\backup', size: 0, modified: new Date().toISOString(), isDirectory: true, isFile: false }
+            {
+              name: 'Hyper.StoreCommerce.Installer.exe',
+              path: base + '\\Hyper.StoreCommerce.Installer.exe',
+              size: 4812032,
+              modified: new Date().toISOString(),
+              isDirectory: false,
+              isFile: true
+            },
+            {
+              name: 'StoreCommerce_9.60.24100.1.msi',
+              path: base + '\\StoreCommerce_9.60.24100.1.msi',
+              size: 12400000,
+              modified: new Date().toISOString(),
+              isDirectory: false,
+              isFile: true
+            },
+            {
+              name: 'Hyper.Commerce_2.19.15.zip',
+              path: base + '\\Hyper.Commerce_2.19.15.zip',
+              size: 3200000,
+              modified: new Date().toISOString(),
+              isDirectory: false,
+              isFile: true
+            },
+            {
+              name: 'backup',
+              path: base + '\\backup',
+              size: 0,
+              modified: new Date().toISOString(),
+              isDirectory: true,
+              isFile: false
+            }
           ]
           return { directory: base, parent: 'C:\\Store Commerce', files: mockFiles }
         }
@@ -1705,10 +1749,38 @@ function browserApi() {
       listServerFiles: async (dir) => {
         const base = dir || 'C:\\Store Commerce\\Updates'
         const mockFiles = [
-          { name: 'Hyper.StoreCommerce.Installer.exe', path: base + '\\Hyper.StoreCommerce.Installer.exe', size: 4812032, modified: new Date().toISOString(), isDirectory: false, isFile: true },
-          { name: 'StoreCommerce_9.60.24100.1.msi', path: base + '\\StoreCommerce_9.60.24100.1.msi', size: 12400000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
-          { name: 'Hyper.Commerce_2.19.15.zip', path: base + '\\Hyper.Commerce_2.19.15.zip', size: 3200000, modified: new Date().toISOString(), isDirectory: false, isFile: true },
-          { name: 'backup', path: base + '\\backup', size: 0, modified: new Date().toISOString(), isDirectory: true, isFile: false }
+          {
+            name: 'Hyper.StoreCommerce.Installer.exe',
+            path: base + '\\Hyper.StoreCommerce.Installer.exe',
+            size: 4812032,
+            modified: new Date().toISOString(),
+            isDirectory: false,
+            isFile: true
+          },
+          {
+            name: 'StoreCommerce_9.60.24100.1.msi',
+            path: base + '\\StoreCommerce_9.60.24100.1.msi',
+            size: 12400000,
+            modified: new Date().toISOString(),
+            isDirectory: false,
+            isFile: true
+          },
+          {
+            name: 'Hyper.Commerce_2.19.15.zip',
+            path: base + '\\Hyper.Commerce_2.19.15.zip',
+            size: 3200000,
+            modified: new Date().toISOString(),
+            isDirectory: false,
+            isFile: true
+          },
+          {
+            name: 'backup',
+            path: base + '\\backup',
+            size: 0,
+            modified: new Date().toISOString(),
+            isDirectory: true,
+            isFile: false
+          }
         ]
         return { directory: base, parent: 'C:\\Store Commerce', files: mockFiles }
       }
@@ -1716,14 +1788,16 @@ function browserApi() {
   }
 }
 
-let fallback:any
+let fallback: any
 export function isElectron() {
   try {
     if (typeof window === 'undefined') return false
     const api = (window as any).hyperfamily
     if (api?.platform === 'electron') return true
     return false
-  } catch { return false }
+  } catch {
+    return false
+  }
 }
 
 export function getApi(): any {
@@ -1751,6 +1825,8 @@ export function getApi(): any {
     try {
       if (!fallback && typeof window !== 'undefined') fallback = browserApi()
       return fallback
-    } catch { return undefined }
+    } catch {
+      return undefined
+    }
   }
 }

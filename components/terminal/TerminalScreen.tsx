@@ -7,11 +7,22 @@ import { commonPrefix, completions, currentWord, tokenize } from '@/lib/terminal
 const CHAR_RATIO = 0.6
 
 const ANSI_HEX = {
-  'ansi-black': '#3B4252', 'ansi-red': '#BF616A', 'ansi-green': '#A3BE8C', 'ansi-yellow': '#EBCB8B',
-  'ansi-blue': '#81A1C1', 'ansi-magenta': '#B48EAD', 'ansi-cyan': '#88C0D0', 'ansi-white': '#E5E9F0',
-  'ansi-bright-black': '#4C566A', 'ansi-bright-red': '#D08770', 'ansi-bright-green': '#B9D2A1',
-  'ansi-bright-yellow': '#F0D399', 'ansi-bright-blue': '#9DB8D4', 'ansi-bright-magenta': '#C7A5C2',
-  'ansi-bright-cyan': '#A3D5E0', 'ansi-bright-white': '#ECEFF4'
+  'ansi-black': '#3B4252',
+  'ansi-red': '#BF616A',
+  'ansi-green': '#A3BE8C',
+  'ansi-yellow': '#EBCB8B',
+  'ansi-blue': '#81A1C1',
+  'ansi-magenta': '#B48EAD',
+  'ansi-cyan': '#88C0D0',
+  'ansi-white': '#E5E9F0',
+  'ansi-bright-black': '#4C566A',
+  'ansi-bright-red': '#D08770',
+  'ansi-bright-green': '#B9D2A1',
+  'ansi-bright-yellow': '#F0D399',
+  'ansi-bright-blue': '#9DB8D4',
+  'ansi-bright-magenta': '#C7A5C2',
+  'ansi-bright-cyan': '#A3D5E0',
+  'ansi-bright-white': '#ECEFF4'
 }
 
 const SYNTAX_STYLE = {
@@ -34,7 +45,8 @@ const colorFor = (value) => {
   return value
 }
 
-export const DEFAULT_TERMINAL_FONT = 'ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace'
+export const DEFAULT_TERMINAL_FONT =
+  'ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace'
 
 export default function TerminalScreen({
   session,
@@ -95,7 +107,8 @@ export default function TerminalScreen({
     emulatorRef.current.resize(size.cols, size.rows)
     repaint()
     onSizeChange?.(size)
-    if (session?.sessionId) api.resize({ sessionId: session.sessionId, cols: size.cols, rows: size.rows }).catch(() => {})
+    if (session?.sessionId)
+      api.resize({ sessionId: session.sessionId, cols: size.cols, rows: size.rows }).catch(() => {})
   }, [size, session?.sessionId, api, onSizeChange, repaint])
 
   useEffect(() => {
@@ -122,35 +135,50 @@ export default function TerminalScreen({
     if (node) node.scrollTop = node.scrollHeight
   })
 
-  const send = useCallback((data) => {
-    if (!session?.sessionId || session.state === 'closed') return
-    api.write({ sessionId: session.sessionId, data }).catch(() => {})
-  }, [api, session?.sessionId, session?.state])
+  const send = useCallback(
+    (data) => {
+      if (!session?.sessionId || session.state === 'closed') return
+      api.write({ sessionId: session.sessionId, data }).catch(() => {})
+    },
+    [api, session?.sessionId, session?.state]
+  )
 
   const trackInput = useCallback((data) => {
-    if (data === '\r' || data === '\u0003') { inputRef.current = ''; return }
-    if (data === '\u007f') { inputRef.current = inputRef.current.slice(0, -1); return }
+    if (data === '\r' || data === '\u0003') {
+      inputRef.current = ''
+      return
+    }
+    if (data === '\u007f') {
+      inputRef.current = inputRef.current.slice(0, -1)
+      return
+    }
     if (data.length === 1 && data >= ' ') inputRef.current += data
     else if (data.length > 1 && !data.startsWith('\u001b')) inputRef.current += data
   }, [])
 
-  const transmit = useCallback((data) => {
-    trackInput(data)
-    send(data)
-    setFollowTail(true)
-  }, [send, trackInput])
+  const transmit = useCallback(
+    (data) => {
+      trackInput(data)
+      send(data)
+      setFollowTail(true)
+    },
+    [send, trackInput]
+  )
 
-  const applyCompletion = useCallback((word, whole = true) => {
-    const typed = currentWord(inputRef.current)
-    const suffix = word.slice(typed.length)
-    const trailing = whole ? ' ' : ''
-    if (word.slice(0, typed.length).toLowerCase() !== typed.toLowerCase()) {
-      transmit('\u007f'.repeat(typed.length))
-      transmit(word + trailing)
-      return
-    }
-    if (suffix || trailing) transmit(suffix + trailing)
-  }, [transmit])
+  const applyCompletion = useCallback(
+    (word, whole = true) => {
+      const typed = currentWord(inputRef.current)
+      const suffix = word.slice(typed.length)
+      const trailing = whole ? ' ' : ''
+      if (word.slice(0, typed.length).toLowerCase() !== typed.toLowerCase()) {
+        transmit('\u007f'.repeat(typed.length))
+        transmit(word + trailing)
+        return
+      }
+      if (suffix || trailing) transmit(suffix + trailing)
+    },
+    [transmit]
+  )
 
   const focusTerminal = useCallback(() => {
     // Desktop: focus the scrollable div
@@ -163,7 +191,12 @@ export default function TerminalScreen({
   }, [isMobile])
 
   const onKeyDown = (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c' && window.getSelection()?.toString()) return
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      event.key.toLowerCase() === 'c' &&
+      window.getSelection()?.toString()
+    )
+      return
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') return
 
     if (picker) {
@@ -183,7 +216,11 @@ export default function TerminalScreen({
         setPicker((p) => ({ ...p, index: (p.index - 1 + p.items.length) % p.items.length }))
         return
       }
-      if (event.key === 'Escape') { event.preventDefault(); setPicker(null); return }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setPicker(null)
+        return
+      }
     }
 
     if (event.ctrlKey && (event.key === ' ' || event.code === 'Space')) {
@@ -198,21 +235,43 @@ export default function TerminalScreen({
       event.preventDefault()
       const prefix = currentWord(inputRef.current)
       const items = completions(prefix)
-      if (!items.length) { transmit('\t'); return }
-      if (items.length === 1) { applyCompletion(items[0]); return }
+      if (!items.length) {
+        transmit('\t')
+        return
+      }
+      if (items.length === 1) {
+        applyCompletion(items[0])
+        return
+      }
       const shared = commonPrefix(items)
-      if (shared.length > prefix.length) { applyCompletion(shared, false); return }
+      if (shared.length > prefix.length) {
+        applyCompletion(shared, false)
+        return
+      }
       setPicker({ items: items.slice(0, 200), index: 0, prefix })
       return
     }
 
     const map = {
-      Enter: '\r', Backspace: '\u007f', Escape: '\u001b',
-      ArrowUp: '\u001b[A', ArrowDown: '\u001b[B', ArrowRight: '\u001b[C', ArrowLeft: '\u001b[D',
-      Home: '\u001b[H', End: '\u001b[F', Delete: '\u001b[3~', PageUp: '\u001b[5~', PageDown: '\u001b[6~'
+      Enter: '\r',
+      Backspace: '\u007f',
+      Escape: '\u001b',
+      ArrowUp: '\u001b[A',
+      ArrowDown: '\u001b[B',
+      ArrowRight: '\u001b[C',
+      ArrowLeft: '\u001b[D',
+      Home: '\u001b[H',
+      End: '\u001b[F',
+      Delete: '\u001b[3~',
+      PageUp: '\u001b[5~',
+      PageDown: '\u001b[6~'
     }
 
-    if (map[event.key]) { event.preventDefault(); transmit(map[event.key]); return }
+    if (map[event.key]) {
+      event.preventDefault()
+      transmit(map[event.key])
+      return
+    }
     if (event.ctrlKey && /^[a-z]$/i.test(event.key)) {
       event.preventDefault()
       const code = String.fromCharCode(event.key.toLowerCase().charCodeAt(0) - 96)
@@ -233,7 +292,9 @@ export default function TerminalScreen({
   const onPaste = (event) => {
     event.preventDefault()
     const text = event.clipboardData.getData('text')
-    if (text) { transmit(text.replace(/\r?\n/g, '\r')) }
+    if (text) {
+      transmit(text.replace(/\r?\n/g, '\r'))
+    }
   }
 
   const handleMobileSubmit = (e) => {
@@ -260,7 +321,10 @@ export default function TerminalScreen({
   const lineHeight = Math.round(fontSize * 1.42)
 
   return (
-    <div ref={holderRef} className="relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-[rgb(var(--canvas))]">
+    <div
+      ref={holderRef}
+      className="relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-[rgb(var(--canvas))]"
+    >
       <div
         ref={screenRef}
         role="textbox"
@@ -278,18 +342,27 @@ export default function TerminalScreen({
         style={{ fontSize, lineHeight: `${lineHeight}px`, fontFamily }}
       >
         {snapshot.rows.map((runs, rowIndex) => {
-          const plain = highlight && runs.every((run) => {
-            const { attr } = run
-            return !attr.fg && !attr.bg && !attr.inverse && !attr.underline
-          })
+          const plain =
+            highlight &&
+            runs.every((run) => {
+              const { attr } = run
+              return !attr.fg && !attr.bg && !attr.inverse && !attr.underline
+            })
 
           if (plain) {
             const text = runs.map((run) => run.text).join('')
-            if (!text.trim()) return <div key={rowIndex} className="whitespace-pre" style={{ height: lineHeight }}>{text}</div>
+            if (!text.trim())
+              return (
+                <div key={rowIndex} className="whitespace-pre" style={{ height: lineHeight }}>
+                  {text}
+                </div>
+              )
             return (
               <div key={rowIndex} className="whitespace-pre" style={{ height: lineHeight }}>
                 {tokenize(text).map((token, index) => (
-                  <span key={index} style={SYNTAX_STYLE[token.kind]}>{token.text}</span>
+                  <span key={index} style={SYNTAX_STYLE[token.kind]}>
+                    {token.text}
+                  </span>
                 ))}
               </div>
             )
@@ -309,7 +382,11 @@ export default function TerminalScreen({
                   textDecoration: attr.underline ? 'underline' : undefined,
                   opacity: attr.dim ? 0.68 : undefined
                 }
-                return <span key={runIndex} style={style}>{run.text}</span>
+                return (
+                  <span key={runIndex} style={style}>
+                    {run.text}
+                  </span>
+                )
               })}
             </div>
           )
@@ -336,12 +413,19 @@ export default function TerminalScreen({
           aria-label="Command suggestions"
           className="absolute z-20 max-h-56 w-56 overflow-y-auto rounded-xl border bg-[rgb(var(--surface))] p-1 shadow-2xl"
           style={{
-            left: Math.min(12 + snapshot.cursor.x * fontSize * CHAR_RATIO, Math.max(12, (holderRef.current?.clientWidth || 320) - 236)),
-            top: Math.min(8 + (snapshot.cursor.y + 1) * lineHeight + 4, Math.max(8, (holderRef.current?.clientHeight || 240) - 232))
+            left: Math.min(
+              12 + snapshot.cursor.x * fontSize * CHAR_RATIO,
+              Math.max(12, (holderRef.current?.clientWidth || 320) - 236)
+            ),
+            top: Math.min(
+              8 + (snapshot.cursor.y + 1) * lineHeight + 4,
+              Math.max(8, (holderRef.current?.clientHeight || 240) - 232)
+            )
           }}
         >
           <div className="px-2 pb-1 pt-0.5 text-xs font-bold uppercase tracking-widest text-[rgb(var(--muted))]">
-            {picker.items.length} match{picker.items.length === 1 ? '' : 'es'}{picker.prefix ? ` for “${picker.prefix}”` : ''}
+            {picker.items.length} match{picker.items.length === 1 ? '' : 'es'}
+            {picker.prefix ? ` for “${picker.prefix}”` : ''}
           </div>
           {picker.items.map((item, index) => (
             <button
@@ -349,13 +433,20 @@ export default function TerminalScreen({
               type="button"
               role="option"
               aria-selected={index === picker.index}
-              onMouseDown={(event) => { event.preventDefault(); applyCompletion(item); setPicker(null) }}
+              onMouseDown={(event) => {
+                event.preventDefault()
+                applyCompletion(item)
+                setPicker(null)
+              }}
               onMouseEnter={() => setPicker((p) => (p ? { ...p, index } : p))}
               className={`block w-full truncate rounded-lg px-2 py-1 text-left font-mono text-2xs ${
-                index === picker.index ? 'bg-[rgb(var(--primary)/.16)] text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]'
+                index === picker.index
+                  ? 'bg-[rgb(var(--primary)/.16)] text-[rgb(var(--primary))]'
+                  : 'text-[rgb(var(--text))]'
               }`}
             >
-              <b>{item.slice(0, picker.prefix.length)}</b>{item.slice(picker.prefix.length)}
+              <b>{item.slice(0, picker.prefix.length)}</b>
+              {item.slice(picker.prefix.length)}
             </button>
           ))}
         </div>
@@ -364,7 +455,10 @@ export default function TerminalScreen({
       {!followTail && (
         <button
           type="button"
-          onClick={() => { setFollowTail(true); if (screenRef.current) screenRef.current.scrollTop = screenRef.current.scrollHeight }}
+          onClick={() => {
+            setFollowTail(true)
+            if (screenRef.current) screenRef.current.scrollTop = screenRef.current.scrollHeight
+          }}
           className="absolute bottom-[60px] right-3 rounded-lg border bg-[rgb(var(--surface))] px-2.5 py-1 text-xs font-bold shadow-lg"
         >
           Jump to latest

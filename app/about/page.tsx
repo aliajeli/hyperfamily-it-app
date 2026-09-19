@@ -37,7 +37,11 @@ export default function AboutPage() {
   const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
-    try { setIsElectronEnv(isElectron()) } catch { setIsElectronEnv(false) }
+    try {
+      setIsElectronEnv(isElectron())
+    } catch {
+      setIsElectronEnv(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -282,27 +286,29 @@ export default function AboutPage() {
         <AboutHero info={info} channel={channel} />
 
         <div className={`grid gap-2.5 ${isElectronEnv ? 'lg:grid-cols-[1.15fr_.85fr]' : ''}`}>
-          {isElectronEnv && <UpdatePanel
-            info={info}
-            update={update}
-            checking={checking}
-            downloading={downloading}
-            paused={paused}
-            downloaded={downloaded}
-            progress={progress}
-            transfer={transfer}
-            installing={installing}
-            channel={channel}
-            onCheck={check}
-            onSelectChannel={selectChannel}
-            onDownload={download}
-            onPause={pause}
-            onResume={resume}
-            onStop={stop}
-            onInstall={install}
-            onOpenChangelog={() => setChangelogOpen(true)}
-            onExternal={external}
-          />}
+          {isElectronEnv && (
+            <UpdatePanel
+              info={info}
+              update={update}
+              checking={checking}
+              downloading={downloading}
+              paused={paused}
+              downloaded={downloaded}
+              progress={progress}
+              transfer={transfer}
+              installing={installing}
+              channel={channel}
+              onCheck={check}
+              onSelectChannel={selectChannel}
+              onDownload={download}
+              onPause={pause}
+              onResume={resume}
+              onStop={stop}
+              onInstall={install}
+              onOpenChangelog={() => setChangelogOpen(true)}
+              onExternal={external}
+            />
+          )}
           <SupportCard onEmail={emailDeveloper} onExternal={external} />
         </div>
 

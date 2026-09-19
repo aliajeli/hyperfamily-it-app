@@ -1,6 +1,31 @@
 {
   "entries": [
     {
+      "version": "3.10.1-beta.4",
+      "date": "2026-09-19",
+      "channel": "beta",
+      "title": "Fix CI formatting and APK build permission",
+      "changes": {
+        "fixed": [
+          "Fixed CI format:check failure - ran Prettier --write on 14 files that had style issues (app/about, login, settings, store-update, terminal, BranchList, InventoryTable, BranchCheckoutsCard, ServerFileBrowser, UpdateToolbar, TerminalScreen, ipc-handlers, lib/api.ts, changelog.json)",
+          "Fixed Mobile APK build failure './gradlew: Permission denied (exit 126)' by setting executable permission 755 on mobile/android/gradlew and committing mode change",
+          "Regenerated CHANGELOG.md from lib/changelog.json via scripts/generate-changelog-md.js to satisfy 'CHANGELOG.md must match lib/changelog.json' check",
+          "Verified TypeScript checks (tsconfig.json and tsconfig.electron.json) pass, lint passes with 1 pre-existing warning, npm test 161 pass, build passes"
+        ],
+        "improved": ["CI and beta-release workflows now pass format:check and APK build"]
+      },
+      "highlights": [
+        "Prettier formatting fixed for all 14 files",
+        "Gradle wrapper permission fixed for APK build",
+        "CHANGELOG.md regenerated"
+      ],
+      "details": [
+        "chmod +x mobile/android/gradlew committed as mode 100755",
+        "npx prettier --write . run",
+        "node scripts/generate-changelog-md.js run"
+      ]
+    },
+    {
       "version": "3.10.1-beta.3",
       "date": "2026-09-19",
       "channel": "beta",
@@ -66,10 +91,7 @@
         "TypeScript typecheck passes for both tsconfig.json and tsconfig.electron.json",
         "Next build passes"
       ],
-      "details": [
-        "ServerFileBrowser now uses Radix primitives",
-        "groupCheckouts typed correctly"
-      ]
+      "details": ["ServerFileBrowser now uses Radix primitives", "groupCheckouts typed correctly"]
     },
     {
       "version": "3.10.1-beta.1",
@@ -296,9 +318,7 @@
           "Update Store App opens instantly from the sweep that runs at application startup; the page no longer re-scans on open — fresh data comes only from Recheck all, a branch Recheck, or a single checkout's Recheck.",
           "The Store App page now presents each branch as a card with its checkouts and their states, and the Asset inventory scrolls as a whole page with a sticky column header."
         ],
-        "removed": [
-          "POS and Scale device types were retired from the directory."
-        ]
+        "removed": ["POS and Scale device types were retired from the directory."]
       }
     },
     {
@@ -723,9 +743,7 @@
         "improved": [
           "Checkouts can be reached by IP as well as by hostname, and the real product name is found even when it differs from the default."
         ],
-        "fixed": [
-          "Deployment steps no longer stay stuck when a checkout drops out mid-run."
-        ]
+        "fixed": ["Deployment steps no longer stay stuck when a checkout drops out mid-run."]
       }
     },
     {
@@ -745,12 +763,8 @@
       "channel": "beta",
       "title": "Control Panel versions and cross-domain access",
       "changes": {
-        "added": [
-          "A target access account for checkouts that live in another domain."
-        ],
-        "fixed": [
-          "The interface no longer freezes while a checkout is being queried."
-        ]
+        "added": ["A target access account for checkouts that live in another domain."],
+        "fixed": ["The interface no longer freezes while a checkout is being queried."]
       }
     },
     {
