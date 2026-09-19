@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
-import { NotebookPen, Plus, Search } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { NotebookPen, Plus, Search, Menu, X, PanelLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import { Button, EmptyState, Input, Skeleton } from '@/components/ui'
@@ -12,19 +12,34 @@ import NoteQuickMenu from '@/components/notes/NoteQuickMenu'
 import { getApi } from '@/lib/api'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { blankNote, normalizeTags, noteTags, sanitizeTag } from '@/lib/notes-presentation'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 
 export default function NotesPage() {
-  // Undefined during the static prerender; populated from the first client render.
   const api = getApi()
   const confirm = useConfirm()
+  const { setHeader } = usePageHeaderStore()
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState<any>(null)
   const [saving, setSaving] = useState(false)
-  const [menu, setMenu] = useState<any>(null) // { x, y, noteId } — right-click menu
+  const [menu, setMenu] = useState<any>(null)
   const [tagInput, setTagInput] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const nameRef = useRef(null)
+
+  useEffect(() => {
+    setHeader({
+      title: 'Notes',
+      subtitle: 'Runbooks, VLAN plans and anything else worth keeping',
+      actions: (
+        <Button size="sm" onClick={() => startNew()}>
+          <Plus size={14} /> New note
+        </Button>
+      )
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [notes.length])
 
   const load = useCallback(
     async (selectId = null) => {
@@ -50,7 +65,6 @@ export default function NotesPage() {
     load()
   }, [load])
 
-  // The right-click menu closes on Escape and on window blur.
   useEffect(() => {
     if (!menu) return undefined
     const onKey = (event) => {
@@ -65,11 +79,6 @@ export default function NotesPage() {
     }
   }, [menu])
 
-  /**
-   * Applies a small patch (pin, colour, priority) to a saved note without
-   * disturbing the editor: the list is re-read and, when the note is the one
-   * currently open, the draft follows along.
-   */
   const quickUpdate = async (note, patch, label) => {
     try {
       await api.notes.save({
@@ -95,11 +104,6 @@ export default function NotesPage() {
     await quickUpdate(note, { pinned: note.pinned ? 0 : 1 }, note.pinned ? 'Note unpinned' : 'Note pinned')
   }
 
-  /**
-   * Tag helpers (v2.0.16). Tags live in their own list, completely separate
-   * from the note body: adding or removing one never touches the text, and
-   * the chips sit next to the colour pickers in the toolbar.
-   */
   const addTag = () => {
     const tag = sanitizeTag(tagInput)
     if (!tag) return
@@ -122,7 +126,6 @@ export default function NotesPage() {
           `${note.name} ${note.body || ''} ${noteTags(note).join(' ')}`.toLowerCase().includes(needle)
         )
       : notes
-    // Pinned first, then the most urgent, then the most recently touched.
     return [...rows].sort(
       (a, b) =>
         Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) ||
@@ -149,6 +152,7 @@ export default function NotesPage() {
   const startNew = () => {
     setDraft({ ...blankNote })
     setTimeout(() => nameRef.current?.focus(), 40)
+    setSidebarOpen(false)
   }
 
   const select = async (note) => {
@@ -168,6 +172,7 @@ export default function NotesPage() {
       priority: Number(note.priority || 0),
       tags: normalizeTags(note.tags)
     })
+    setSidebarOpen(false)
   }
 
   const save = async (override = {}) => {
@@ -232,31 +237,50 @@ export default function NotesPage() {
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100vh-7rem)] min-h-[560px] flex-col gap-3" onKeyDown={onKeyDown}>
-        <header className="flex flex-wrap items-center gap-3">
-          <span className="relative grid h-10 w-10 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]">
-            <NotebookPen size={20} />
-            <span
-              aria-hidden
-              className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[rgb(var(--primary))] ring-2 ring-[rgb(var(--surface))]"
-            />
-          </span>
-          <div>
-            <h1 className="text-lg font-extrabold tracking-tight">Notes</h1>
-            <p className="text-2xs text-[rgb(var(--muted))]">
-              Runbooks, VLAN plans and anything else worth keeping
-            </p>
-          </div>
-          <span className="hidden rounded-full border bg-[rgb(var(--surface)/.6)] px-2 py-0.5 text-xs font-bold text-[rgb(var(--muted))] sm:inline">
-            {loading ? '…' : `${notes.length} note${notes.length === 1 ? '' : 's'}`}
-          </span>
-          <Button className="ml-auto" size="sm" onClick={startNew}>
-            <Plus size={14} /> New note
+      <div
+        className="flex h-[calc(100dvh-4rem)] min-h-[560px] flex-col gap-3 md:h-[calc(100vh-5rem)]"
+        onKeyDown={onKeyDown}
+      >
+        {/* Mobile: toggle button for notes sidebar */}
+        <div className="flex items-center gap-2 lg:hidden">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="flex items-center gap-1.5"
+          >
+            <PanelLeft size={14} /> {sidebarOpen ? 'Hide notes' : `Notes (${notes.length})`}
           </Button>
-        </header>
+          <span className="text-2xs text-[rgb(var(--muted))]">
+            {draft ? `Editing: ${draft.name || 'Untitled'}` : ''}
+          </span>
+        </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="flex min-h-0 flex-col gap-2 rounded-2xl border bg-[rgb(var(--surface))] p-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
+          {/* Sidebar - previous writings as menu */}
+          <aside
+            className={`
+              flex min-h-0 flex-col gap-2 rounded-2xl border bg-[rgb(var(--surface))] p-3
+              lg:flex
+              ${sidebarOpen ? 'flex' : 'hidden'}
+              fixed inset-0 z-30 m-2 mt-[calc(3.75rem+env(safe-area-inset-top)+0.5rem)] flex-col lg:static lg:z-auto lg:m-0
+            `}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider">
+                <NotebookPen size={13} /> Notes list
+                <span className="rounded-full bg-[rgb(var(--border)/.5)] px-2 py-0.5 text-2xs">
+                  {notes.length}
+                </span>
+              </h2>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-lg text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.4)] lg:hidden"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
             <div className="relative">
               <Search
                 size={13}
@@ -266,7 +290,7 @@ export default function NotesPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search notes or #tags"
-                className="pl-8 text-xs"
+                className="h-10 pl-8 text-sm md:h-8 md:text-xs"
                 aria-label="Search notes"
               />
             </div>
@@ -345,7 +369,6 @@ export default function NotesPage() {
           )}
         </div>
 
-        {/* Right-click menu: colour + priority for the note under the cursor. */}
         {menu && (
           <NoteQuickMenu
             menu={menu}

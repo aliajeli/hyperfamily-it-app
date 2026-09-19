@@ -1056,6 +1056,119 @@ function browserApi() {
       },
       check: async () => {
         try {
+          // Capacitor Android companion: check GitHub releases for APK
+          const cap = (typeof window !== 'undefined' && (window as any).Capacitor) || null
+          const isNative = (() => {
+            try {
+              return cap?.isNativePlatform?.() || false
+            } catch {
+              return false
+            }
+          })()
+          if (isNative) {
+            const REPO = 'aliajeli/hyperfamily-it-app'
+            const RELEASES_URL = `https://api.github.com/repos/${REPO}/releases?per_page=12`
+            const parseVer = (tag: string) => {
+              const t = String(tag || '').replace(/^v/i, '')
+              const m = t.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/)
+              if (!m) return null
+              return { major: +m[1], minor: +m[2], patch: +m[3], pre: m[4] || '', raw: t }
+            }
+            const cmp = (a: any, b: any) => {
+              if (a.major !== b.major) return a.major - b.major
+              if (a.minor !== b.minor) return a.minor - b.minor
+              if (a.patch !== b.patch) return a.patch - b.patch
+              if (!a.pre && b.pre) return 1
+              if (a.pre && !b.pre) return -1
+              return a.pre.localeCompare(b.pre)
+            }
+            const newerThan = (candidate: string, current: string) => {
+              const pc = parseVer(candidate)
+              const pi = parseVer(current)
+              if (!pc) return false
+              if (!pi) return true
+              return cmp(pc, pi) > 0
+            }
+            const pickAsset = (rel: any) => {
+              const assets = rel?.assets || []
+              if (!assets.length) return null
+              const re = /HyperFamily-Companion-.*\.apk$/i
+              const signed = assets.find((a: any) => /signed/i.test(a.name) && re.test(a.name))
+              const any = assets.find((a: any) => re.test(a.name))
+              return signed || any || assets.find((a: any) => a.name?.toLowerCase().endsWith('.apk')) || null
+            }
+            let installed = APP_VERSION || '0.0.0'
+            try {
+              // @ts-ignore - capacitor only in native build
+              const { App } = await import('@capacitor/app')
+              const info = await App.getInfo()
+              installed = info.version || installed
+            } catch {}
+            const ch =
+              (typeof window !== 'undefined' && window.localStorage.getItem('hyperfamily.update.channel')) ||
+              'main'
+            const res = await fetch(RELEASES_URL, { headers: { Accept: 'application/vnd.github+json' } })
+            if (!res.ok) throw new Error(`GitHub ${res.status}`)
+            const releases = await res.json()
+            const list = Array.isArray(releases) ? releases : []
+            const candidates = list.filter((r: any) => {
+              if (r.draft) return false
+              if (ch === 'main' && r.prerelease) return false
+              return true
+            })
+            candidates.sort(
+              (a: any, b: any) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+            )
+            let found: any = null
+            let asset: any = null
+            for (const rel of candidates) {
+              const ver = rel.tag_name || rel.name || ''
+              if (!newerThan(ver, installed)) continue
+              const a = pickAsset(rel)
+              if (!a) continue
+              found = rel
+              asset = a
+              break
+            }
+            if (found && asset) {
+              return {
+                currentVersion: installed,
+                channel: ch,
+                latestVersion: found.tag_name || found.name,
+                hasUpdate: true,
+                isDowngrade: false,
+                releaseNotes: found.body || '',
+                publishedAt: found.published_at,
+                downloadUrl: asset.browser_download_url,
+                downloadSize: asset.size || 0,
+                downloadName: asset.name,
+                downloaded: false,
+                downloading: false,
+                paused: false,
+                percent: 0,
+                isPackaged: true,
+                canInstall: true
+              }
+            }
+            return {
+              currentVersion: installed,
+              channel: ch,
+              latestVersion: installed,
+              hasUpdate: false,
+              isDowngrade: false,
+              releaseNotes: 'You are on the latest Android companion.',
+              publishedAt: null,
+              downloadUrl: null,
+              downloadSize: 0,
+              downloadName: null,
+              downloaded: false,
+              downloading: false,
+              paused: false,
+              percent: 0,
+              isPackaged: true,
+              canInstall: false
+            }
+          }
           return {
             currentVersion: APP_VERSION || '3.2.6',
             channel:
@@ -1102,7 +1215,65 @@ function browserApi() {
         canInstall: false,
         isPackaged: false
       }),
-      download: async () => {
+      download: async (urlOrOpts: any) => {
+        try {
+          const cap = (typeof window !== 'undefined' && (window as any).Capacitor) || null
+          const isNative = (() => {
+            try {
+              return cap?.isNativePlatform?.() || false
+            } catch {
+              return false
+            }
+          })()
+          if (isNative) {
+            const downloadUrl =
+              typeof urlOrOpts === 'string' ? urlOrOpts : urlOrOpts?.downloadUrl || urlOrOpts?.url
+            if (!downloadUrl) throw new Error('No download URL')
+            const fileName = String(downloadUrl.split('/').pop() || 'HyperFamily-Companion.apk').split('?')[0]
+            // @ts-ignore - capacitor only in native build
+            const { Filesystem, Directory } = await import('@capacitor/filesystem')
+            // @ts-ignore - capacitor only in native build
+            const { FileOpener } = await import('@capawesome-team/capacitor-file-opener')
+            let fileUri: string
+            try {
+              if ((Filesystem as any).downloadFile) {
+                const dl = await (Filesystem as any).downloadFile({
+                  url: downloadUrl,
+                  path: fileName,
+                  directory: Directory.Cache
+                })
+                fileUri = dl.path || dl.uri
+              } else {
+                throw new Error('downloadFile not available')
+              }
+            } catch {
+              const res = await fetch(downloadUrl)
+              if (!res.ok) throw new Error(`Download failed ${res.status}`)
+              const buf = await res.arrayBuffer()
+              const toBase64 = (ab: ArrayBuffer) => {
+                const bytes = new Uint8Array(ab)
+                const chunk = 0x8000
+                let binary = ''
+                for (let i = 0; i < bytes.length; i += chunk)
+                  binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+                return btoa(binary)
+              }
+              const out = await Filesystem.writeFile({
+                path: fileName,
+                data: toBase64(buf),
+                directory: Directory.Cache
+              })
+              fileUri = out.uri
+            }
+            if (!fileUri) {
+              const uriResult = await Filesystem.getUri({ path: fileName, directory: Directory.Cache })
+              fileUri = uriResult.uri
+            }
+            return { path: fileUri, downloaded: true }
+          }
+        } catch (e: any) {
+          throw e
+        }
         throw new Error('Updates are installed from the Windows desktop app')
       },
       pause: async () => {
@@ -1114,7 +1285,33 @@ function browserApi() {
       stop: async () => {
         throw new Error('Updates are installed from the Windows desktop app')
       },
-      install: async () => {
+      install: async (pathOrOpts: any) => {
+        try {
+          const cap = (typeof window !== 'undefined' && (window as any).Capacitor) || null
+          const isNative = (() => {
+            try {
+              return cap?.isNativePlatform?.() || false
+            } catch {
+              return false
+            }
+          })()
+          if (isNative) {
+            const fileUri =
+              typeof pathOrOpts === 'string'
+                ? pathOrOpts
+                : pathOrOpts?.path || pathOrOpts?.uri || pathOrOpts?.fileUri
+            if (!fileUri) throw new Error('No file to install')
+            // @ts-ignore - capacitor only in native build
+            const { FileOpener } = await import('@capawesome-team/capacitor-file-opener')
+            await FileOpener.open({
+              filePath: fileUri,
+              contentType: 'application/vnd.android.package-archive'
+            })
+            return { installed: true }
+          }
+        } catch (e: any) {
+          throw e
+        }
         throw new Error('Updates are installed from the Windows desktop app')
       },
       subscribe: () => () => {}

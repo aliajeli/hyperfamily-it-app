@@ -14,7 +14,8 @@ import DeployDialog from '@/components/store-update/DeployDialog'
 import StoreInstallDialog from '@/components/store-update/StoreInstallDialog'
 import InstalledProgramsDialog from '@/components/store-update/InstalledProgramsDialog'
 import ServerFileBrowser from '@/components/store-update/ServerFileBrowser'
-import { EmptyState } from '@/components/ui'
+import { EmptyState, Button } from '@/components/ui'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { getApi, isElectron } from '@/lib/api'
 import { formatDuration } from '@/lib/utils'
@@ -43,6 +44,7 @@ function groupCheckouts(branches: any, devices: any) {
 
 export default function StoreUpdatePage() {
   const confirm = useConfirm()
+  const { setHeader } = usePageHeaderStore()
   const [loading, setLoading] = useState(true)
   const [groups, setGroups] = useState<any>([])
   const [settings, setSettings] = useState<any>(null)
@@ -548,17 +550,23 @@ export default function StoreUpdatePage() {
     )
   }, [steps, deploying])
 
+  useEffect(() => {
+    setHeader({ title: 'Update Store App', subtitle: 'Store Commerce versions & file deployment.' })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [])
+
+  useEffect(() => {
+    if (!allCheckouts.length && !loading) return
+    setHeader({
+      title: 'Update Store App',
+      subtitle: `${allCheckouts.length} checkouts • ${Object.keys(versions).length} versions cached`,
+      actions: null
+    })
+  }, [allCheckouts.length, Object.keys(versions).length, loading])
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1600px] space-y-3 px-2 md:px-0">
-        <div className="hidden md:block">
-          <h1 className="page-title">Update Store App</h1>
-          <p className="page-subtitle">
-            Store Commerce versions across every checkout, and verified file deployment with Jalali-dated
-            backups.
-          </p>
-        </div>
-
         <UpdateToolbar
           file={file}
           settings={settings}

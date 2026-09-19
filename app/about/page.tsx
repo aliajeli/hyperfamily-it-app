@@ -9,12 +9,15 @@ import SupportCard from '@/components/about/SupportCard'
 import TechStackCard from '@/components/about/TechStackCard'
 import UpdateChangelogDialog from '@/components/about/UpdateChangelogDialog'
 import UpdatePanel from '@/components/about/UpdatePanel'
+import CompanionUpdateCard from '@/components/mobile/CompanionUpdateCard'
 import { getApi, isElectron } from '@/lib/api'
 import { DEVELOPER_EMAIL, REPO } from '@/lib/about-presentation'
 import { APP_VERSION } from '@/lib/constants'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 
 export default function AboutPage() {
   const [isElectronEnv, setIsElectronEnv] = useState(true)
+  const { setHeader } = usePageHeaderStore()
 
   const [info, setInfo] = useState<any>({ version: APP_VERSION, platform: 'Windows 10/11', dataPath: '—' })
   const [update, setUpdate] = useState<any>(null)
@@ -24,9 +27,7 @@ export default function AboutPage() {
   const [paused, setPaused] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
   const [changelogOpen, setChangelogOpen] = useState(false)
-  // Which update channel this install follows: 'main' (stable only) or 'beta'.
   const [channel, setChannel] = useState('main')
-  // Live transfer figures: how much has arrived, how much is left, how fast.
   const [transfer, setTransfer] = useState<any>({
     transferred: 0,
     total: 0,
@@ -35,6 +36,14 @@ export default function AboutPage() {
     etaSeconds: null
   })
   const [installing, setInstalling] = useState(false)
+
+  useEffect(() => {
+    setHeader({
+      title: 'About HyperFamily Monitor',
+      subtitle: 'Product information, secure updates, technology credits, and support.'
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [])
 
   useEffect(() => {
     try {
@@ -57,8 +66,7 @@ export default function AboutPage() {
         if (state?.channel) setChannel(state.channel)
       })
       .catch(() => {})
-    // A previous visit may already have finished the download; restore the
-    // button straight into its Install state instead of offering Download again.
+
     api.update
       .state?.()
       .then((state) => {
@@ -148,14 +156,6 @@ export default function AboutPage() {
     }
   }
 
-  /**
-   * Switches the update channel. The preference is persisted on the main side
-   * (settings key update_channel); the service cancels anything belonging to
-   * the old channel, so the screen resets cleanly, and a fresh check runs so
-   * the button immediately offers that channel's release. Notably, a beta
-   * install that switches to 'main' is offered the newest stable even when
-   * its version number is lower (an intentional switch-back downgrade).
-   */
   const selectChannel = async (next) => {
     if (next === channel) return
     const previous = channel
@@ -186,11 +186,6 @@ export default function AboutPage() {
       .app.openExternal(url)
       .catch((e) => toast.error(e.message))
 
-  /**
-   * Opens the default mail client (Outlook on the target Windows machines) with
-   * a message already addressed to the developer. Subject and body carry the
-   * app version and platform so a report arrives with its context attached.
-   */
   const emailDeveloper = () => {
     const subject = `HyperFamily Branch Monitor ${info.version} — feedback`
     const body = [
@@ -206,11 +201,6 @@ export default function AboutPage() {
     )
   }
 
-  /**
-   * Downloads the installer in the background. The service already falls back
-   * to the plain GitHub asset internally, so only a total failure opens the
-   * release page in the browser.
-   */
   const download = async () => {
     setDownloading(true)
     setProgress(1)
@@ -231,7 +221,6 @@ export default function AboutPage() {
     }
   }
 
-  /** Pauses the download; the service keeps the progress so it can resume. */
   const pause = async () => {
     try {
       await getApi().update.pause()
@@ -240,7 +229,6 @@ export default function AboutPage() {
     }
   }
 
-  /** Continues a paused download from where it stopped. */
   const resume = async () => {
     try {
       setPaused(false)
@@ -250,7 +238,6 @@ export default function AboutPage() {
     }
   }
 
-  /** Cancels the download entirely and clears the progress. */
   const stop = async () => {
     try {
       await getApi().update.stop()
@@ -259,7 +246,6 @@ export default function AboutPage() {
     }
   }
 
-  /** Applies the downloaded update and relaunches on the new version. */
   const install = async () => {
     setInstalling(true)
     try {
@@ -276,14 +262,9 @@ export default function AboutPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-[1400px] space-y-2.5">
-        <div>
-          <h1 className="page-title">About HyperFamily Monitor</h1>
-          <p className="page-subtitle">
-            Product information, secure updates, technology credits, and support.
-          </p>
-        </div>
-
         <AboutHero info={info} channel={channel} />
+
+        <CompanionUpdateCard />
 
         <div className={`grid gap-2.5 ${isElectronEnv ? 'lg:grid-cols-[1.15fr_.85fr]' : ''}`}>
           {isElectronEnv && (
@@ -314,8 +295,6 @@ export default function AboutPage() {
 
         <TechStackCard onExternal={external} />
 
-        {/* Every release is recorded in lib/changelog.json, which is also what
-            the release workflows publish as the GitHub release notes. */}
         <ChangeLogCard
           version={info.version}
           updateVersion={update?.hasUpdate ? update.latestVersion : null}

@@ -3,6 +3,23 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.10.2-beta.1
+
+**Android header, search, notes/terminal sidebars, companion update**
+
+_Released 2026-09-19 · beta channel_
+
+### Improved
+- Main header now on right side with global search, VPN, update panel and user menu - page headers fixed on left next to main header via new page-header.store Zustand store, Header.tsx split into left page-header slot and right global slot
+- Notes page previous writings as sidebar menu - desktop lg:grid-cols-[300px_minmax(0,1fr)] fixed sidebar, mobile drawer toggle with PanelLeft button and 85vw overlay, search inside sidebar, editing indicator
+- Terminal snippets as sidebar - desktop xl:block 300px sidebar always visible, mobile drawer 85vw with Code2 toggle button from page-header actions, font controls responsive mobile bar, default fontSize reduced from 13 to 11 for better command output display
+- Dashboard, Branches & Devices, Asset inventory, Update Store App pages now use page-header store for fixed left header with contextual actions (branch/device counts, export buttons, refresh)
+- CompanionUpdateCard shows on Dashboard, Settings and About pages when Capacitor.isNativePlatform() true - displays installed v and latest tag, Check for updates and Download & install buttons
+
+### Fixed
+- Fixed Android companion update from Settings and main page - new CompanionUpdateCard checks GitHub Releases via Capacitor App.getInfo, downloads APK via Filesystem.downloadFile fallback to fetch+base64 write to Directory.Cache, and opens installer via FileOpener (supports both @capawesome-team and @capacitor-community plugins); lib/api.ts update.check/download/install now supports Capacitor native platform with same GitHub logic
+- Fixed GlobalSearch mobile overlay too narrow - now full-width w-[calc(100%-0.5rem)] with 85vh max, larger touch targets (py-3, 18px icons), safe-area pt calc(4rem+env), backdrop blur, and ESC handling
+- Fixed gradlew permission for APK build preserved
 ## 3.10.1-beta.4
 
 **Fix CI formatting and APK build permission**

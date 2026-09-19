@@ -1,20 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Building2, Clock3, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import AppShell from '@/components/layout/AppShell'
 import BranchCard from '@/components/dashboard/BranchCard'
 import BranchDetailsPanel from '@/components/dashboard/BranchDetailsPanel'
+import CompanionUpdateCard from '@/components/mobile/CompanionUpdateCard'
 import { Skeleton, EmptyState } from '@/components/ui'
 import { useDevicesStore } from '@/stores/devices.store'
 import { useSettingsStore } from '@/stores/settings.store'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 
 const BRANCHES_PER_PAGE = 4
 
 export default function DashboardPage() {
   const { branches, devices, generatedAt } = useDevicesStore()
   const settings = useSettingsStore((state) => state.settings)
+  const { setHeader } = usePageHeaderStore()
   const [page, setPage] = useState(1)
   const [selectedBranchId, setSelectedBranchId] = useState<any>(null)
   const pageCount = Math.max(1, Math.ceil(branches.length / BRANCHES_PER_PAGE))
@@ -25,30 +28,28 @@ export default function DashboardPage() {
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) || null
   const detailsView = settings.dashboard_branch_details_view === 'side_panel' ? 'side_panel' : 'modal'
 
+  useEffect(() => {
+    setHeader({
+      title: 'Network at a glance',
+      subtitle: 'Live health and Router latency across every store.',
+      actions: generatedAt ? (
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-[rgb(var(--muted))]">
+          <Clock3 size={11} className="text-[rgb(var(--primary))]" /> Updated{' '}
+          {new Date(generatedAt).toLocaleTimeString()}
+        </span>
+      ) : (
+        <span className="flex items-center gap-1.5 text-xs text-[rgb(var(--muted))]">
+          <Clock3 size={11} className="animate-spin" /> Connecting...
+        </span>
+      )
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [generatedAt])
+
   return (
     <AppShell compact>
       <div className="mx-auto max-w-[1920px] space-y-3 text-base-ui">
-        <div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <motion.h1
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="mr-1 text-lg font-extrabold tracking-[0.015em]"
-            >
-              Network at a glance
-            </motion.h1>
-            <div className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-[rgb(var(--muted))]">
-              <Clock3 size={11} className={generatedAt ? 'text-[rgb(var(--primary))]' : 'animate-spin'} />
-              {generatedAt
-                ? `Updated ${new Date(generatedAt).toLocaleTimeString()}`
-                : 'Connecting to monitor…'}
-            </div>
-          </div>
-          <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">
-            Live health and Router latency across every store. Select a branch title to see all monitored
-            equipment.
-          </p>
-        </div>
+        <CompanionUpdateCard />
 
         {!generatedAt ? (
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">

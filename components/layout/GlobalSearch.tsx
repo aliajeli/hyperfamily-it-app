@@ -22,7 +22,7 @@ const PAGES = [
   { id: 'page-about', kind: 'page', label: 'About & updates', hint: 'Help', href: '/about' }
 ]
 
-const ICONS = { device: Server, branch: Building2, page: Compass }
+const ICONS: any = { device: Server, branch: Building2, page: Compass }
 
 export default function GlobalSearch() {
   const router = useRouter()
@@ -31,7 +31,7 @@ export default function GlobalSearch() {
   const [active, setActive] = useState(0)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<any>({ devices: [], branches: [] })
-  const inputRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const loadedRef = useRef(false)
 
   const load = useCallback(async () => {
@@ -50,7 +50,7 @@ export default function GlobalSearch() {
   }, [])
 
   useEffect(() => {
-    const onKeyDown = (event) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setOpen((current) => !current)
@@ -71,9 +71,9 @@ export default function GlobalSearch() {
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    const branchName = (id) => data.branches.find((branch) => branch.id === id)?.name || ''
+    const branchName = (id: any) => data.branches.find((branch: any) => branch.id === id)?.name || ''
 
-    const devices = data.devices.map((device) => ({
+    const devices = data.devices.map((device: any) => ({
       id: `device-${device.id}`,
       kind: 'device',
       label: device.name || device.hostname || `${device.device_type} ${device.ip}`,
@@ -93,7 +93,7 @@ export default function GlobalSearch() {
         .toLowerCase()
     }))
 
-    const branches = data.branches.map((branch) => ({
+    const branches = data.branches.map((branch: any) => ({
       id: `branch-${branch.id}`,
       kind: 'branch',
       label: branch.name,
@@ -110,14 +110,14 @@ export default function GlobalSearch() {
     return all.filter((item) => item.haystack.includes(needle)).slice(0, 24)
   }, [query, data])
 
-  const go = (item) => {
+  const go = (item: any) => {
     if (!item) return
     setOpen(false)
     setQuery('')
     router.push(item.href)
   }
 
-  const onKeyDown = (event) => {
+  const onKeyDown = (event: any) => {
     if (event.key === 'ArrowDown') {
       event.preventDefault()
       setActive((current) => (current + 1) % Math.max(results.length, 1))
@@ -154,9 +154,9 @@ export default function GlobalSearch() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open global search"
-        className="grid h-9 w-9 place-items-center rounded-xl border bg-[rgb(var(--surface)/.58)] text-[rgb(var(--muted))] transition hover:text-[rgb(var(--text))] xl:hidden"
+        className="grid h-10 w-10 place-items-center rounded-xl border bg-[rgb(var(--surface)/.7)] text-[rgb(var(--muted))] shadow-sm transition hover:text-[rgb(var(--text))] md:h-9 md:w-9 xl:hidden"
       >
-        <Search size={16} />
+        <Search size={18} />
       </button>
 
       <AnimatePresence>
@@ -165,7 +165,7 @@ export default function GlobalSearch() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="global-search-overlay no-drag fixed inset-0 z-50 flex items-start justify-center bg-black/45 p-4 pt-[12vh] backdrop-blur-sm"
+            className="global-search-overlay no-drag fixed inset-0 z-[100] flex items-start justify-center bg-black/55 p-2 pt-[calc(4rem+env(safe-area-inset-top))] backdrop-blur-md md:p-4 md:pt-[12vh]"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) setOpen(false)
             }}
@@ -175,10 +175,10 @@ export default function GlobalSearch() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ duration: 0.16 }}
-              className="w-full max-w-xl overflow-hidden rounded-2xl border bg-[rgb(var(--surface))] shadow-2xl"
+              className="flex max-h-[85vh] w-[calc(100%-0.5rem)] flex-col overflow-hidden rounded-2xl border bg-[rgb(var(--surface))] shadow-2xl md:w-full md:max-w-xl"
             >
               <div className="flex items-center gap-2.5 border-b px-3.5">
-                <Search size={16} className="text-[rgb(var(--muted))]" />
+                <Search size={18} className="shrink-0 text-[rgb(var(--muted))]" />
                 <input
                   ref={inputRef}
                   value={query}
@@ -188,15 +188,20 @@ export default function GlobalSearch() {
                   }}
                   onKeyDown={onKeyDown}
                   placeholder="Search devices, branches, or pages…"
-                  className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-[rgb(var(--muted))]"
+                  className="h-14 w-full bg-transparent text-[15px] font-medium outline-none placeholder:text-[rgb(var(--muted))] md:h-12 md:text-sm"
+                  enterKeyHint="search"
                 />
-                {loading && <LoaderCircle size={14} className="animate-spin text-[rgb(var(--muted))]" />}
-                <kbd className="rounded-md border px-1.5 py-0.5 text-xs text-[rgb(var(--muted))]">ESC</kbd>
+                {loading && (
+                  <LoaderCircle size={16} className="shrink-0 animate-spin text-[rgb(var(--muted))]" />
+                )}
+                <kbd className="hidden shrink-0 rounded-md border px-1.5 py-0.5 text-xs text-[rgb(var(--muted))] md:block">
+                  ESC
+                </kbd>
               </div>
 
-              <div className="max-h-80 overflow-y-auto p-1.5">
+              <div className="max-h-[60vh] flex-1 overflow-y-auto p-2 md:max-h-80 md:p-1.5">
                 {results.length ? (
-                  results.map((item, index) => {
+                  results.map((item: any, index: number) => {
                     const Icon = ICONS[item.kind] || Compass
                     return (
                       <button
@@ -204,25 +209,32 @@ export default function GlobalSearch() {
                         type="button"
                         onMouseEnter={() => setActive(index)}
                         onClick={() => go(item)}
-                        className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition ${index === active ? 'bg-[rgb(var(--primary)/.12)] text-[rgb(var(--text))]' : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.4)]'}`}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition md:gap-2.5 md:px-3 md:py-2 ${index === active ? 'bg-[rgb(var(--primary)/.14)] text-[rgb(var(--text))]' : 'text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.4)]'}`}
                       >
-                        <Icon size={15} className={index === active ? 'text-[rgb(var(--primary))]' : ''} />
+                        <Icon
+                          size={18}
+                          className={`shrink-0 ${index === active ? 'text-[rgb(var(--primary))]' : ''} md:size-[15px]`}
+                        />
                         <span className="min-w-0 flex-1">
-                          <b className="block truncate text-xs text-[rgb(var(--text))]">{item.label}</b>
-                          {item.hint && <span className="block truncate text-xs">{item.hint}</span>}
+                          <b className="block truncate text-sm text-[rgb(var(--text))] md:text-xs">
+                            {item.label}
+                          </b>
+                          {item.hint && (
+                            <span className="block truncate text-xs md:text-xs">{item.hint}</span>
+                          )}
                         </span>
-                        {index === active && <CornerDownLeft size={12} />}
+                        {index === active && <CornerDownLeft size={14} className="shrink-0" />}
                       </button>
                     )
                   })
                 ) : (
-                  <p className="px-3 py-8 text-center text-xs text-[rgb(var(--muted))]">
-                    No matches for “{query}”.
+                  <p className="px-3 py-10 text-center text-sm text-[rgb(var(--muted))]">
+                    No matches for &quot;{query}&quot;.
                   </p>
                 )}
               </div>
 
-              <div className="flex items-center justify-between border-t px-3.5 py-2 text-xs uppercase tracking-wider text-[rgb(var(--muted))]">
+              <div className="flex items-center justify-between border-t bg-[rgb(var(--canvas)/.4)] px-3.5 py-2.5 text-2xs uppercase tracking-wider text-[rgb(var(--muted))] md:py-2">
                 <span>↑ ↓ to navigate · ⏎ to open</span>
                 <span>
                   {results.length} result{results.length === 1 ? '' : 's'}

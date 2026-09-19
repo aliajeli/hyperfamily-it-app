@@ -6,10 +6,11 @@ import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import InventoryTable, { InventoryCards } from '@/components/inventory/InventoryTable'
 import { Button, Card, Input, Select, Skeleton } from '@/components/ui'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 import { DEVICE_TYPES } from '@/lib/constants'
 import { getApi } from '@/lib/api'
 
-function matchesQuery(device, query) {
+function matchesQuery(device: any, query: string) {
   if (!query) return true
   const needle = query.toLowerCase()
   const values = [
@@ -34,7 +35,7 @@ function matchesQuery(device, query) {
     device.branch_name,
     device.branch_code,
     device.branch_warehouse_code,
-    ...(device.switch_ports || []).flatMap((port) => [
+    ...(device.switch_ports || []).flatMap((port: any) => [
       port.port_number,
       port.vlan,
       port.status,
@@ -50,10 +51,11 @@ function matchesQuery(device, query) {
 }
 
 export default function InventoryPage() {
-  const [devices, setDevices] = useState([])
-  const [branches, setBranches] = useState([])
+  const [devices, setDevices] = useState<any>([])
+  const [branches, setBranches] = useState<any>([])
   const [filters, setFilters] = useState<any>({ branch: 'all', type: 'all', query: '' })
   const [loading, setLoading] = useState(true)
+  const { setHeader } = usePageHeaderStore()
   const [exporting, setExporting] = useState(false)
 
   const loadInventory = useCallback(async (showLoading = false) => {
@@ -65,21 +67,17 @@ export default function InventoryPage() {
       ])
       setDevices(nextDevices)
       setBranches(nextBranches)
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.message)
     } finally {
       if (showLoading) setLoading(false)
     }
   }, [])
 
-  useEffect(() => {
-    loadInventory(true)
-  }, [loadInventory])
-
   const filtered = useMemo(
     () =>
       devices.filter(
-        (device) =>
+        (device: any) =>
           (filters.branch === 'all' || String(device.branch_id) === filters.branch) &&
           (filters.type === 'all' || device.device_type === filters.type) &&
           matchesQuery(device, filters.query)
@@ -88,7 +86,7 @@ export default function InventoryPage() {
   )
 
   const onlineCount = useMemo(
-    () => filtered.filter((device) => device.status === 'online').length,
+    () => filtered.filter((device: any) => device.status === 'online').length,
     [filtered]
   )
 
@@ -101,26 +99,43 @@ export default function InventoryPage() {
         query: filters.query
       })
       if (result?.path) toast.success(`Export saved to ${result.path}`)
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.message)
     } finally {
       setExporting(false)
     }
   }
 
+  useEffect(() => {
+    setHeader({
+      title: 'Asset inventory',
+      subtitle: 'Filter hardware, connect to any device, or export snapshot.'
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [])
+
+  useEffect(() => {
+    loadInventory(true)
+  }, [loadInventory])
+
+  useEffect(() => {
+    setHeader({
+      title: 'Asset inventory',
+      subtitle: `${filtered.length} of ${devices.length} assets • ${onlineCount} online`,
+      actions: (
+        <Button size="sm" onClick={exportExcel} disabled={!filtered.length || exporting}>
+          <Download size={14} /> {exporting ? 'Exporting…' : `Export ${filtered.length}`}
+        </Button>
+      )
+    })
+  }, [filtered.length, devices.length, onlineCount, exporting])
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1700px] space-y-3">
-        <div className="flex flex-col justify-between gap-3 xl:flex-row xl:items-end">
-          <div>
-            <h1 className="page-title">Asset inventory</h1>
-            <p className="page-subtitle">
-              Filter hardware, connect to any device, or export an operational snapshot.
-            </p>
-          </div>
-          <Button onClick={exportExcel} disabled={!filtered.length || exporting}>
-            <Download size={16} />
-            {exporting ? 'Exporting…' : `Export ${filtered.length} to Excel`}
+        <div className="flex flex-wrap gap-1.5 md:hidden">
+          <Button size="sm" onClick={exportExcel} disabled={!filtered.length || exporting}>
+            <Download size={14} /> {exporting ? 'Exporting…' : `Export ${filtered.length}`}
           </Button>
         </div>
 
@@ -170,7 +185,7 @@ export default function InventoryPage() {
               onChange={(event) => setFilters({ ...filters, branch: event.target.value })}
             >
               <option value="all">All branches</option>
-              {branches.map((branch) => (
+              {branches.map((branch: any) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.name}
                 </option>

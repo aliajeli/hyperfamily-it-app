@@ -12,7 +12,8 @@ import {
   Palette,
   Type,
   LayoutDashboard,
-  Store
+  Store,
+  Smartphone
 } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
@@ -27,9 +28,11 @@ import VPNSettings from '@/components/settings/VPNSettings'
 import ThemeSettings from '@/components/settings/ThemeSettings'
 import TypographySettings from '@/components/settings/TypographySettings'
 import DashboardSettings from '@/components/settings/DashboardSettings'
+import CompanionUpdateCard from '@/components/mobile/CompanionUpdateCard'
 import { Card, Skeleton, Tabs, TabsContent } from '@/components/ui'
 import { getApi, isElectron } from '@/lib/api'
 import { DEFAULT_SETTINGS } from '@/lib/constants'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 
 const allTabs = [
   { value: 'general', label: 'General', icon: <SlidersHorizontal size={14} /> },
@@ -49,6 +52,16 @@ export default function SettingsPage() {
   const [tab, setTab] = useState('general')
   const [settings, setSettings] = useState<any>(null)
   const [isElectronEnv, setIsElectronEnv] = useState(true)
+  const { setHeader } = usePageHeaderStore()
+
+  useEffect(() => {
+    setHeader({
+      title: 'Application settings',
+      subtitle:
+        'Security, monitoring, Store App deployment, dashboard, credentials, connections, device tools, terminal, VPN, and appearance.'
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [])
 
   useEffect(() => {
     try {
@@ -67,19 +80,11 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-[1600px] space-y-3">
-        <div>
-          <h1 className="page-title">Application settings</h1>
-          <p className="page-subtitle">
-            Security, monitoring, Store App deployment, the dashboard experience, credentials and their
-            assignments, connection methods, device tools, terminal, VPN, and appearance.
-          </p>
-        </div>
+        <CompanionUpdateCard />
 
         {!settings ? (
           <Skeleton className="h-[460px]" />
         ) : (
-          /* The tab strip lives outside the panel so the active tab reads as a
-             header for the card below it rather than a control inside it. */
           <Tabs value={tab} onValueChange={setTab} tabs={tabs} listClassName="mb-2.5 w-fit max-w-full">
             <Card className="p-3">
               <TabsContent value="general">

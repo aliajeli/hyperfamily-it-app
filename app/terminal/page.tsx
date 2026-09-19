@@ -17,7 +17,8 @@ import {
   RefreshCw,
   TerminalSquare,
   Type,
-  X
+  X,
+  Code2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
@@ -33,10 +34,8 @@ import {
   TERMINAL_FONT_SIZE_MIN
 } from '@/lib/typography'
 import { cn } from '@/lib/utils'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 
-// --success / --danger are not defined anywhere in the stylesheet, so the dot
-// used to resolve to an invalid colour and fall back to black. Use the Nord
-// palette the rest of the app relies on for status colours.
 const STATE_STYLES = {
   idle: { label: 'Idle', color: 'rgb(var(--muted))' },
   connecting: { label: 'Connecting', color: 'rgb(var(--primary))' },
@@ -45,7 +44,6 @@ const STATE_STYLES = {
   closed: { label: 'Disconnected', color: 'rgb(var(--muted))' }
 }
 
-// The user asked for 8–16; the range is generated so the bounds live in one place.
 const FONT_SIZES = Array.from(
   { length: TERMINAL_FONT_SIZE_MAX - TERMINAL_FONT_SIZE_MIN + 1 },
   (_, index) => TERMINAL_FONT_SIZE_MIN + index
@@ -53,9 +51,8 @@ const FONT_SIZES = Array.from(
 
 function TerminalWorkspaceInner() {
   const searchParams = useSearchParams()
-  // getApi() is undefined while the page is prerendered, so every dereference
-  // below is optional; the real bridge exists from the first client render on.
   const api = getApi()
+  const { setHeader } = usePageHeaderStore()
 
   const [branches, setBranches] = useState([])
   const [snippets, setSnippets] = useState([])
@@ -63,12 +60,11 @@ function TerminalWorkspaceInner() {
   const [activeBranchId, setActiveBranchId] = useState<any>(null)
   const [session, setSession] = useState<any>(null)
   const [status, setStatus] = useState<any>({ state: 'idle', message: '' })
-  const [fontSize, setFontSize] = useState(13)
+  const [fontSize, setFontSize] = useState(11)
   const [fontFamily, setFontFamily] = useState(MONO_FONTS[0].id)
   const [fullscreen, setFullscreen] = useState(false)
-  // Snippets stay available in fullscreen, but hidden by default so the
-  // console gets the whole width until they are actually wanted.
   const [showSnippets, setShowSnippets] = useState(false)
+  const [mobileSnippetsOpen, setMobileSnippetsOpen] = useState(false)
   const [grid, setGrid] = useState<any>({ cols: 80, rows: 24 })
   const [busyDeviceId, setBusyDeviceId] = useState<any>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -81,6 +77,54 @@ function TerminalWorkspaceInner() {
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  useEffect(() => {
+    setHeader({
+      title: 'Terminal',
+      subtitle: 'SSH and Telnet console for branch switches',
+      actions: (
+        <div className="flex items-center gap-1.5">
+          <div className="hidden items-center gap-1 rounded-lg border bg-[rgb(var(--surface))] px-2 py-1 md:flex">
+            <Type size={12} className="text-[rgb(var(--muted))]" />
+            <select
+              aria-label="Terminal font"
+              value={fontFamily}
+              onChange={(event) => setFontFamily(event.target.value)}
+              className="max-w-[9rem] bg-transparent text-2xs font-bold outline-none"
+            >
+              {MONO_FONTS.map((font) => (
+                <option key={font.id} value={font.id}>
+                  {font.label}
+                </option>
+              ))}
+            </select>
+            <span className="h-4 w-px bg-[rgb(var(--border))]" />
+            <select
+              aria-label="Font size"
+              value={fontSize}
+              onChange={(event) => setFontSize(Number(event.target.value))}
+              className="bg-transparent text-2xs font-bold outline-none"
+            >
+              {FONT_SIZES.map((value) => (
+                <option key={value} value={value}>
+                  {value}px
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setMobileSnippetsOpen((v) => !v)}
+            className="flex items-center gap-1.5 lg:hidden"
+          >
+            <Code2 size={14} /> Snippets ({snippets.length})
+          </Button>
+        </div>
+      )
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [fontFamily, fontSize, snippets.length])
 
   sessionRef.current = session
 
@@ -103,6 +147,7 @@ function TerminalWorkspaceInner() {
         api.settings.get().catch(() => null)
       ])
       if (settings?.terminal_font_size) setFontSize(normalizeTerminalFontSize(settings.terminal_font_size))
+      else setFontSize(11)
       if (settings?.terminal_font_family) setFontFamily(settings.terminal_font_family)
       setBranches(targets)
       setSnippets(snippetRows)
@@ -120,15 +165,11 @@ function TerminalWorkspaceInner() {
     load()
   }, [load])
 
-  // Persist the font choices so the next visit opens the way it was left.
-  // Failures are ignored: the browser demo has no settings table.
   useEffect(() => {
     if (loading) return
     api.settings.save({ terminal_font_size: fontSize, terminal_font_family: fontFamily }).catch(() => {})
   }, [fontSize, fontFamily, loading, api])
 
-  // F11 toggles the fullscreen console, Escape leaves it. Both are ignored
-  // while typing into an input so they cannot fire from the snippet editor.
   useEffect(() => {
     const onKey = (event) => {
       const tag = event.target?.tagName
@@ -142,7 +183,6 @@ function TerminalWorkspaceInner() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Status stream from the main process.
   useEffect(() => {
     if (!terminalApi) return undefined
     const unsubscribe = terminalApi.onStatus((payload) => {
@@ -186,7 +226,6 @@ function TerminalWorkspaceInner() {
     [terminalApi]
   )
 
-  // Deep link from the inventory / device kebab menu: /terminal?device=<id>
   useEffect(() => {
     if (autoConnectedRef.current || !branches.length) return
     const deviceId = Number(searchParams.get('device'))
@@ -206,8 +245,6 @@ function TerminalWorkspaceInner() {
   const activeBranch = branches.find((branch) => branch.id === activeBranchId) || null
   const live = session && (status.state === 'connecting' || status.state === 'connected')
 
-  // Snippets may hold a whole block of configuration. Lines are sent one at a
-  // time with a short pause so slow switch CLIs do not drop characters.
   const runSnippet = async (snippet) => {
     if (!session || status.state !== 'connected') {
       toast.error('Connect to a switch first')
@@ -228,8 +265,6 @@ function TerminalWorkspaceInner() {
   }
 
   const saveSnippet = async (draft) => {
-    // Normalise line endings but keep the internal newlines: multi-line
-    // snippets are stored verbatim so a whole config block can be replayed.
     const command = String(draft.command || '')
       .replace(/\r\n?/g, '\n')
       .replace(/^\n+|\s+$/g, '')
@@ -261,65 +296,42 @@ function TerminalWorkspaceInner() {
         className={cn(
           'flex flex-col gap-3',
           fullscreen
-            ? // Escapes the app shell so the console gets the whole window.
-              'surface-fullscreen fixed inset-0 h-screen bg-[rgb(var(--canvas))] p-3'
-            : // 1366x768 has ~660px of usable height, so the floor must stay under it.
-              'h-[calc(100vh-7rem)] min-h-[420px]'
+            ? 'surface-fullscreen fixed inset-0 h-screen bg-[rgb(var(--canvas))] p-3'
+            : 'h-[calc(100vh-4rem)] min-h-[420px] md:h-[calc(100vh-5rem)]'
         )}
       >
-        <header className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[rgb(var(--primary)/.12)] text-[rgb(var(--primary))]">
-              <TerminalSquare size={20} />
-            </span>
-            <div>
-              <h1 className="text-lg font-extrabold tracking-tight">Terminal</h1>
-              <p className="text-2xs text-[rgb(var(--muted))]">SSH and Telnet console for branch switches</p>
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            <div className="flex items-center gap-1 rounded-lg border bg-[rgb(var(--surface))] px-2 py-1">
-              <Type size={12} className="text-[rgb(var(--muted))]" />
-              <select
-                aria-label="Terminal font"
-                value={fontFamily}
-                onChange={(event) => setFontFamily(event.target.value)}
-                className="max-w-[9rem] bg-transparent text-2xs font-bold outline-none"
-              >
-                {MONO_FONTS.map((font) => (
-                  <option key={font.id} value={font.id}>
-                    {font.label}
-                  </option>
-                ))}
-              </select>
-              <span className="h-4 w-px bg-[rgb(var(--border))]" />
-              <select
-                aria-label="Font size"
-                value={fontSize}
-                onChange={(event) => setFontSize(Number(event.target.value))}
-                className="bg-transparent text-2xs font-bold outline-none"
-              >
-                {FONT_SIZES.map((value) => (
-                  <option key={value} value={value}>
-                    {value}px
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFullscreen((value) => !value)}
-              aria-label={fullscreen ? 'Exit terminal fullscreen' : 'Enter terminal fullscreen'}
-              title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen terminal (F11)'}
-            >
-              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={load} title="Reload switches">
-              <RefreshCw size={14} />
-            </Button>
-          </div>
-        </header>
+        {/* Mobile font controls - shown below header on mobile */}
+        <div className="flex items-center gap-2 rounded-xl border bg-[rgb(var(--surface))] p-2 md:hidden">
+          <Type size={13} className="text-[rgb(var(--muted))]" />
+          <select
+            value={fontFamily}
+            onChange={(e) => setFontFamily(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border bg-[rgb(var(--canvas))] px-2 py-2 text-xs font-bold outline-none"
+          >
+            {MONO_FONTS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={fontSize}
+            onChange={(e) => setFontSize(Number(e.target.value))}
+            className="rounded-lg border bg-[rgb(var(--canvas))] px-2 py-2 text-xs font-bold outline-none"
+          >
+            {FONT_SIZES.map((v) => (
+              <option key={v} value={v}>
+                {v}px
+              </option>
+            ))}
+          </select>
+          <Button variant="ghost" size="sm" onClick={() => setFullscreen((v) => !v)}>
+            {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={load}>
+            <RefreshCw size={14} />
+          </Button>
+        </div>
 
         {/* Branch strip - desktop pills, mobile select */}
         <div className={cn('rounded-2xl border bg-[rgb(var(--surface))] p-2', fullscreen && 'hidden')}>
@@ -372,7 +384,7 @@ function TerminalWorkspaceInner() {
                 </button>
               ))}
               {!loading && !branches.length && (
-                <span className="px-2 text-2xs text-[rgb(var(--muted))]">No branch has a switch yet.</span>
+                <span className="px-2 text-2xs text-[rgb(var(--muted))]\">No branch has a switch yet.</span>
               )}
             </div>
           )}
@@ -381,12 +393,11 @@ function TerminalWorkspaceInner() {
         <div
           className={cn(
             'grid min-h-0 flex-1 grid-cols-1 gap-3',
-            !fullscreen && 'xl:grid-cols-[minmax(0,1fr)_260px]',
-            fullscreen && showSnippets && 'md:grid-cols-[minmax(0,1fr)_280px]'
+            !fullscreen && 'xl:grid-cols-[minmax(0,1fr)_300px]',
+            fullscreen && showSnippets && 'md:grid-cols-[minmax(0,1fr)_300px]'
           )}
         >
           <div className="flex min-h-0 flex-col gap-3">
-            {/* Switch chips - mobile stacked */}
             <div
               className={cn('flex flex-wrap gap-2', isMobile && 'grid grid-cols-1', fullscreen && 'hidden')}
             >
@@ -438,7 +449,6 @@ function TerminalWorkspaceInner() {
               </AnimatePresence>
             </div>
 
-            {/* Session bar + screen */}
             {session ? (
               <div className="flex min-h-0 flex-1 flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-[rgb(var(--surface))] px-3 py-1.5 text-2xs">
@@ -509,7 +519,8 @@ function TerminalWorkspaceInner() {
             )}
           </div>
 
-          {(!fullscreen || showSnippets) && (
+          {/* Desktop: always visible sidebar for snippets */}
+          <div className="hidden xl:block">
             <SnippetPanel
               snippets={snippets}
               onSave={saveSnippet}
@@ -517,10 +528,42 @@ function TerminalWorkspaceInner() {
               onRun={runSnippet}
               disabled={status.state !== 'connected'}
             />
+          </div>
+
+          {/* Mobile: drawer for snippets */}
+          {mobileSnippetsOpen && (
+            <div
+              className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-sm lg:hidden"
+              onClick={() => setMobileSnippetsOpen(false)}
+            >
+              <div
+                className="h-full w-[85vw] max-w-[360px] overflow-y-auto border-l bg-[rgb(var(--surface))] p-3 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-black">
+                    <Code2 size={14} /> Snippets
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setMobileSnippetsOpen(false)}
+                  >
+                    <X size={16} />
+                  </Button>
+                </div>
+                <SnippetPanel
+                  snippets={snippets}
+                  onSave={saveSnippet}
+                  onDelete={deleteSnippet}
+                  onRun={runSnippet}
+                  disabled={status.state !== 'connected'}
+                />
+              </div>
+            </div>
           )}
 
-          {/* Fullscreen Snippets handle, docked to the right edge of the screen
-              so the panel is revealed and hidden from the side it lives on. */}
           {fullscreen && (
             <button
               type="button"

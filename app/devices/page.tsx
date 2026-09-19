@@ -22,6 +22,7 @@ import DeviceForm from '@/components/devices/DeviceForm'
 import DeviceList from '@/components/devices/DeviceList'
 import DeviceTypePicker from '@/components/devices/DeviceTypePicker'
 import { Button, Card, Dialog, Skeleton } from '@/components/ui'
+import { usePageHeaderStore } from '@/stores/page-header.store'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { getApi } from '@/lib/api'
 
@@ -53,6 +54,16 @@ function DevicesPageInner() {
   }
 
   const searchParams = useSearchParams()
+
+  useEffect(() => {
+    setHeader({
+      title: 'Branches & Devices',
+      subtitle: 'Manage branch and equipment records.',
+      actions: null
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [])
+
   useEffect(() => {
     load()
   }, [])
@@ -194,6 +205,7 @@ function DevicesPageInner() {
   }
 
   const [directoryBusy, setDirectoryBusy] = useState<any>(null)
+  const { setHeader } = usePageHeaderStore()
 
   const downloadTemplate = async () => {
     setDirectoryBusy('template')
@@ -271,67 +283,87 @@ function DevicesPageInner() {
         ? 'Choose the equipment type. A branch can contain only one Router.'
         : 'Every saved device needs a Device Name. Review the information and save your changes.'
 
+  // Update fixed header actions when loading/busy changes
+  useEffect(() => {
+    setHeader({
+      title: 'Branches & Devices',
+      subtitle: `${branches.length} branches • ${devices.length} devices`,
+      actions: (
+        <div className="flex flex-wrap gap-1.5">
+          <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+          </Button>
+          <Button size="sm" variant="secondary" onClick={downloadTemplate} disabled={Boolean(directoryBusy)}>
+            <FileDown size={14} /> Template
+          </Button>
+          <Button size="sm" variant="secondary" onClick={exportDirectory} disabled={Boolean(directoryBusy)}>
+            <Download size={14} /> Export
+          </Button>
+          <Button size="sm" variant="secondary" onClick={importDirectory} disabled={Boolean(directoryBusy)}>
+            <FileUp size={14} /> Import
+          </Button>
+          <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}>
+            <Plus size={14} /> Add branch
+          </Button>
+        </div>
+      )
+    })
+  }, [branches.length, devices.length, loading, directoryBusy, selectedBranchId])
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1700px] space-y-3 text-base-ui">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <h1 className="text-lg font-black tracking-tight">Branches &amp; Devices</h1>
-            <p className="mt-0.5 text-2xs text-[rgb(var(--muted))]">
-              Manage branch and equipment records, then connect to any device straight from the list.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}>
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              Refresh
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={downloadTemplate}
-              disabled={Boolean(directoryBusy)}
-              title="Save a blank workbook with one sheet per device type"
-            >
-              <FileDown size={14} className={directoryBusy === 'template' ? 'animate-pulse' : ''} />
-              Template
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={exportDirectory}
-              disabled={Boolean(directoryBusy)}
-              title="Save the full directory as a workbook that any workstation can import as-is"
-            >
-              <Download size={14} className={directoryBusy === 'export' ? 'animate-pulse' : ''} />
-              Export
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={importDirectory}
-              disabled={Boolean(directoryBusy)}
-              title="Import branches and devices from a filled-in template"
-            >
-              <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />
-              Import
-            </Button>
-            <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}>
-              <Plus size={14} />
-              Add branch
-            </Button>
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={removeAll}
-              disabled={loading || (!branches.length && !devices.length)}
-              title="Permanently delete every branch and device"
-              aria-label="Delete all branches and devices"
-            >
-              <Trash2 size={14} />
-              Delete all
-            </Button>
-          </div>
+        {/* Mobile: action bar duplicated below fixed header for quick access */}
+        <div className="flex flex-wrap gap-1.5 md:hidden">
+          <Button size="sm" variant="secondary" onClick={() => load(selectedBranchId)} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={downloadTemplate}
+            disabled={Boolean(directoryBusy)}
+            title="Save a blank workbook with one sheet per device type"
+          >
+            <FileDown size={14} className={directoryBusy === 'template' ? 'animate-pulse' : ''} />
+            Template
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={exportDirectory}
+            disabled={Boolean(directoryBusy)}
+            title="Save the full directory as a workbook that any workstation can import as-is"
+          >
+            <Download size={14} className={directoryBusy === 'export' ? 'animate-pulse' : ''} />
+            Export
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={importDirectory}
+            disabled={Boolean(directoryBusy)}
+            title="Import branches and devices from a filled-in template"
+          >
+            <FileUp size={14} className={directoryBusy === 'import' ? 'animate-pulse' : ''} />
+            Import
+          </Button>
+          <Button size="sm" onClick={() => setDialog({ kind: 'branch', value: null })}>
+            <Plus size={14} />
+            Add branch
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={removeAll}
+            disabled={loading || (!branches.length && !devices.length)}
+            title="Permanently delete every branch and device"
+            aria-label="Delete all branches and devices"
+          >
+            <Trash2 size={14} />
+            Delete all
+          </Button>
         </div>
 
         {loading ? (
