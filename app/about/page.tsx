@@ -10,13 +10,12 @@ import TechStackCard from '@/components/about/TechStackCard'
 import UpdateChangelogDialog from '@/components/about/UpdateChangelogDialog'
 import UpdatePanel from '@/components/about/UpdatePanel'
 import CompanionUpdateCard from '@/components/mobile/CompanionUpdateCard'
-import { getApi, isElectron } from '@/lib/api'
+import { getApi } from '@/lib/api'
 import { DEVELOPER_EMAIL, REPO } from '@/lib/about-presentation'
 import { APP_VERSION } from '@/lib/constants'
 import { usePageHeaderStore } from '@/stores/page-header.store'
 
 export default function AboutPage() {
-  const [isElectronEnv, setIsElectronEnv] = useState(true)
   const { setHeader } = usePageHeaderStore()
 
   const [info, setInfo] = useState<any>({ version: APP_VERSION, platform: 'Windows 10/11', dataPath: '—' })
@@ -43,14 +42,6 @@ export default function AboutPage() {
       subtitle: 'Product information, secure updates, technology credits, and support.'
     })
     return () => usePageHeaderStore.getState().clearHeader()
-  }, [])
-
-  useEffect(() => {
-    try {
-      setIsElectronEnv(isElectron())
-    } catch {
-      setIsElectronEnv(false)
-    }
   }, [])
 
   useEffect(() => {
@@ -266,30 +257,28 @@ export default function AboutPage() {
 
         <CompanionUpdateCard />
 
-        <div className={`grid gap-2.5 ${isElectronEnv ? 'lg:grid-cols-[1.15fr_.85fr]' : ''}`}>
-          {isElectronEnv && (
-            <UpdatePanel
-              info={info}
-              update={update}
-              checking={checking}
-              downloading={downloading}
-              paused={paused}
-              downloaded={downloaded}
-              progress={progress}
-              transfer={transfer}
-              installing={installing}
-              channel={channel}
-              onCheck={check}
-              onSelectChannel={selectChannel}
-              onDownload={download}
-              onPause={pause}
-              onResume={resume}
-              onStop={stop}
-              onInstall={install}
-              onOpenChangelog={() => setChangelogOpen(true)}
-              onExternal={external}
-            />
-          )}
+        <div className="grid gap-2.5 lg:grid-cols-[1.15fr_.85fr]">
+          <UpdatePanel
+            info={info}
+            update={update}
+            checking={checking}
+            downloading={downloading}
+            paused={paused}
+            downloaded={downloaded}
+            progress={progress}
+            transfer={transfer}
+            installing={installing}
+            channel={channel}
+            onCheck={check}
+            onSelectChannel={selectChannel}
+            onDownload={download}
+            onPause={pause}
+            onResume={resume}
+            onStop={stop}
+            onInstall={install}
+            onOpenChangelog={() => setChangelogOpen(true)}
+            onExternal={external}
+          />
           <SupportCard onEmail={emailDeveloper} onExternal={external} />
         </div>
 

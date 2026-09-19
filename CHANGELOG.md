@@ -3,6 +3,26 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.10.3-beta.1
+
+**Fix header width, terminal --More--, store-update via phone, About update**
+
+_Released 2026-09-19 · beta channel_
+
+### Improved
+- Header now correctly spans full remaining page width on all screen sizes, left page-header slot and right global tools
+- TerminalScreen now has no duplicate visible input, only terminal emulation with hidden textarea for mobile keyboard, better UX for long outputs like show interface status
+- Store-update page now works from phone via workstation server - all operations (import agent, check version, deploy file copy, update store install) proxied through companion server to Windows SMB and agent services
+- Companion bridge now supports store-update events polling every 600ms, similar to terminal events
+- About page shows both UpdatePanel (workstation/server updates) and CompanionUpdateCard (Android self-update) for full coverage
+
+### Fixed
+- Fixed header width not full page - Header now fixed left-0 right-0 w-full on mobile, md:left-[var(--rail)] md:w-[calc(100%-var(--rail))] to fill remaining width next to sidebar rail
+- Fixed terminal page input issue - removed visible mobile command bar input that duplicated typing; now only hidden textarea opens OS keyboard on tap, forwards every char including Enter as \r and Space as ' ' for --More-- pagination; added floating --More-- helper bar with Space: next page, Enter: next line, q buttons
+- Fixed terminal --More-- pagination not working - added morePrompt detection (regex --\s*more\s*-- and <--- more --->), floating action bar appears when pagination detected, sends Space/Enter/q to session; hidden textarea keydown handles Space for pagination
+- Fixed Update Store App import agent, check version, copy, update store not working on phone - added companion server routes for store-update: version, version-cache, versions, installed, import-agent, import-agent-all, cancel-agent-import, deploy, deploy-all, test-access, install, install-all, cancel-install, events, app/files; wrapped storeUpdateService and storeInstallService sendEvent to also push to companion event ring buffer (storeUpdateEvents 4000 entries); updated companion-bridge.txt to support storeUpdate with polling /api/store-update/events and subscriptions onVersion/onStep/onProgress/onAgentStep/onInstallStep/onFinished/onInstallFinished
+- Fixed About page update option missing - UpdatePanel now always visible (not only Electron), uses getApi().update.check which now supports Capacitor Android via GitHub Releases; CompanionUpdateCard also visible on About for Android self-update via phone
+- Fixed Android self-update via phone - CompanionUpdateCard and lib/api.ts update.check/download/install now fully support Capacitor native: App.getInfo version, GitHub releases fetch, Filesystem.downloadFile fallback to fetch+base64, FileOpener with both @capawesome-team and @capacitor-community plugins
 ## 3.10.2-beta.1
 
 **Android header, search, notes/terminal sidebars, companion update**

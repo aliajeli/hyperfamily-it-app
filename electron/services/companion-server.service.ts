@@ -68,28 +68,76 @@ function lanAddresses() {
     .map((entry: any) => entry.address)
 }
 
-function createCompanionServer({ database, exportRoot, appVersion, terminal = null }) {
-  /* Live terminal sessions for the phone (v3.10.0). The terminal service
-   * streams its output to a WebContents "sender"; the phone has none, so it
-   * gets a synthetic sender whose send() feeds this ring buffer, and the
-   * bridge drains it by polling /api/terminal/events. */
-  const terminalEvents = []
+function createCompanionServer({
+  database,
+  exportRoot,
+  appVersion,
+  terminal = null,
+  storeUpdateService = null,
+  storeInstallService = null
+}: any) {
+  const terminalEvents: any[] = []
   let terminalSeq = 0
   const companionSender = {
     id: 'companion',
     isDestroyed: () => false,
-    send: (channel, payload) => {
+    send: (channel: string, payload: any) => {
       terminalSeq += 1
       terminalEvents.push({ seq: terminalSeq, channel, payload })
       if (terminalEvents.length > 2000) terminalEvents.splice(0, terminalEvents.length - 2000)
     }
   }
+
+  const storeUpdateEvents: any[] = []
+  let storeUpdateSeq = 0
+  const pushStoreUpdateEvent = (channel: string, payload: any) => {
+    storeUpdateSeq += 1
+    storeUpdateEvents.push({ seq: storeUpdateSeq, channel, payload })
+    if (storeUpdateEvents.length > 4000) storeUpdateEvents.splice(0, storeUpdateEvents.length - 4000)
+  }
+
+  if (storeUpdateService) {
+    const origSend = storeUpdateService.sendEvent?.bind(storeUpdateService) || storeUpdateService.sendEvent
+    const combined = (channel: string, payload: any) => {
+      try {
+        if (origSend) origSend(channel, payload)
+      } catch {}
+      pushStoreUpdateEvent(channel, payload)
+    }
+    storeUpdateService.sendEvent = combined
+    if (storeUpdateService.agent) {
+      storeUpdateService.agent.send = combined
+    }
+  }
+  if (storeInstallService) {
+    const origSendInstall =
+      storeInstallService.sendEvent?.bind(storeInstallService) || storeInstallService.sendEvent
+    const combinedInstall = (channel: string, payload: any) => {
+      try {
+        if (origSendInstall) origSendInstall(channel, payload)
+      } catch {}
+      pushStoreUpdateEvent(channel, payload)
+    }
+    storeInstallService.sendEvent = combinedInstall
+  }
+
   const requireTerminal = () => {
     if (!terminal) throw Object.assign(new Error('Terminal is not available in this build'), { status: 501 })
     return terminal
   }
-  let server = null
-  let current = { running: false, port: 0, error: null }
+  const requireStoreUpdate = () => {
+    if (!storeUpdateService)
+      throw Object.assign(new Error('Store update is not available in this build'), { status: 501 })
+    return storeUpdateService
+  }
+  const requireStoreInstall = () => {
+    if (!storeInstallService)
+      throw Object.assign(new Error('Store install is not available in this build'), { status: 501 })
+    return storeInstallService
+  }
+
+  let server: any = null
+  let current = { running: false, port: 0, error: null as any }
 
   function readConfig() {
     let config: any = {}
@@ -101,7 +149,6 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     return config
   }
 
-  /** Loads the stored config, minting the token and default port on first use. */
   function ensureConfig() {
     const config = readConfig()
     let dirty = false
@@ -117,7 +164,7 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     return config
   }
 
-  function sendJson(response, status, body) {
+  function sendJson(response: any, status: number, body: any) {
     const payload = JSON.stringify(body ?? null)
     response.writeHead(status, {
       'content-type': 'application/json; charset=utf-8',
@@ -128,11 +175,11 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     response.end(payload)
   }
 
-  function readBody(request) {
+  function readBody(request: any) {
     return new Promise((resolve, reject) => {
       let size = 0
-      const chunks = []
-      request.on('data', (chunk) => {
+      const chunks: any[] = []
+      request.on('data', (chunk: any) => {
         size += chunk.length
         if (size > 1024 * 1024) {
           reject(Object.assign(new Error('Payload too large'), { status: 413 }))
@@ -153,15 +200,13 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     })
   }
 
-  // One entry per remote capability. `open` skips the token gate (health only,
-  // so the phone can verify reachability before the user pastes the token).
-  const routes = {
+  const routes: any = {
     'GET /api/health': {
       open: true,
       handler: () => ({ ok: true, app: 'HyperFamily Branch Monitor', version: appVersion })
     },
     'POST /api/auth/login': {
-      handler: (body) => {
+      handler: (body: any) => {
         const user = database.authenticate(body?.username, body?.password)
         if (!user) throw Object.assign(new Error('Invalid username or password'), { status: 401 })
         return user
@@ -175,33 +220,31 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     },
     'GET /api/branches': { handler: () => database.listBranches() },
     'GET /api/devices': { handler: () => database.listDevices() },
-    'POST /api/branches': { handler: (body) => database.saveBranch(body || {}, 'Companion') },
-    'POST /api/devices': { handler: (body) => database.saveDevice(body || {}, 'Companion') },
-    'POST /api/branches/remove': { handler: (body) => database.deleteBranch(Number(body?.id), 'Companion') },
-    'POST /api/devices/remove': { handler: (body) => database.deleteDevice(Number(body?.id), 'Companion') },
-    'GET /api/settings': { handler: () => database.getSettings() },
-    'POST /api/settings': { handler: (body) => database.saveSettings(body || {}, 'Companion') },
-    // v3.9.0: the rest of the reading/writing surface, so the phone is a full
-    // companion — notes, terminal snippets, inventory and credentials.
-    'GET /api/notes': { handler: () => database.listNotes() },
-    'POST /api/notes': { handler: (body) => database.saveNote(body || {}, 'Companion') },
-    'POST /api/notes/remove': {
-      handler: (body) => database.deleteNote(Number(body?.id), 'Companion')
+    'POST /api/branches': { handler: (body: any) => database.saveBranch(body || {}, 'Companion') },
+    'POST /api/devices': { handler: (body: any) => database.saveDevice(body || {}, 'Companion') },
+    'POST /api/branches/remove': {
+      handler: (body: any) => database.deleteBranch(Number(body?.id), 'Companion')
     },
+    'POST /api/devices/remove': {
+      handler: (body: any) => database.deleteDevice(Number(body?.id), 'Companion')
+    },
+    'GET /api/settings': { handler: () => database.getSettings() },
+    'POST /api/settings': { handler: (body: any) => database.saveSettings(body || {}, 'Companion') },
+    'GET /api/notes': { handler: () => database.listNotes() },
+    'POST /api/notes': { handler: (body: any) => database.saveNote(body || {}, 'Companion') },
+    'POST /api/notes/remove': { handler: (body: any) => database.deleteNote(Number(body?.id), 'Companion') },
     'GET /api/snippets': { handler: () => database.listSnippets() },
-    'POST /api/snippets': { handler: (body) => database.saveSnippet(body || {}, 'Companion') },
+    'POST /api/snippets': { handler: (body: any) => database.saveSnippet(body || {}, 'Companion') },
     'POST /api/snippets/remove': {
-      handler: (body) => database.deleteSnippet(Number(body?.id), 'Companion')
+      handler: (body: any) => database.deleteSnippet(Number(body?.id), 'Companion')
     },
     'GET /api/inventory': { handler: () => database.listInventory() },
     'GET /api/credentials': { handler: () => database.listCredentials() },
     'GET /api/credentials/map': { handler: () => database.getCredentialMap() },
     'GET /api/credentials/overview': { handler: () => database.listDeviceCredentialOverview() },
-    // Interactive terminal over the LAN (v3.10.0): the exact service the
-    // desktop uses, token-gated, streamed through the event ring buffer.
     'GET /api/terminal/targets': { handler: () => requireTerminal().targets() },
     'POST /api/terminal/open': {
-      handler: (body) =>
+      handler: (body: any) =>
         requireTerminal().open(
           {
             deviceId: Number(body?.deviceId),
@@ -213,13 +256,13 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
         )
     },
     'POST /api/terminal/write': {
-      handler: (body) => {
+      handler: (body: any) => {
         requireTerminal().write(String(body?.sessionId), String(body?.data ?? ''), companionSender)
         return { ok: true }
       }
     },
     'POST /api/terminal/resize': {
-      handler: (body) => {
+      handler: (body: any) => {
         requireTerminal().resize(
           String(body?.sessionId),
           { cols: Number(body?.cols) || 80, rows: Number(body?.rows) || 24 },
@@ -229,20 +272,121 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
       }
     },
     'POST /api/terminal/close': {
-      handler: (body) => {
+      handler: (body: any) => {
         requireTerminal().close(String(body?.sessionId), 'Closed from the companion app')
         return { ok: true }
       }
     },
     'GET /api/terminal/events': {
-      handler: (_body, url) => {
+      handler: (_body: any, url: any) => {
         const after = Number(url.searchParams.get('after') || 0)
         return terminalEvents.filter((event) => event.seq > after)
+      }
+    },
+    'GET /api/store-update/version-cache': { handler: () => requireStoreUpdate().getCachedVersions() },
+    'POST /api/store-update/version': {
+      handler: async (body: any) => requireStoreUpdate().checkOneCached(body?.checkout || {})
+    },
+    'POST /api/store-update/versions': {
+      handler: async (body: any) =>
+        requireStoreUpdate().checkMany(Array.isArray(body?.checkouts) ? body.checkouts : [])
+    },
+    'POST /api/store-update/installed': {
+      handler: async (body: any) => requireStoreUpdate().listInstalledOn(body?.checkout || {})
+    },
+    'POST /api/store-update/import-agent': {
+      handler: async (body: any) =>
+        requireStoreUpdate().agent.importOne(body?.checkout || {}, { runId: body?.runId })
+    },
+    'POST /api/store-update/import-agent-all': {
+      handler: async (body: any) =>
+        requireStoreUpdate().agent.importAll(Array.isArray(body?.checkouts) ? body.checkouts : [], {
+          runId: body?.runId
+        })
+    },
+    'POST /api/store-update/cancel-agent-import': {
+      handler: (body: any) => requireStoreUpdate().agent.cancel(body?.runId)
+    },
+    'POST /api/store-update/deploy': {
+      handler: async (body: any) =>
+        requireStoreUpdate().deployOne(body?.checkout || {}, {
+          source: body?.source,
+          destinationPath: body?.destinationPath
+        })
+    },
+    'POST /api/store-update/deploy-all': {
+      handler: async (body: any) =>
+        requireStoreUpdate().deployAll(Array.isArray(body?.checkouts) ? body.checkouts : [], {
+          source: body?.source,
+          destinationPath: body?.destinationPath
+        })
+    },
+    'POST /api/store-update/test-access': {
+      handler: async (body: any) => {
+        const host = String(body?.host || '').trim()
+        if (!host) throw new Error('Host is required')
+        return requireStoreUpdate().smb.test(host, null)
+      }
+    },
+    'POST /api/store-update/install': {
+      handler: async (body: any) =>
+        requireStoreInstall().installOne(body?.checkout || {}, { destinationPath: body?.destinationPath })
+    },
+    'POST /api/store-update/install-all': {
+      handler: async (body: any) =>
+        requireStoreInstall().installAll(Array.isArray(body?.checkouts) ? body.checkouts : [], {
+          destinationPath: body?.destinationPath,
+          runId: body?.runId
+        })
+    },
+    'POST /api/store-update/cancel-install': {
+      handler: (body: any) => requireStoreInstall().cancel(body?.runId)
+    },
+    'GET /api/store-update/events': {
+      handler: (_body: any, url: any) => {
+        const after = Number(url.searchParams.get('after') || 0)
+        return storeUpdateEvents.filter((event) => event.seq > after)
+      }
+    },
+    'GET /api/app/files': {
+      handler: (body: any, url: any) => {
+        const dir = url.searchParams.get('dir') || ''
+        try {
+          const base = dir || 'C:\\Store Commerce\\Updates'
+          if (fs.existsSync(base)) {
+            const entries = fs.readdirSync(base, { withFileTypes: true }).map((d: any) => ({
+              name: d.name,
+              path: path.join(base, d.name),
+              isDirectory: d.isDirectory(),
+              isFile: d.isFile(),
+              size: d.isFile()
+                ? (() => {
+                    try {
+                      return fs.statSync(path.join(base, d.name)).size
+                    } catch {
+                      return 0
+                    }
+                  })()
+                : 0,
+              modified: (() => {
+                try {
+                  return fs.statSync(path.join(base, d.name)).mtime.toISOString()
+                } catch {
+                  return new Date().toISOString()
+                }
+              })()
+            }))
+            return { directory: base, parent: path.dirname(base), files: entries }
+          }
+          return { directory: base, parent: 'C:\\', files: [] }
+        } catch (e: any) {
+          return { directory: dir || '', parent: '', files: [], error: e.message }
+        }
       }
     }
   }
 
-  function serveStatic(request, response, pathname) {
+  function serveStatic(request: any, response: any, pathname: string) {
     let requested = decodeURIComponent(pathname)
     if (requested.endsWith('/')) requested += 'index.html'
     if (!path.extname(requested)) requested += '/index.html'
@@ -257,9 +401,6 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     }
     let data = fs.readFileSync(filePath)
     if (filePath.endsWith('index.html')) {
-      // The bridge teaches the served renderer how to reach this server
-      // instead of the (absent) Electron preload. It must run before any
-      // application script, hence the injection at the top of <head>.
       const html = data
         .toString('utf8')
         .replace('<head>', '<head><script src="/companion-bridge.js"></script>')
@@ -272,10 +413,9 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     response.end(data)
   }
 
-  async function handle(request, response) {
+  async function handle(request: any, response: any) {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`)
     try {
-      // CORS preflight (a token-bearing POST triggers one from a foreign origin).
       if (request.method === 'OPTIONS') {
         response.writeHead(204, { 'cache-control': 'no-store', ...CORS_HEADERS })
         return response.end()
@@ -298,10 +438,11 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
           })
         }
         const body = request.method === 'POST' ? await readBody(request) : null
-        return sendJson(response, 200, route.handler(body, url))
+        const result = await route.handler(body, url)
+        return sendJson(response, 200, result)
       }
       return serveStatic(request, response, url.pathname)
-    } catch (error) {
+    } catch (error: any) {
       return sendJson(response, error.status || 500, { error: error.message || 'Server error' })
     }
   }
@@ -309,8 +450,6 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
   async function start() {
     if (server) return state()
     const config = ensureConfig()
-    // 0 is honoured as "any free port" (handy for tests); anything unusable
-    // falls back to the default.
     const requested = Number(config.port)
     const port =
       Number.isInteger(requested) && requested >= 0 && requested <= 65535 ? requested : DEFAULT_PORT
@@ -320,13 +459,13 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
           if (!response.headersSent) sendJson(response, 500, { error: 'Server error' })
         })
       })
-      candidate.once('error', (error) => {
+      candidate.once('error', (error: any) => {
         current = { running: false, port, error: error.message }
         resolve(state())
       })
       candidate.listen(port, '0.0.0.0', () => {
         server = candidate
-        current = { running: true, port: candidate.address().port, error: null }
+        current = { running: true, port: (candidate.address() as any).port, error: null }
         resolve(state())
       })
     })
@@ -334,9 +473,7 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
 
   async function stop() {
     if (server) {
-      // Drop keep-alive sockets immediately so the port is really free (and no
-      // client can reuse a dead connection after a stop).
-      if (server.closeAllConnections) server.closeAllConnections()
+      if ((server as any).closeAllConnections) (server as any).closeAllConnections()
       await new Promise((resolve) => server.close(resolve))
     }
     server = null
@@ -344,8 +481,7 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     return state()
   }
 
-  /** Applies { enabled, port } from Settings and starts/stops accordingly. */
-  async function configure(patch) {
+  async function configure(patch: any) {
     const config = ensureConfig()
     if (patch && Object.prototype.hasOwnProperty.call(patch, 'port')) {
       const port = Number(patch.port)
@@ -385,13 +521,10 @@ function createCompanionServer({ database, exportRoot, appVersion, terminal = nu
     }
   }
 
-  /** App startup hook: honour a previously enabled server without UI action. */
   function autostart() {
     try {
       if (readConfig().enabled) return start()
-    } catch {
-      /* the database may not be ready yet; the Settings card can start it manually */
-    }
+    } catch {}
     return Promise.resolve(state())
   }
 

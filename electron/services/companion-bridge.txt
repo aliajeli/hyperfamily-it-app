@@ -55,12 +55,6 @@
     }
   }
 
-  /* Subscriber-shaped methods (update.subscribe, storeUpdate.onStep, …) are
-   * called on page mount and their return value is used as the unsubscribe
-   * function. A rejected promise there is an UNHANDLED rejection that Next
-   * turns into "Application error: a client-side exception" — the whole page
-   * dies. They therefore hand back a silent no-op subscription instead, while
-   * data methods keep degrading loudly so the UI can toast the reason. */
   var SUBSCRIBERS = {
     subscribe: 1,
     onStatus: 1,
@@ -69,6 +63,8 @@
     onVersion: 1,
     onAgentStep: 1,
     onInstallStep: 1,
+    onFinished: 1,
+    onInstallFinished: 1,
     onDataChange: 1
   }
   function silentSubscription() {
@@ -87,20 +83,15 @@
       .then(function (events) {
         ;(events || []).forEach(function (event) {
           terminalSeq = Math.max(terminalSeq, event.seq || 0)
-          var set =
-            event.channel === 'terminal:data' ? terminalListeners.data : terminalListeners.status
+          var set = event.channel === 'terminal:data' ? terminalListeners.data : terminalListeners.status
           set.forEach(function (listener) {
             try {
               listener(event.payload)
-            } catch (e) {
-              /* one broken listener must not stop the others */
-            }
+            } catch (e) {}
           })
         })
       })
-      .catch(function () {
-        /* transient hiccups retry on the next tick */
-      })
+      .catch(function () {})
   }
 
   function terminalSubscribe(kind) {
@@ -118,6 +109,72 @@
     }
   }
 
+  // Store-update events (v3.10.2): version, step, progress, agentStep, installStep, finished, installFinished
+  var storeUpdateListeners = {
+    version: new Set(),
+    step: new Set(),
+    progress: new Set(),
+    agentStep: new Set(),
+    installStep: new Set(),
+    finished: new Set(),
+    installFinished: new Set()
+  }
+  var storeUpdateTimer = null
+  var storeUpdateSeq = 0
+
+  var STORE_CHANNEL_MAP = {
+    'store-update:version': 'version',
+    'store-update:step': 'step',
+    'store-update:progress': 'progress',
+    'store-update:agent-step': 'agentStep',
+    'store-update:install-step': 'installStep',
+    'store-update:finished': 'finished',
+    'store-update:install-finished': 'installFinished'
+  }
+
+  function pollStoreUpdate() {
+    call('GET', '/api/store-update/events?after=' + storeUpdateSeq)
+      .then(function (events) {
+        ;(events || []).forEach(function (event) {
+          storeUpdateSeq = Math.max(storeUpdateSeq, event.seq || 0)
+          var kind = STORE_CHANNEL_MAP[event.channel]
+          if (!kind) return
+          var set = storeUpdateListeners[kind]
+          if (!set) return
+          set.forEach(function (listener) {
+            try {
+              listener(event.payload)
+            } catch (e) {}
+          })
+        })
+      })
+      .catch(function () {})
+  }
+
+  function storeUpdateSubscribe(kind) {
+    return function (callback) {
+      var set = storeUpdateListeners[kind]
+      if (!set) return silentSubscription()()
+      set.add(callback)
+      if (!storeUpdateTimer) storeUpdateTimer = window.setInterval(pollStoreUpdate, 600)
+      pollStoreUpdate()
+      return function () {
+        set.delete(callback)
+        var any = false
+        for (var k in storeUpdateListeners) {
+          if (storeUpdateListeners[k].size) {
+            any = true
+            break
+          }
+        }
+        if (!any && storeUpdateTimer) {
+          window.clearInterval(storeUpdateTimer)
+          storeUpdateTimer = null
+        }
+      }
+    }
+  }
+
   var monitorListeners = new Set()
   var monitorTimer = null
 
@@ -127,14 +184,10 @@
         monitorListeners.forEach(function (listener) {
           try {
             listener(snapshot)
-          } catch (e) {
-            /* one broken listener must not stop the others */
-          }
+          } catch (e) {}
         })
       })
-      .catch(function () {
-        /* transient network hiccups are normal on store Wi-Fi; the next tick retries */
-      })
+      .catch(function () {})
   }
 
   var api = {
@@ -145,6 +198,10 @@
       openExternal: function (url) {
         window.open(url, '_blank')
         return Promise.resolve()
+      },
+      listServerFiles: function (dir) {
+        var q = dir ? '?dir=' + encodeURIComponent(dir) : ''
+        return call('GET', '/api/app/files' + q)
       }
     },
     auth: {
@@ -210,8 +267,6 @@
         return call('POST', '/api/settings', patch)
       }
     },
-    // v3.9.0: notes, terminal snippets, inventory and credentials now work
-    // from the phone too — same token gate, same database as the desktop.
     notes: {
       list: function () {
         return call('GET', '/api/notes')
@@ -250,7 +305,6 @@
         return call('GET', '/api/credentials/overview')
       }
     },
-    // The real switch console, streamed from the workstation (v3.10.0).
     terminal: {
       targets: function () {
         return call('GET', '/api/terminal/targets')
@@ -262,21 +316,64 @@
         return call('POST', '/api/terminal/write', payload)
       },
       resize: function (payload) {
-        return call('POST', '/api/terminal/resize', payload).catch(function () {
-          /* cosmetic */
-        })
+        return call('POST', '/api/terminal/resize', payload).catch(function () {})
       },
       close: function (sessionId) {
         return call('POST', '/api/terminal/close', { sessionId: sessionId })
       },
       onData: terminalSubscribe('data'),
       onStatus: terminalSubscribe('status')
+    },
+    storeUpdate: {
+      version: function (payload) {
+        return call('POST', '/api/store-update/version', payload)
+      },
+      versionCache: function () {
+        return call('GET', '/api/store-update/version-cache')
+      },
+      versions: function (payload) {
+        return call('POST', '/api/store-update/versions', payload)
+      },
+      installed: function (payload) {
+        return call('POST', '/api/store-update/installed', payload)
+      },
+      importAgent: function (payload) {
+        return call('POST', '/api/store-update/import-agent', payload)
+      },
+      importAgentAll: function (payload) {
+        return call('POST', '/api/store-update/import-agent-all', payload)
+      },
+      cancelAgentImport: function (payload) {
+        return call('POST', '/api/store-update/cancel-agent-import', payload)
+      },
+      deploy: function (payload) {
+        return call('POST', '/api/store-update/deploy', payload)
+      },
+      deployAll: function (payload) {
+        return call('POST', '/api/store-update/deploy-all', payload)
+      },
+      testAccess: function (payload) {
+        return call('POST', '/api/store-update/test-access', payload)
+      },
+      install: function (payload) {
+        return call('POST', '/api/store-update/install', payload)
+      },
+      installAll: function (payload) {
+        return call('POST', '/api/store-update/install-all', payload)
+      },
+      cancelInstall: function (payload) {
+        return call('POST', '/api/store-update/cancel-install', payload)
+      },
+      onVersion: storeUpdateSubscribe('version'),
+      onStep: storeUpdateSubscribe('step'),
+      onProgress: storeUpdateSubscribe('progress'),
+      onAgentStep: storeUpdateSubscribe('agentStep'),
+      onInstallStep: storeUpdateSubscribe('installStep'),
+      onFinished: storeUpdateSubscribe('finished'),
+      onInstallFinished: storeUpdateSubscribe('installFinished')
     }
   }
 
-  // Anything outside the supported surface degrades loudly instead of
-  // crashing the page: every unknown module.method rejects with a readable
-  // message the UI can toast.
   window.hyperfamily = new Proxy(api, {
     get: function (target, property) {
       if (property in target) return target[property]
@@ -287,8 +384,6 @@
           get: function (_target, method) {
             var name = String(method)
             if (SUBSCRIBERS[name]) return silentSubscription
-            // Cosmetic fire-and-forget (the auxiliary-window theme); a reject
-            // here would be an unhandled rejection on every theme apply.
             if (name === 'palette')
               return function () {
                 return Promise.resolve(null)

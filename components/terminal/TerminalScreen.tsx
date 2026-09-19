@@ -6,7 +6,7 @@ import { commonPrefix, completions, currentWord, tokenize } from '@/lib/terminal
 
 const CHAR_RATIO = 0.6
 
-const ANSI_HEX = {
+const ANSI_HEX: any = {
   'ansi-black': '#3B4252',
   'ansi-red': '#BF616A',
   'ansi-green': '#A3BE8C',
@@ -25,7 +25,7 @@ const ANSI_HEX = {
   'ansi-bright-white': '#ECEFF4'
 }
 
-const SYNTAX_STYLE = {
+const SYNTAX_STYLE: any = {
   prompt: { color: 'rgb(var(--muted))', fontWeight: 700 },
   command: { color: 'var(--ansi-cyan, #88C0D0)', fontWeight: 600 },
   config: { color: 'var(--ansi-magenta, #B48EAD)', fontWeight: 600 },
@@ -39,7 +39,7 @@ const SYNTAX_STYLE = {
   comment: { color: 'rgb(var(--muted))', fontStyle: 'italic' }
 }
 
-const colorFor = (value) => {
+const colorFor = (value: any) => {
   if (!value) return null
   if (ANSI_HEX[value]) return `var(--${value}, ${ANSI_HEX[value]})`
   return value
@@ -51,40 +51,30 @@ export const DEFAULT_TERMINAL_FONT =
 export default function TerminalScreen({
   session,
   api,
-  fontSize = 13,
+  fontSize = 11,
   fontFamily = DEFAULT_TERMINAL_FONT,
   highlight = true,
   onSizeChange
-}) {
-  const holderRef = useRef(null)
-  const screenRef = useRef(null)
-  const emulatorRef = useRef(null)
-  const frameRef = useRef(0)
+}: any) {
+  const holderRef = useRef<HTMLDivElement>(null)
+  const screenRef = useRef<HTMLDivElement>(null)
+  const emulatorRef = useRef<any>(null)
+  const frameRef = useRef<number>(0)
   const inputRef = useRef('')
-  const mobileInputRef = useRef(null)
-  const hiddenInputRef = useRef(null)
+  const hiddenInputRef = useRef<HTMLTextAreaElement>(null)
   const [revision, setRevision] = useState(0)
   const [size, setSize] = useState({ cols: 80, rows: 24 })
   const [followTail, setFollowTail] = useState(true)
-  const [picker, setPicker] = useState(null)
-  const [mobileCommand, setMobileCommand] = useState('')
-  const [isMobile, setIsMobile] = useState(false)
+  const [picker, setPicker] = useState<any>(null)
 
   if (!emulatorRef.current) emulatorRef.current = new TerminalEmulator(80, 24)
-
-  useEffect(() => {
-    const check = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
 
   const repaint = useCallback(() => {
     if (frameRef.current) return
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = 0
       setRevision((value) => value + 1)
-    })
+    }) as any
   }, [])
 
   useLayoutEffect(() => {
@@ -94,14 +84,14 @@ export default function TerminalScreen({
       const lineHeight = Math.round(fontSize * 1.42)
       const charWidth = fontSize * CHAR_RATIO
       const cols = Math.max(20, Math.floor((holder.clientWidth - 24) / charWidth))
-      const rows = Math.max(6, Math.floor((holder.clientHeight - (isMobile ? 60 : 16)) / lineHeight))
+      const rows = Math.max(6, Math.floor((holder.clientHeight - 16) / lineHeight))
       setSize((previous) => (previous.cols === cols && previous.rows === rows ? previous : { cols, rows }))
     }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(holder)
     return () => observer.disconnect()
-  }, [fontSize, fontFamily, isMobile])
+  }, [fontSize, fontFamily])
 
   useEffect(() => {
     emulatorRef.current.resize(size.cols, size.rows)
@@ -113,7 +103,7 @@ export default function TerminalScreen({
 
   useEffect(() => {
     if (!session?.sessionId) return undefined
-    const unsubscribe = api.onData((payload) => {
+    const unsubscribe = api.onData((payload: any) => {
       if (payload.sessionId !== session.sessionId) return
       emulatorRef.current.write(payload.data)
       repaint()
@@ -136,14 +126,14 @@ export default function TerminalScreen({
   })
 
   const send = useCallback(
-    (data) => {
+    (data: string) => {
       if (!session?.sessionId || session.state === 'closed') return
       api.write({ sessionId: session.sessionId, data }).catch(() => {})
     },
     [api, session?.sessionId, session?.state]
   )
 
-  const trackInput = useCallback((data) => {
+  const trackInput = useCallback((data: string) => {
     if (data === '\r' || data === '\u0003') {
       inputRef.current = ''
       return
@@ -157,7 +147,7 @@ export default function TerminalScreen({
   }, [])
 
   const transmit = useCallback(
-    (data) => {
+    (data: string) => {
       trackInput(data)
       send(data)
       setFollowTail(true)
@@ -166,7 +156,7 @@ export default function TerminalScreen({
   )
 
   const applyCompletion = useCallback(
-    (word, whole = true) => {
+    (word: string, whole = true) => {
       const typed = currentWord(inputRef.current)
       const suffix = word.slice(typed.length)
       const trailing = whole ? ' ' : ''
@@ -181,16 +171,12 @@ export default function TerminalScreen({
   )
 
   const focusTerminal = useCallback(() => {
-    // Desktop: focus the scrollable div
     screenRef.current?.focus()
-    // Mobile: also focus hidden input to open keyboard
-    if (isMobile) {
-      hiddenInputRef.current?.focus()
-      mobileInputRef.current?.focus()
-    }
-  }, [isMobile])
+    // On mobile, focusing hidden textarea opens the OS keyboard
+    setTimeout(() => hiddenInputRef.current?.focus(), 30)
+  }, [])
 
-  const onKeyDown = (event) => {
+  const onKeyDown = (event: any) => {
     if (
       (event.ctrlKey || event.metaKey) &&
       event.key.toLowerCase() === 'c' &&
@@ -208,12 +194,12 @@ export default function TerminalScreen({
       }
       if (event.key === 'ArrowDown') {
         event.preventDefault()
-        setPicker((p) => ({ ...p, index: (p.index + 1) % p.items.length }))
+        setPicker((p: any) => ({ ...p, index: (p.index + 1) % p.items.length }))
         return
       }
       if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
         event.preventDefault()
-        setPicker((p) => ({ ...p, index: (p.index - 1 + p.items.length) % p.items.length }))
+        setPicker((p: any) => ({ ...p, index: (p.index - 1 + p.items.length) % p.items.length }))
         return
       }
       if (event.key === 'Escape') {
@@ -252,7 +238,7 @@ export default function TerminalScreen({
       return
     }
 
-    const map = {
+    const map: any = {
       Enter: '\r',
       Backspace: '\u007f',
       Escape: '\u001b',
@@ -264,10 +250,11 @@ export default function TerminalScreen({
       End: '\u001b[F',
       Delete: '\u001b[3~',
       PageUp: '\u001b[5~',
-      PageDown: '\u001b[6~'
+      PageDown: '\u001b[6~',
+      ' ': ' '
     }
 
-    if (map[event.key]) {
+    if (map[event.key] !== undefined) {
       event.preventDefault()
       transmit(map[event.key])
       return
@@ -289,7 +276,7 @@ export default function TerminalScreen({
     }
   }
 
-  const onPaste = (event) => {
+  const onPaste = (event: any) => {
     event.preventDefault()
     const text = event.clipboardData.getData('text')
     if (text) {
@@ -297,28 +284,61 @@ export default function TerminalScreen({
     }
   }
 
-  const handleMobileSubmit = (e) => {
-    e.preventDefault()
-    if (!mobileCommand.trim()) return
-    transmit(mobileCommand + '\r')
-    setMobileCommand('')
-    // Keep focus for next command
-    setTimeout(() => mobileInputRef.current?.focus(), 50)
-  }
-
-  const handleHiddenInput = (e) => {
+  // Hidden textarea for mobile keyboard: captures typed text and forwards to terminal
+  const handleHiddenInput = (e: any) => {
     const val = e.target.value
     if (!val) return
-    // Send each char, handle newline as Enter
+    // Forward each character, handling newline as Enter
     for (const ch of val) {
       if (ch === '\n') transmit('\r')
       else transmit(ch)
     }
     e.target.value = ''
+    // Keep focus
+    setTimeout(() => hiddenInputRef.current?.focus(), 10)
+  }
+
+  const handleHiddenKeyDown = (e: any) => {
+    // On mobile, the hidden textarea may receive Enter as newline
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      transmit('\r')
+      e.target.value = ''
+    } else if (e.key === 'Backspace') {
+      // Let onChange handle? But also send backspace
+      // We handle via input event, but also ensure backspace works when textarea empty
+      if (!e.target.value) {
+        e.preventDefault()
+        transmit('\u007f')
+      }
+    } else if (e.key === ' ') {
+      // Space for --More-- pagination
+      e.preventDefault()
+      transmit(' ')
+      e.target.value = ''
+    }
   }
 
   const snapshot = useMemo(() => emulatorRef.current.snapshot(), [size, revision])
   const lineHeight = Math.round(fontSize * 1.42)
+
+  // Detect --More-- pagination prompt in last rows
+  const morePrompt = useMemo(() => {
+    const lastRows = snapshot.rows
+      .slice(-3)
+      .map((runs: any) => runs.map((r: any) => r.text).join(''))
+      .join(' ')
+      .toLowerCase()
+    if (
+      lastRows.includes('--more--') ||
+      lastRows.includes('-- more --') ||
+      (lastRows.includes('more') && lastRows.includes('--'))
+    )
+      return true
+    // Also check for Cisco style " --More-- " or "<--- More --->"
+    const joined = snapshot.rows.map((runs: any) => runs.map((r: any) => r.text).join('')).join('\n')
+    return /--\s*more\s*--/i.test(joined) || /<---\s*more\s*--->/i.test(joined)
+  }, [snapshot])
 
   return (
     <div
@@ -328,7 +348,7 @@ export default function TerminalScreen({
       <div
         ref={screenRef}
         role="textbox"
-        aria-label="Terminal screen — tap to type"
+        aria-label="Terminal screen — tap to type, use keyboard for commands"
         tabIndex={0}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
@@ -341,16 +361,15 @@ export default function TerminalScreen({
         className="min-h-0 flex-1 cursor-text overflow-y-auto px-3 py-2 font-mono outline-none focus-visible:ring-1 focus-visible:ring-[rgb(var(--primary)/.5)]"
         style={{ fontSize, lineHeight: `${lineHeight}px`, fontFamily }}
       >
-        {snapshot.rows.map((runs, rowIndex) => {
+        {snapshot.rows.map((runs: any, rowIndex: number) => {
           const plain =
             highlight &&
-            runs.every((run) => {
+            runs.every((run: any) => {
               const { attr } = run
               return !attr.fg && !attr.bg && !attr.inverse && !attr.underline
             })
-
           if (plain) {
-            const text = runs.map((run) => run.text).join('')
+            const text = runs.map((run: any) => run.text).join('')
             if (!text.trim())
               return (
                 <div key={rowIndex} className="whitespace-pre" style={{ height: lineHeight }}>
@@ -359,7 +378,7 @@ export default function TerminalScreen({
               )
             return (
               <div key={rowIndex} className="whitespace-pre" style={{ height: lineHeight }}>
-                {tokenize(text).map((token, index) => (
+                {tokenize(text).map((token: any, index: number) => (
                   <span key={index} style={SYNTAX_STYLE[token.kind]}>
                     {token.text}
                   </span>
@@ -367,14 +386,13 @@ export default function TerminalScreen({
               </div>
             )
           }
-
           return (
             <div key={rowIndex} className="whitespace-pre" style={{ height: lineHeight }}>
-              {runs.map((run, runIndex) => {
+              {runs.map((run: any, runIndex: number) => {
                 const { attr } = run
                 const foreground = colorFor(attr.inverse ? attr.bg : attr.fg)
                 const background = colorFor(attr.inverse ? attr.fg : attr.bg)
-                const style = {
+                const style: any = {
                   color: foreground || (attr.inverse ? 'rgb(var(--canvas))' : undefined),
                   background: background || (attr.inverse ? 'rgb(var(--text))' : undefined),
                   fontWeight: attr.bold ? 700 : undefined,
@@ -427,7 +445,7 @@ export default function TerminalScreen({
             {picker.items.length} match{picker.items.length === 1 ? '' : 'es'}
             {picker.prefix ? ` for “${picker.prefix}”` : ''}
           </div>
-          {picker.items.map((item, index) => (
+          {picker.items.map((item: string, index: number) => (
             <button
               key={item}
               type="button"
@@ -438,12 +456,8 @@ export default function TerminalScreen({
                 applyCompletion(item)
                 setPicker(null)
               }}
-              onMouseEnter={() => setPicker((p) => (p ? { ...p, index } : p))}
-              className={`block w-full truncate rounded-lg px-2 py-1 text-left font-mono text-2xs ${
-                index === picker.index
-                  ? 'bg-[rgb(var(--primary)/.16)] text-[rgb(var(--primary))]'
-                  : 'text-[rgb(var(--text))]'
-              }`}
+              onMouseEnter={() => setPicker((p: any) => (p ? { ...p, index } : p))}
+              className={`block w-full truncate rounded-lg px-2 py-1 text-left font-mono text-2xs ${index === picker.index ? 'bg-[rgb(var(--primary)/.16)] text-[rgb(var(--primary))]' : 'text-[rgb(var(--text))]'}`}
             >
               <b>{item.slice(0, picker.prefix.length)}</b>
               {item.slice(picker.prefix.length)}
@@ -459,50 +473,53 @@ export default function TerminalScreen({
             setFollowTail(true)
             if (screenRef.current) screenRef.current.scrollTop = screenRef.current.scrollHeight
           }}
-          className="absolute bottom-[60px] right-3 rounded-lg border bg-[rgb(var(--surface))] px-2.5 py-1 text-xs font-bold shadow-lg"
+          className="absolute bottom-14 right-3 rounded-lg border bg-[rgb(var(--surface))] px-2.5 py-1 text-xs font-bold shadow-lg"
         >
           Jump to latest
         </button>
       )}
 
-      {/* Hidden input that opens mobile keyboard when terminal is tapped */}
+      {/* --More-- pagination helper - floating bar for mobile and desktop */}
+      {morePrompt && session?.state === 'connected' && (
+        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-[rgb(var(--surface))] px-3 py-1.5 shadow-xl backdrop-blur">
+          <span className="hidden text-2xs font-bold text-[rgb(var(--muted))] md:block">--More--</span>
+          <button
+            type="button"
+            onClick={() => transmit(' ')}
+            className="rounded-full bg-[rgb(var(--primary))] px-3 py-1 text-xs font-bold text-white hover:bg-[rgb(var(--primary-strong))]"
+          >
+            Space: next page
+          </button>
+          <button
+            type="button"
+            onClick={() => transmit('\r')}
+            className="rounded-full border bg-[rgb(var(--canvas))] px-2.5 py-1 text-xs font-bold hover:bg-[rgb(var(--border)/.4)]"
+          >
+            Enter: next line
+          </button>
+          <button
+            type="button"
+            onClick={() => transmit('q')}
+            className="rounded-full border bg-[rgb(var(--canvas))] px-2 py-1 text-xs hover:bg-[rgb(var(--border)/.4)]"
+          >
+            q
+          </button>
+        </div>
+      )}
+
+      {/* Hidden textarea that opens mobile keyboard when terminal is tapped - no visible input */}
       <textarea
         ref={hiddenInputRef}
-        aria-hidden
-        tabIndex={-1}
+        aria-label="Terminal input"
         onChange={handleHiddenInput}
-        className="absolute -left-[9999px] h-1 w-1 opacity-0"
+        onKeyDown={handleHiddenKeyDown}
+        className="absolute left-0 top-0 h-0 w-0 opacity-0"
         autoComplete="off"
         autoCorrect="off"
+        autoCapitalize="off"
         spellCheck={false}
+        enterKeyHint="send"
       />
-
-      {/* Mobile command bar — always visible on mobile when connected, so user can type */}
-      <div className="flex shrink-0 items-center gap-2 border-t bg-[rgb(var(--surface)/.9)] p-2 backdrop-blur md:hidden">
-        <span className="text-2xs font-bold text-[rgb(var(--muted))]">$</span>
-        <form onSubmit={handleMobileSubmit} className="flex flex-1 items-center gap-2">
-          <input
-            ref={mobileInputRef}
-            value={mobileCommand}
-            onChange={(e) => setMobileCommand(e.target.value)}
-            placeholder={session?.state === 'connected' ? 'Type command…' : 'Connect first'}
-            disabled={session?.state !== 'connected'}
-            className="min-w-0 flex-1 rounded-lg border bg-[rgb(var(--canvas))] px-3 py-2 font-mono text-xs outline-none focus:border-[rgb(var(--primary)/.5)] disabled:opacity-50"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="send"
-          />
-          <button
-            type="submit"
-            disabled={session?.state !== 'connected' || !mobileCommand.trim()}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[rgb(var(--primary))] text-white disabled:opacity-40"
-            aria-label="Send command"
-          >
-            ↵
-          </button>
-        </form>
-      </div>
     </div>
   )
 }

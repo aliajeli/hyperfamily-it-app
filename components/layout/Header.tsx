@@ -21,7 +21,7 @@ export default function Header({ user }: any) {
   }, [])
 
   return (
-    <header className="app-header drag-region fixed right-0 top-0 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between border-b bg-[rgb(var(--canvas)/.88)] px-3.5 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:px-5">
+    <header className="app-header drag-region fixed left-0 right-0 top-0 flex h-[calc(3.5rem+env(safe-area-inset-top))] w-full items-center justify-between border-b bg-[rgb(var(--canvas)/.88)] px-3.5 pt-[env(safe-area-inset-top)] backdrop-blur-xl md:left-[var(--rail)] md:w-[calc(100%-var(--rail))] md:px-5">
       {/* Left: page header - fixed like main header */}
       <div className="no-drag flex min-w-0 flex-1 items-center gap-3">
         {title ? (
