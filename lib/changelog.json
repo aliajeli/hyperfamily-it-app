@@ -1,6 +1,27 @@
 {
   "entries": [
     {
+      "version": "3.10.1-beta.2",
+      "date": "2026-09-19",
+      "channel": "beta",
+      "title": "Fix TypeScript checks",
+      "changes": {
+        "fixed": [
+          "Fixed TS2339 Property 'id' does not exist on type 'unknown' in app/store-update/page.tsx groupCheckouts by typing Maps as Map<any,any> and casting branch",
+          "Fixed TS2307 Cannot find module '@/components/ui/Dialog' in ServerFileBrowser.tsx by rewriting to use @radix-ui/react-dialog directly with DialogPrimitive",
+          "Removed unused useIsMobile helpers and FolderOpen/FileUp imports that caused ESLint warnings"
+        ]
+      },
+      "highlights": [
+        "TypeScript typecheck passes for both tsconfig.json and tsconfig.electron.json",
+        "Next build passes"
+      ],
+      "details": [
+        "ServerFileBrowser now uses Radix primitives",
+        "groupCheckouts typed correctly"
+      ]
+    },
+    {
       "version": "3.10.1-beta.1",
       "date": "2026-09-18",
       "channel": "beta",

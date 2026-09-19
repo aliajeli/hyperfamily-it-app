@@ -1,19 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Building2, ChevronDown, ClipboardList, CloudUpload, Loader2, RefreshCw, ShieldCheck, Wrench, Monitor } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-function useIsMobile() {
-  const [mobile, setMobile] = useState(false)
-  useEffect(() => {
-    const check = () => setMobile(typeof window !== 'undefined' && window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-  return mobile
-}
 
 function stateDot(version: any) {
   const state = version?.state || 'unknown'
@@ -85,7 +74,6 @@ function RowAction({ onClick, disabled, label, title, children }: any) {
 
 export default function BranchCheckoutsCard({ group, versions, selected, onSelectMany, onToggleSelect, onRecheckBranch, onUpdateBranch, onRecheck, onImportAgent, onDeploy, onInspect, onUpdateStore, onShowInstallResult, installResults, agentBusyIds, anyDeployRunning, hasFile }: any) {
   const [collapsed, setCollapsed] = useState(false)
-  const isMobile = useIsMobile()
   const { branch, checkouts } = group
   const states = checkouts.map((checkout: any) => versions[checkout.id]?.state || 'unknown')
   const okCount = states.filter((state: any) => state === 'ok').length

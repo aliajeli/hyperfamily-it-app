@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ShoppingCart, FolderOpen, FileUp } from 'lucide-react'
+import { ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import BranchCheckoutsCard from '@/components/store-update/BranchCheckoutsCard'
@@ -21,23 +21,14 @@ import { formatDuration } from '@/lib/utils'
 
 const EMPTY_ID_SET = new Set()
 
-function useIsMobile() {
-  const [m, setM] = useState(false)
-  useEffect(() => {
-    const c = () => setM(typeof window !== 'undefined' && window.innerWidth < 768)
-    c(); window.addEventListener('resize', c); return () => window.removeEventListener('resize', c)
-  }, [])
-  return m
-}
-
 function groupCheckouts(branches: any, devices: any) {
-  const byBranch = new Map(branches.map((branch: any) => [branch.id, branch]))
-  const groups = new Map()
+  const byBranch = new Map<any, any>(branches.map((branch: any) => [branch.id, branch]))
+  const groups = new Map<any, any>()
   for (const device of devices) {
     if (device.device_type !== 'Checkout') continue
-    const branch = byBranch.get(device.branch_id) || { id: 0, name: 'Unassigned', code: '—' }
-    if (!groups.has(branch.id)) groups.set(branch.id, { branch, checkouts: [] })
-    ;(groups.get(branch.id) as any).checkouts.push(device)
+    const branch = (byBranch.get(device.branch_id) as any) || { id: 0, name: 'Unassigned', code: '—' }
+    if (!groups.has((branch as any).id)) groups.set((branch as any).id, { branch, checkouts: [] })
+    ;(groups.get((branch as any).id) as any).checkouts.push(device)
   }
   return [...groups.values()]
     .map((group: any) => ({
@@ -49,7 +40,6 @@ function groupCheckouts(branches: any, devices: any) {
 
 export default function StoreUpdatePage() {
   const confirm = useConfirm()
-  const isMobile = useIsMobile()
   const [loading, setLoading] = useState(true)
   const [groups, setGroups] = useState<any>([])
   const [settings, setSettings] = useState<any>(null)
