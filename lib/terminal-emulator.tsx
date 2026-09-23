@@ -151,7 +151,8 @@ export class TerminalEmulator {
   }
 
   applySgr(params) {
-    const values = params.length ? params : [0]
+    // SGR treats an empty parameter as 0 ("ESC[;31m" is red).
+    const values = (params.length ? params : [0]).map((value) => (value == null ? 0 : value))
     const attr = { ...this.attr }
     for (let index = 0; index < values.length; index += 1) {
       const code = values[index]
@@ -191,11 +192,10 @@ export class TerminalEmulator {
     const match = /^\[([?<>!]?)([0-9;]*)(.)$/.exec(sequence)
     if (!match) return
     const [, prefix, rawParams, command] = match
-    const params = rawParams
-      .split(';')
-      .filter((item) => item !== '')
-      .map((item) => Number(item))
-    const first = params[0] ?? 0
+    // Empty slots stay in place (null) so "ESC[;5H" means row 1, column 5 —
+    // dropping them shifted every later parameter one slot to the left.
+    const params = rawParams.split(';').map((item) => (item === '' ? null : Number(item)))
+    const first = params[0] == null ? 0 : params[0]
     if (prefix === '?') return // private modes (cursor visibility, alt screen) are ignored
 
     switch (command) {
@@ -349,6 +349,12 @@ export class TerminalEmulator {
         continue
       }
       if (char === '\u0007') {
+        index += 1
+        continue
+      }
+      if (char === '\u007f') {
+        // DEL: devices occasionally send it; like most terminals, drop it
+        // instead of drawing a stray glyph.
         index += 1
         continue
       }

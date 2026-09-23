@@ -212,6 +212,24 @@ function createCompanionServer({
         return user
       }
     },
+    // Recovery PIN and remember-me reach the workstation's own database
+    // (vault-encrypted, exactly like the desktop IPC handlers): before
+    // v3.10.3-beta.2 the phone had no routes for these, so the renderer fell
+    // back to the browser-demo versions and wrote to the PHONE's localStorage
+    // — a silently lost PIN.
+    'POST /api/auth/set-recovery-pin': {
+      handler: (body: any) => {
+        const admin = database.db.prepare('SELECT id FROM users ORDER BY id LIMIT 1').get()
+        if (!admin) throw Object.assign(new Error('No account exists'), { status: 404 })
+        return database.setRecoveryPin(admin.id, body?.pin)
+      }
+    },
+    'GET /api/auth/remembered-credentials': {
+      handler: () => database.getRememberedCredentials()
+    },
+    'POST /api/auth/remembered-credentials': {
+      handler: (body: any) => database.saveRememberedCredentials(body || {})
+    },
     'GET /api/app/info': {
       handler: () => ({ version: appVersion, platform: `${os.type()} ${os.release()}`, companion: true })
     },

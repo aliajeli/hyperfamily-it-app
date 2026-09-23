@@ -1232,8 +1232,6 @@ function browserApi() {
             const fileName = String(downloadUrl.split('/').pop() || 'HyperFamily-Companion.apk').split('?')[0]
             // @ts-ignore - capacitor only in native build
             const { Filesystem, Directory } = await import('@capacitor/filesystem')
-            // @ts-ignore - capacitor only in native build
-            const { FileOpener } = await import('@capawesome-team/capacitor-file-opener')
             let fileUri: string
             try {
               if ((Filesystem as any).downloadFile) {

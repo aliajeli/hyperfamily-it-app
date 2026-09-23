@@ -16,7 +16,10 @@ const { mkdirAsync, renameAsync, withTimeout } = require('./async-fs')
  * Only the fixed action set the agent implements is accepted here; anything
  * else is rejected before it ever touches the wire.
  */
-const ACTIONS = new Set(['status', 'close', 'install'])
+// Must stay in lockstep with the agent's own whitelist in agent/main.cpp:
+// status | close | sha256 | install. (v3.10.3-beta.2: sha256 was missing here,
+// so every deploy silently fell back to the slow read-back hash.)
+const ACTIONS = new Set(['status', 'close', 'sha256', 'install'])
 const COMMAND_EXT = '.cmd'
 const POLL_MS = 250
 const DEFAULT_TIMEOUT_MS = 60 * 1000
@@ -72,8 +75,14 @@ class AgentCommands {
     const action = String(command?.action || '').trim()
     if (!ACTIONS.has(action)) throw new Error(`Unsupported agent command “${action}”`)
     const targetPath = command.path != null ? String(command.path) : ''
-    if (action === 'install' && !/^[a-zA-Z]:[\\/]/.test(targetPath)) {
-      throw new Error('The install command needs the full local path of the installer on the checkout')
+    // Both install and sha256 name a file ON the checkout; the agent rejects
+    // anything that is not an absolute local path (drive letter required).
+    if ((action === 'install' || action === 'sha256') && !/^[a-zA-Z]:[\\/]/.test(targetPath)) {
+      throw new Error(
+        action === 'install'
+          ? 'The install command needs the full local path of the installer on the checkout'
+          : 'The sha256 command needs the full local path of the file on the checkout'
+      )
     }
     const signal = options.signal
     const timeoutMs = options.timeoutMs || (action === 'install' ? INSTALL_TIMEOUT_MS : DEFAULT_TIMEOUT_MS)

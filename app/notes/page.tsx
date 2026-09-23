@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { NotebookPen, Plus, Search, Menu, X, PanelLeft } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { NotebookPen, Plus, Search, X, PanelLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import AppShell from '@/components/layout/AppShell'
 import { Button, EmptyState, Input, Skeleton } from '@/components/ui'

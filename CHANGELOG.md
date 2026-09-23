@@ -3,6 +3,22 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 3.10.3-beta.2
+
+**Checkout-side hash repair, CI fix, companion auth parity, terminal polish**
+
+_Released 2026-09-23 · beta channel_
+
+### Improved
+- Removed two stale compiled JavaScript files (ipc-handlers.js, companion-server.service.js) from version control; they were git-ignored build artifacts that drifted from their TypeScript sources and dirtied every compile
+- Cleaned up six unused imports across the notes, settings, store-update pages and the API layer
+
+### Fixed
+- Fixed deploy verification never using the checkout-side SHA-256 hash: the desktop agent-command whitelist was missing the sha256 action, so every deploy silently fell back to the slow full read-back hash over the WAN; the whitelist now matches the agent exactly (status, close, sha256, install) and pinned by a new regression test
+- Fixed the nightly zorder UI suite failing since 3.10.0-beta.1: the VPN button is an Electron-only control, so the browser preview correctly renders none — the suite now skips those checks with a note instead of reporting false failures
+- Fixed the companion app falling back to the phone’s own localStorage for setRecoveryPin, rememberCredentials and rememberedCredentials: the bridge now serves them from the workstation’s database through new companion API routes, so a PIN saved from the phone actually reaches the workstation
+- Fixed the terminal mis-parsing CSI sequences with explicit default parameters (ESC[;5H meant row 5 column 1 instead of row 1 column 5) and rendering stray DEL (0x7F) characters from devices
+- Fixed the --More-- helper bar false-positiving when the visible screen contained literal --more-- text from older output: detection now only looks at the last line, where the prompt actually sits
 ## 3.10.3-beta.1
 
 **Fix header width, terminal --More--, store-update via phone, About update**

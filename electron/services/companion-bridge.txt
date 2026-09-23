@@ -217,7 +217,19 @@
       changePassword: unavailable('Changing credentials'),
       updateCredentials: unavailable('Changing credentials'),
       recoverStatus: unavailable('PIN recovery'),
-      recover: unavailable('PIN recovery')
+      recover: unavailable('PIN recovery'),
+      // Reach the workstation's own database — never the phone's localStorage
+      // (v3.10.3-beta.2: without these the renderer silently fell back to the
+      // browser-demo versions and "saved" the PIN on the phone).
+      setRecoveryPin: function (pin) {
+        return call('POST', '/api/auth/set-recovery-pin', { pin: pin })
+      },
+      rememberCredentials: function (payload) {
+        return call('POST', '/api/auth/remembered-credentials', payload || {})
+      },
+      rememberedCredentials: function () {
+        return call('GET', '/api/auth/remembered-credentials')
+      }
     },
     monitor: {
       snapshot: function () {

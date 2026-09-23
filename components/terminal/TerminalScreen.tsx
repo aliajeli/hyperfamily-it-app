@@ -322,22 +322,13 @@ export default function TerminalScreen({
   const snapshot = useMemo(() => emulatorRef.current.snapshot(), [size, revision])
   const lineHeight = Math.round(fontSize * 1.42)
 
-  // Detect --More-- pagination prompt in last rows
+  // Detect --More-- pagination prompt. The prompt always sits on the LAST
+  // line while the device is waiting, so only that line counts: scanning the
+  // whole screen false-positived on literal "--more--" text in older output
+  // (e.g. config comments) long after the prompt had gone away.
   const morePrompt = useMemo(() => {
-    const lastRows = snapshot.rows
-      .slice(-3)
-      .map((runs: any) => runs.map((r: any) => r.text).join(''))
-      .join(' ')
-      .toLowerCase()
-    if (
-      lastRows.includes('--more--') ||
-      lastRows.includes('-- more --') ||
-      (lastRows.includes('more') && lastRows.includes('--'))
-    )
-      return true
-    // Also check for Cisco style " --More-- " or "<--- More --->"
-    const joined = snapshot.rows.map((runs: any) => runs.map((r: any) => r.text).join('')).join('\n')
-    return /--\s*more\s*--/i.test(joined) || /<---\s*more\s*--->/i.test(joined)
+    const lastRow = (snapshot.rows[snapshot.rows.length - 1] || []).map((run: any) => run.text).join('')
+    return /--\s*more\s*--/i.test(lastRow) || /<---\s*more\s*--->/i.test(lastRow)
   }, [snapshot])
 
   return (
