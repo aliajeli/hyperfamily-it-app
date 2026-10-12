@@ -3,7 +3,7 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
-## 4.0.1-beta.1
+## 4.0.1-beta.2
 
 **Tailwind dialog repair, safer device access, and TypeScript migration**
 
@@ -17,6 +17,7 @@ _Released 2026-10-12 · beta channel_
 - Fixed dialogs displaced by Tailwind CSS 4 transforms, restoring usable fields and overlays at desktop and mobile widths.
 - Restored compact shared button sizes closer to the pre-Tailwind 4 layout.
 - Updated Store Agent browser test to match the current branch-card interface.
+- Adjusted the Windows Chromium smoke-test launch flags to prevent an unstable single-process renderer from aborting release checks.
 
 ### Security
 - Device credentials stay in Electron main; the webview session bridge no longer returns usernames or passwords, and guest ownership and same-origin redirects are checked before auto-login.

@@ -38,6 +38,19 @@ jobs:
             *) echo "::error::package.json version '$version' is not a pre-release; refusing to publish it from Beta"; exit 1 ;;
           esac
 
+      - name: Reject a tag pointing to a different commit
+        shell: bash
+        run: |
+          tag='${{ steps.meta.outputs.tag }}'
+          tag_sha=$(git ls-remote origin "refs/tags/$tag^{}" | cut -f1)
+          if [ -z "$tag_sha" ]; then
+            tag_sha=$(git ls-remote origin "refs/tags/$tag" | cut -f1)
+          fi
+          if [ -n "$tag_sha" ] && [ "$tag_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::$tag already points to another commit; bump the beta version rather than publishing mismatched code"
+            exit 1
+          fi
+
       # The release notes are the changelog entry for this version, rendered by
       # the same script the app's About page reads. Failing here means a beta
       # can never be published without a changelog the operator can read.

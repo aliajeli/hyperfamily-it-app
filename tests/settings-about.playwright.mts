@@ -8,18 +8,24 @@ const stack = JSON.parse(readFileSync(new URL('../lib/technology-stack.json', im
 const base = process.env.TEST_BASE_URL || 'http://127.0.0.1:3000'
 const screenshots = process.env.TEST_SCREENSHOTS || 'test-artifacts/settings-about'
 mkdirSync(screenshots, { recursive: true })
-const LAUNCH = {
-  args: [
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--single-process',
-    '--js-flags=--max-old-space-size=320',
-    '--renderer-process-limit=1',
-    '--disable-background-networking',
-    '--disable-features=Translate,BackForwardCache,MediaRouter'
-  ]
-}
+// The single-process / 320 MB renderer workaround is for constrained Linux
+// software-GL containers. On Windows it can crash Chromium on the first page.
+const LAUNCH =
+  process.platform === 'win32'
+    ? {}
+    : {
+        args: [
+          '--no-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--single-process',
+          '--js-flags=--max-old-space-size=320',
+          '--renderer-process-limit=1',
+          '--disable-background-networking',
+          '--disable-features=Translate,BackForwardCache,MediaRouter'
+        ]
+      }
+
 const errors = []
 // Software-GL, memory-starved containers randomly kill renderers mid-suite
 // (reproduced identically against unmodified main); retry a crashed run so
@@ -158,18 +164,7 @@ for (let attempt = 1; attempt <= 4; attempt++) {
       } }))`
     for (const theme of ['aurora', 'polar']) {
       await browser.close()
-      browser = await chromium.launch({
-        args: [
-          '--no-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--single-process',
-          '--js-flags=--max-old-space-size=320',
-          '--renderer-process-limit=1',
-          '--disable-background-networking',
-          '--disable-features=Translate,BackForwardCache,MediaRouter'
-        ]
-      })
+      browser = await chromium.launch(LAUNCH)
       const themeBrowser = browser
       const themeContext = await themeBrowser.newContext({ viewport: { width: 1366, height: 768 } })
       await themeContext.addInitScript(seed(theme))
@@ -277,9 +272,10 @@ for (let attempt = 1; attempt <= 4; attempt++) {
     break
   } catch (error) {
     await browser.close().catch(() => {})
-    const harnessCrash = /Page crashed|Target page, context or browser has been closed/i.test(
-      String(error && error.message)
-    )
+    const harnessCrash =
+      /Page crashed|Target page, context or browser has been closed|Internal server error, session closed/i.test(
+        String(error && error.message)
+      )
     if (!harnessCrash || attempt === 4) throw error
     console.log(`- renderer died during attempt ${attempt}; retrying the suite`)
   }
