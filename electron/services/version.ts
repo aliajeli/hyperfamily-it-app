@@ -14,7 +14,8 @@ function compareVersions(v1, v2) {
   const left = a.pre.split('.')
   const right = b.pre.split('.')
   for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
-    if (left[i] === undefined || right[i] === undefined) return Number(right[i] === undefined) - Number(left[i] === undefined)
+    if (left[i] === undefined || right[i] === undefined)
+      return Number(right[i] === undefined) - Number(left[i] === undefined)
     const an = /^\d+$/.test(left[i])
     const bn = /^\d+$/.test(right[i])
     if (an && bn && Number(left[i]) !== Number(right[i])) return Number(left[i]) > Number(right[i]) ? 1 : -1

@@ -24,7 +24,7 @@ jobs:
         run: npm run test:agent
         env:
           HF_AGENT_WINDOWS_TEST: '1'
-      - run: npm audit --audit-level=high
+      - run: node scripts/audit-gate.js
       - run: npm run lint
       - name: TypeScript check (Electron layer)
         run: npm run typecheck
