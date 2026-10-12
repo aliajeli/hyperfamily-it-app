@@ -5,13 +5,15 @@ Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not
 
 ## 4.0.0-beta.1
 
-**Android companion app removed**
+**Android companion app and its server removed**
 
 _Released 2026-10-12 · beta channel_
 
 ### Improved
 - The Android companion app (mobile/ project, its APK build and its release jobs) has been removed from the repository and from the release pipeline; releases no longer build or attach an APK
+- The companion server that the phone app used has been removed from the desktop application: the Settings → General companion card, its IPC handlers, preload bridge and the companion API client
 - Removed the phone-only companion update card from the Dashboard, Settings and About pages
+- Updates are installed only from the Windows desktop application; the browser preview no longer exposes companion or Capacitor update paths
 ## 3.10.3-beta.2
 
 **Checkout-side hash repair, CI fix, companion auth parity, terminal polish**
