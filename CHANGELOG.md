@@ -3,6 +3,17 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 4.0.0
+
+**Android companion app and its server removed**
+
+_Released 2026-10-12 · main channel_
+
+### Improved
+- The Android companion app (mobile/ project, its APK build and its release jobs) has been removed from the repository and from the release pipeline; releases no longer build or attach an APK
+- The companion server that the phone app used has been removed from the desktop application: the Settings → General companion card, its IPC handlers, preload bridge and the companion API client
+- Removed the phone-only companion update card from the Dashboard, Settings and About pages
+- Updates are installed only from the Windows desktop application; the browser preview no longer exposes companion or Capacitor update paths
 ## 4.0.0-beta.1
 
 **Android companion app and its server removed**
@@ -333,6 +344,15 @@ _Released 2026-09-13 · beta channel_
 ### Improved
 - The extension line on each checkout card now shows the exact name and version from the extension's own POS/manifest.json (the same values Store Commerce displays), written under the Store Commerce version.
 - Source order for the extension: POS manifest first, then Programs and Features, then the file version of the deployed assemblies — the card states which source answered.
+## 3.2.0
+
+**About page: redesigned product card and a matching update card**
+
+_Released 2026-09-13 · main channel_
+
+### Improved
+- The About page product card is redesigned around four live stat tiles — release, platform, update channel and developer — that stretch to fill the card, so no dead space remains next to the taller update card.
+- The Application updates card now shares the same gradient backdrop and accent border as the product card, so the top row of the About page reads as one designed pair.
 ## 3.2.0-beta.2
 
 **Hyper.Commerce extension version on every checkout card**
@@ -354,32 +374,11 @@ _Released 2026-09-13 · beta channel_
 ### Improved
 - The About page product card is redesigned around four live stat tiles — release, platform, update channel and developer — that stretch to fill the card, so no dead space remains next to the taller update card.
 - The Application updates card now shares the same gradient backdrop and accent border as the product card, so the top row of the About page reads as one designed pair.
-## 3.2.0
-
-**About page: redesigned product card and a matching update card**
-
-_Released 2026-09-13 · main channel_
-
-### Improved
-- The About page product card is redesigned around four live stat tiles — release, platform, update channel and developer — that stretch to fill the card, so no dead space remains next to the taller update card.
-- The Application updates card now shares the same gradient backdrop and accent border as the product card, so the top row of the About page reads as one designed pair.
 ## 3.1.7
 
 **Compact checkout cards — at least four per row**
 
 _Released 2026-09-13 · main channel_
-
-### Improved
-- Update Store App checkout cards are redesigned as compact two-row tiles: status dot, name and address on the top row; version pill and icon actions below. At least four cards now fit on every line instead of three.
-- Every card action stays one click away — inspect, recheck, Import Agent, Deploy and Update are icon buttons with explanatory tooltips.
-
-### Fixed
-- Remaining /install mentions in the Update button tooltip and service comments were replaced with the real install argument.
-## 3.1.6-beta.1
-
-**Compact checkout cards — at least four per row**
-
-_Released 2026-09-13 · beta channel_
 
 ### Improved
 - Update Store App checkout cards are redesigned as compact two-row tiles: status dot, name and address on the top row; version pill and icon actions below. At least four cards now fit on every line instead of three.
@@ -400,6 +399,30 @@ _Released 2026-09-13 · main channel_
 - Open Store Commerce programs can now be closed on the checkout: the agent service runs as LocalSystem instead of LocalService, which had no right to terminate processes of the signed-in user.
 - The Store Commerce installer no longer fails with “Access to the path 'extensions.config' is denied”: as LocalSystem it can write to C:\Program Files like a normal elevated installation.
 - Upgrading is automatic — re-running Import Agent reconfigures the existing service account even when the agent EXE itself is unchanged.
+## 3.1.6-beta.1
+
+**Compact checkout cards — at least four per row**
+
+_Released 2026-09-13 · beta channel_
+
+### Improved
+- Update Store App checkout cards are redesigned as compact two-row tiles: status dot, name and address on the top row; version pill and icon actions below. At least four cards now fit on every line instead of three.
+- Every card action stays one click away — inspect, recheck, Import Agent, Deploy and Update are icon buttons with explanatory tooltips.
+
+### Fixed
+- Remaining /install mentions in the Update button tooltip and service comments were replaced with the real install argument.
+## 3.1.5
+
+**Checkout-side hashing, robust Store Commerce close, corrected installer call**
+
+_Released 2026-09-13 · main channel_
+
+### Improved
+- Deploy verification is fast again on big files: the agent computes the SHA-256 of the copied file ON the checkout and sends back only the digest; older agents keep the classic read-back hash.
+- Closing Store Commerce is more robust: the agent can terminate it in any session, retries the forced stop, and reports the exact Windows error if it still refuses.
+
+### Fixed
+- The Store Commerce installer is now invoked with its real argument — Hyper.StoreCommerce.Installer.exe install — instead of the mistyped /install switch.
 ## 3.1.5-beta.1
 
 **Checkout agent now runs as LocalSystem: Store Commerce closes and installs succeed**
@@ -413,31 +436,6 @@ _Released 2026-09-13 · beta channel_
 - Open Store Commerce programs can now be closed on the checkout: the agent service runs as LocalSystem instead of LocalService, which had no right to terminate processes of the signed-in user.
 - The Store Commerce installer no longer fails with “Access to the path 'extensions.config' is denied”: as LocalSystem it can write to C:\Program Files like a normal elevated installation.
 - Upgrading is automatic — re-running Import Agent reconfigures the existing service account even when the agent EXE itself is unchanged.
-## 3.1.5
-
-**Checkout-side hashing, robust Store Commerce close, corrected installer call**
-
-_Released 2026-09-13 · main channel_
-
-### Improved
-- Deploy verification is fast again on big files: the agent computes the SHA-256 of the copied file ON the checkout and sends back only the digest; older agents keep the classic read-back hash.
-- Closing Store Commerce is more robust: the agent can terminate it in any session, retries the forced stop, and reports the exact Windows error if it still refuses.
-
-### Fixed
-- The Store Commerce installer is now invoked with its real argument — Hyper.StoreCommerce.Installer.exe install — instead of the mistyped /install switch.
-## 3.1.4-beta.1
-
-**Faster deploy verification and a corrected Store Commerce installer call**
-
-_Released 2026-09-13 · beta channel_
-
-### Improved
-- Deploy verification is fast again on big files: the agent now computes the SHA-256 of the copied file ON the checkout and sends back only the 64-hex digest; checkouts without the new agent keep the classic read-back hash.
-- Closing Store Commerce is more robust: the agent enables the debug privilege so it can terminate the process in any session, retries the forced stop, and reports the exact Windows error when a process still refuses to die.
-
-### Fixed
-- The Store Commerce installer is now invoked with its real argument — Hyper.StoreCommerce.Installer.exe install — instead of the mistyped /install switch.
-- Closing Store Commerce on a checkout no longer ends in an error: the agent can now terminate it in any session and reports the exact Windows error if something still refuses.
 ## 3.1.4
 
 **One-click Store Commerce update on any checkout**
@@ -452,20 +450,19 @@ _Released 2026-09-12 · main channel_
 
 ### Improved
 - The agent now polls its command folder every second while keeping the 15-second inventory heartbeat unchanged.
-## 3.1.3-beta.3
+## 3.1.4-beta.1
 
-**One-click Store Commerce update on any checkout**
+**Faster deploy verification and a corrected Store Commerce installer call**
 
-_Released 2026-09-12 · beta channel_
-
-### Added
-- Update Store App can now install Store Commerce itself: tick one, several or all checkouts and the app checks the connection, closes a running Store Commerce, verifies it is closed, finds Hyper.StoreCommerce.Installer.exe in the deploy folder and runs it with /install through the agent — no signed-in user and no UAC prompt on the checkout.
-- Every checkout ends with a green or red info chip; clicking it shows the installer's exit code, everything the installer printed, and the Store Commerce version before → after.
-- The agent gained a command channel (status, close, install) on the same SMB share as its heartbeat — whitelisted actions only, atomic command and answer files.
-- The Store Commerce update batch can be stopped between checkouts; a running installer is never interrupted mid-install.
+_Released 2026-09-13 · beta channel_
 
 ### Improved
-- The agent now polls its command folder every second while keeping the 15-second inventory heartbeat unchanged.
+- Deploy verification is fast again on big files: the agent now computes the SHA-256 of the copied file ON the checkout and sends back only the 64-hex digest; checkouts without the new agent keep the classic read-back hash.
+- Closing Store Commerce is more robust: the agent enables the debug privilege so it can terminate the process in any session, retries the forced stop, and reports the exact Windows error when a process still refuses to die.
+
+### Fixed
+- The Store Commerce installer is now invoked with its real argument — Hyper.StoreCommerce.Installer.exe install — instead of the mistyped /install switch.
+- Closing Store Commerce on a checkout no longer ends in an error: the agent can now terminate it in any session and reports the exact Windows error if something still refuses.
 ## 3.1.3
 
 **In-app changelog, cancellable agent import, readable typography**
@@ -490,6 +487,20 @@ _Released 2026-09-12 · main channel_
 ### Fixed
 - Settings → Fonts: a changed size or typeface no longer jumps back to the previous value after Save.
 - Dashboard: opening a branch's equipment view no longer shows the Operations overview header on top of it.
+## 3.1.3-beta.3
+
+**One-click Store Commerce update on any checkout**
+
+_Released 2026-09-12 · beta channel_
+
+### Added
+- Update Store App can now install Store Commerce itself: tick one, several or all checkouts and the app checks the connection, closes a running Store Commerce, verifies it is closed, finds Hyper.StoreCommerce.Installer.exe in the deploy folder and runs it with /install through the agent — no signed-in user and no UAC prompt on the checkout.
+- Every checkout ends with a green or red info chip; clicking it shows the installer's exit code, everything the installer printed, and the Store Commerce version before → after.
+- The agent gained a command channel (status, close, install) on the same SMB share as its heartbeat — whitelisted actions only, atomic command and answer files.
+- The Store Commerce update batch can be stopped between checkouts; a running installer is never interrupted mid-install.
+
+### Improved
+- The agent now polls its command folder every second while keeping the 15-second inventory heartbeat unchanged.
 ## 3.1.2-beta.2
 
 **In-app changelog, cancellable agent import, readable typography**
