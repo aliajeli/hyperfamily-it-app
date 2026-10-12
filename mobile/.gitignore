@@ -1,8 +1,0 @@
-node_modules/
-android/app/build/
-android/.gradle/
-android/local.properties
-android/build/
-.gradle/
-*.keystore
-HyperFamily-Companion-*.apk

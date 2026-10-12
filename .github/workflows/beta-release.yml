@@ -119,10 +119,3 @@ jobs:
           echo "$assets" | grep -q '\.exe$' || { echo "::error::no .exe asset on the release"; exit 1; }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Companion APK for the same tag, built on Linux right after the release
-  # exists. The called workflow derives the tag from package.json.
-  apk:
-    needs: beta
-    uses: ./.github/workflows/mobile-apk.yml
-    secrets: inherit

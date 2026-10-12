@@ -3,6 +3,15 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 4.0.0-beta.1
+
+**Android companion app removed**
+
+_Released 2026-10-12 · beta channel_
+
+### Improved
+- The Android companion app (mobile/ project, its APK build and its release jobs) has been removed from the repository and from the release pipeline; releases no longer build or attach an APK
+- Removed the phone-only companion update card from the Dashboard, Settings and About pages
 ## 3.10.3-beta.2
 
 **Checkout-side hash repair, CI fix, companion auth parity, terminal polish**

@@ -27,7 +27,6 @@ import VPNSettings from '@/components/settings/VPNSettings'
 import ThemeSettings from '@/components/settings/ThemeSettings'
 import TypographySettings from '@/components/settings/TypographySettings'
 import DashboardSettings from '@/components/settings/DashboardSettings'
-import CompanionUpdateCard from '@/components/mobile/CompanionUpdateCard'
 import { Card, Skeleton, Tabs, TabsContent } from '@/components/ui'
 import { getApi, isElectron } from '@/lib/api'
 import { DEFAULT_SETTINGS } from '@/lib/constants'
@@ -79,8 +78,6 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-[1600px] space-y-3">
-        <CompanionUpdateCard />
-
         {!settings ? (
           <Skeleton className="h-[460px]" />
         ) : (

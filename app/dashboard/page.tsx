@@ -6,7 +6,6 @@ import { motion } from 'framer-motion'
 import AppShell from '@/components/layout/AppShell'
 import BranchCard from '@/components/dashboard/BranchCard'
 import BranchDetailsPanel from '@/components/dashboard/BranchDetailsPanel'
-import CompanionUpdateCard from '@/components/mobile/CompanionUpdateCard'
 import { Skeleton, EmptyState } from '@/components/ui'
 import { useDevicesStore } from '@/stores/devices.store'
 import { useSettingsStore } from '@/stores/settings.store'
@@ -49,8 +48,6 @@ export default function DashboardPage() {
   return (
     <AppShell compact>
       <div className="mx-auto max-w-[1920px] space-y-3 text-base-ui">
-        <CompanionUpdateCard />
-
         {!generatedAt ? (
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             {[0, 1, 2, 3].map((item) => (
