@@ -31,8 +31,7 @@ const SCALED_FONT_SIZE = {
   xs: 'calc(.625rem * var(--font-info-scale))'
 }
 
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+const config = {
   darkMode: ['class', '[data-color-mode="dark"]'],
   // TypeScript migration (v3.7.0): sources are .ts/.tsx now — a glob that only
   // matches .js/.jsx makes Tailwind emit an EMPTY utility layer and silently
@@ -89,3 +88,5 @@ module.exports = {
   },
   plugins: []
 }
+
+module.exports = config

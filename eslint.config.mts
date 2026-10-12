@@ -20,7 +20,17 @@ export default [
       'electron/services/*.js',
       'electron/preload/*.js',
       'electron/database/*.js',
-      'electron/main/ipc-handlers.js'
+      'electron/main/*.js',
+      'electron/recovery/*.js',
+      'electron/scripts/*.js',
+      'electron/scripts/*.cjs',
+      'scripts/*.js',
+      'tests/**/*.js',
+      'tests/**/*.mjs',
+      'postcss.config.js',
+      'tailwind.config.js',
+      'next.config.js',
+      'eslint.config.mjs'
     ]
   },
   {

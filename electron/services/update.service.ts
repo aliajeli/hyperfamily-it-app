@@ -1,11 +1,13 @@
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
+const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
 const { app, shell } = require('electron')
 const { autoUpdater } = require('electron-updater')
 
 const { compareVersions } = require('./version')
+const { releaseInstaller, trustedAssetDownloadUrl, verifyAssetDigest } = require('./update-security')
 const {
   isPrereleaseVersion,
   normalizeChannel,
@@ -23,13 +25,10 @@ const REQUEST_HEADERS = { 'User-Agent': 'HyperFamily-Branch-Monitor', Accept: 'a
  *
  *   "Download vX"  ->  "Downloading NN%"  ->  "Install and restart"
  *
- * Downloading is attempted with electron-updater first because it supports
- * differential downloads. When anything in that pipeline fails — a checksum
- * mismatch, a signature check, a missing latest.yml, a provider hiccup — the
- * service falls back to fetching the release installer straight from GitHub
- * instead of surfacing an error and leaving the user stuck. Either way the
- * result is a ready installer on disk and a "downloaded" event, so pressing
- * Install always ends with the new version running.
+ * Downloading is attempted with electron-updater first. The direct GitHub
+ * fallback requires a release-asset SHA-256 digest and fails closed when it
+ * is absent or mismatched. Without a signed installer this is an integrity
+ * check only, NOT authentication of the publisher.
  */
 class UpdateService {
   paused
@@ -347,17 +346,10 @@ class UpdateService {
       (item) => item && item.tag_name === release.tag_name
     )
     const assets = sameTag.flatMap((item) => item.assets || [])
-    const installer = assets.find((item) => item.name.toLowerCase().endsWith('.exe'))
+    const installer = assets.find((item) => releaseInstaller(item, latestVersion))
     const notes = sameTag.map((item) => item.body).find(Boolean) || ''
 
-    this.latestInstaller = installer
-      ? {
-          url: installer.browser_download_url,
-          name: installer.name,
-          size: installer.size,
-          version: latestVersion
-        }
-      : null
+    this.latestInstaller = installer ? releaseInstaller(installer, latestVersion) : null
 
     // Remember the size so the progress bar has a total even before the first
     // byte arrives, and so the check result can advertise the download size.
@@ -468,6 +460,11 @@ class UpdateService {
     if (!this.latestInstaller?.url) await this.check()
     const asset = this.latestInstaller
     if (!asset?.url) throw new Error('No Windows installer is attached to the latest release')
+    // Do not downgrade a failed updater checksum into an unchecked download.
+    // GitHub release-asset metadata must include a digest for the exact EXE.
+    if (!/^sha256:[0-9a-f]{64}$/i.test(asset.digest || ''))
+      throw new Error('The release has no valid GitHub SHA-256 digest; fallback install refused')
+    if (!trustedAssetDownloadUrl(asset.url)) throw new Error('Untrusted installer download URL')
 
     this.fallbackAbort = new AbortController()
     const response = await fetch(asset.url, {
@@ -477,8 +474,10 @@ class UpdateService {
     })
     if (!response.ok || !response.body)
       throw new Error(`Downloading the installer failed (${response.status})`)
+    if (!trustedAssetDownloadUrl(response.url))
+      throw new Error('Installer download redirected to an untrusted host')
 
-    const total = Number(response.headers.get('content-length')) || asset.size || 0
+    const total = asset.size
     const directory = path.join(app.getPath('temp') || os.tmpdir(), 'hyperfamily-branch-monitor-update')
     fs.mkdirSync(directory, { recursive: true })
     const target = path.join(directory, asset.name)
@@ -486,6 +485,7 @@ class UpdateService {
     const handle = fs.createWriteStream(partial)
 
     let transferred = 0
+    const hash = crypto.createHash('sha256')
     let lastEmit = 0
     this.status.total = total
     this.resetRate(0)
@@ -494,6 +494,7 @@ class UpdateService {
         // A pause aborts the stream: stop writing and keep the numbers frozen.
         if (this.paused) break
         transferred += chunk.length
+        hash.update(chunk)
         if (!handle.write(Buffer.from(chunk))) await new Promise((resolve) => handle.once('drain', resolve))
         // Emit on a timer rather than per chunk: often enough for a smooth
         // readout, rarely enough not to flood the IPC channel.
@@ -525,13 +526,12 @@ class UpdateService {
       return null
     }
 
-    if (total && transferred !== total) {
-      try {
-        fs.unlinkSync(partial)
-      } catch {
-        /* nothing to clean up */
-      }
-      throw new Error('The downloaded installer is incomplete')
+    try {
+      if (transferred !== total) throw new Error('The downloaded installer is incomplete')
+      verifyAssetDigest(asset.digest, hash.digest('hex'))
+    } catch (error) {
+      fs.rmSync(partial, { force: true })
+      throw error
     }
 
     try {

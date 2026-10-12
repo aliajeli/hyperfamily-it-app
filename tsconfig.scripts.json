@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleDetection": "force",
+    "moduleResolution": "node",
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "sourceMap": false,
+    "noEmitOnError": true
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "postcss.config.ts",
+    "tailwind.config.ts",
+    "electron/scripts/**/*.ts",
+    "electron/scripts/**/*.cts"
+  ],
+  "exclude": ["node_modules"]
+}

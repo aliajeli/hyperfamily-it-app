@@ -891,26 +891,28 @@ textarea:focus-visible {
     opacity: 0;
   }
 }
+/* Tailwind v4 emits translate as an independent property. Never repeat it in
+   transform here: doing both moved centered dialogs off the top-left viewport. */
 @keyframes dashboard-modal-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -46%) scale(0.94);
+    scale: 0.94;
     filter: blur(5px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    scale: 1;
     filter: blur(0);
   }
 }
 @keyframes dashboard-modal-out {
   from {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    scale: 1;
   }
   to {
     opacity: 0;
-    transform: translate(-50%, -48%) scale(0.97);
+    scale: 0.97;
   }
 }
 @keyframes dashboard-side-in {

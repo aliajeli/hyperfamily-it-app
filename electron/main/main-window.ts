@@ -124,7 +124,19 @@ function createWindow() {
     return { action: 'deny' }
   })
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowed = isDev ? url.startsWith('http://localhost:3000') : url.startsWith('app://hyperfamily/')
+    let allowed = false
+    try {
+      const target = new URL(url)
+      allowed = isDev
+        ? target.origin === 'http://localhost:3000'
+        : target.protocol === 'app:' &&
+          target.hostname === 'hyperfamily' &&
+          !target.username &&
+          !target.password &&
+          !target.port
+    } catch {
+      /* reject invalid URL */
+    }
     if (!allowed) {
       event.preventDefault()
       if (url.startsWith('https://')) shell.openExternal(url)
@@ -180,7 +192,7 @@ else {
     // effect immediately, without restarting the app.
     const storeUpdateService = new StoreUpdateService(sendEvent, {
       agentSourcePath: app.isPackaged
-        ? require('path').join(process.resourcesPath, 'agent', 'HyperFamilyStoreAgent.exe')
+        ? require('path').join((process as any).resourcesPath, 'agent', 'HyperFamilyStoreAgent.exe')
         : require('path').join(__dirname, '../../agent/build/HyperFamilyStoreAgent.exe'),
       getCredentials: () => {
         try {

@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "none",
+    "moduleDetection": "legacy",
+    "lib": ["ES2022", "DOM"],
+    "skipLibCheck": true,
+    "noCheck": true
+  },
+  "files": ["electron/main/device-webview-renderer.ts", "electron/recovery/page.ts"]
+}

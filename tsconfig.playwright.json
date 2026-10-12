@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "lib": ["ES2022", "DOM"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noCheck": true,
+    "sourceMap": false
+  },
+  "include": ["tests/**/*.mts"],
+  "exclude": ["node_modules"]
+}

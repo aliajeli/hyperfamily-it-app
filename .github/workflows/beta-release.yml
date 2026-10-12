@@ -2,8 +2,8 @@ name: Beta Release
 
 # Every push to Beta builds the Windows installer and publishes it as a
 # GitHub *pre-release* tagged with the version in package.json.
-# Pre-releases are invisible to the in-app updater (it filters them out), so
-# stable users are never offered a beta build.
+# Main-channel users only see stable releases; beta-channel users may opt in
+# to this pre-release through the in-app updater.
 on:
   push:
     branches: [Beta]
@@ -41,13 +41,13 @@ jobs:
       # The release notes are the changelog entry for this version, rendered by
       # the same script the app's About page reads. Failing here means a beta
       # can never be published without a changelog the operator can read.
+      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
+      - run: npm ci
+      - run: npm run build:agent
       - name: Require a changelog entry for this version
         shell: bash
         run: node scripts/release-notes.js "${{ steps.meta.outputs.version }}" > /dev/null
 
-      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
-      - run: npm run build:agent
-      - run: npm ci
       - name: Test the real Windows Agent service
         run: npm run test:agent
         env:
@@ -59,6 +59,11 @@ jobs:
       - run: npm run test:vpn
       - run: npm run test:template
       - run: npm run build
+      - name: Install Chromium for release-gating UI smoke tests
+        run: npx playwright install chromium
+      - name: Browser smoke (dialogs, settings, Store Agent)
+        shell: bash
+        run: bash .github/scripts/browser-smoke.sh
 
       # electron-builder creates the release lazily, once per uploaded asset,
       # which can race with itself and split assets across two releases on one

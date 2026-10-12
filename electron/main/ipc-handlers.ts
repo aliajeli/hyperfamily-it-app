@@ -36,8 +36,20 @@ function registerIpcHandlers({
   const sessions = new Map()
   const trusted = (event) => {
     const url = event.senderFrame?.url || ''
-    if (!(url.startsWith('app://hyperfamily/') || url.startsWith('http://localhost:3000')))
-      throw new Error('Untrusted IPC sender')
+    let allowed = false
+    try {
+      const frame = new URL(url)
+      allowed =
+        frame.origin === 'http://localhost:3000' ||
+        (frame.protocol === 'app:' &&
+          frame.hostname === 'hyperfamily' &&
+          !frame.username &&
+          !frame.password &&
+          !frame.port)
+    } catch {
+      /* reject invalid URL */
+    }
+    if (!allowed) throw new Error('Untrusted IPC sender')
   }
   const secure =
     (handler) =>

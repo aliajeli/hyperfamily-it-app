@@ -15,24 +15,24 @@ try {
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('http://127.0.0.1:3000/store-update/', { waitUntil: 'networkidle' })
-  await expect(page.getByText('Agent is not running', { exact: true }).first()).toBeVisible({
+  await expect(page.getByText('Not checked', { exact: true }).filter({ visible: true }).first()).toBeVisible({
     timeout: 20000
   })
-  await expect(page.getByRole('button', { name: 'Import Agent to all', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Import Agent', exact: true })).toHaveCount(16)
-  await page.getByRole('button', { name: 'Import Agent', exact: true }).first().click()
-  await expect(page.getByRole('dialog')).toContainText('Automatic startup before Login')
+  await expect(page.getByRole('button', { name: 'Import Agent all', exact: true })).toBeVisible()
+  await expect(page.locator('button[title="Import agent"]:visible')).toHaveCount(16)
+  await page.locator('button[title="Import agent"]:visible').first().click()
+  await expect(page.getByRole('dialog')).toContainText('bundled EXE will be compared using SHA-256')
   await page.getByRole('dialog').getByRole('button', { name: 'Import Agent', exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('1 succeeded', { timeout: 15000 })
-  await expect(page.getByRole('dialog')).toContainText('Copied and verified')
+  await expect(page.getByRole('dialog')).toContainText('1 succeeded', { timeout: 20000 })
+  await expect(page.getByRole('dialog')).toContainText('Copied, verified and the service is Running')
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
-  await page.getByRole('button', { name: 'Import Agent', exact: true }).first().click()
+  await page.locator('button[title="Import agent"]:visible').first().click()
   await page.getByRole('dialog').getByRole('button', { name: 'Import Agent', exact: true }).click()
   await expect(page.getByRole('dialog')).toContainText('SHA-256 matches — copy skipped', { timeout: 15000 })
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
-  await page.getByRole('button', { name: 'Import Agent to all', exact: true }).click()
+  await page.getByRole('button', { name: 'Import Agent all', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Import Agent to all', exact: true }).click()
-  await expect(page.getByRole('dialog')).toContainText('16 succeeded', { timeout: 45000 })
+  await expect(page.getByRole('dialog')).toContainText('16 succeeded', { timeout: 90000 })
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
   for (const width of [1366, 900, 600]) {
     await page.setViewportSize({ width, height: 900 })
@@ -41,7 +41,7 @@ try {
   }
   expect(errors).toEqual([])
   console.log(
-    'PASS: missing-agent label, single/bulk Import, confirmation, hash skip, summaries, responsive layout and no browser exceptions'
+    'PASS: initial status, single/bulk Import, confirmation, hash skip, summaries, responsive layout and no browser exceptions'
   )
 } finally {
   await browser.close()

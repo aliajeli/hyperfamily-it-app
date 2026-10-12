@@ -3,6 +3,26 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 4.0.1-beta.1
+
+**Tailwind dialog repair, safer device access, and TypeScript migration**
+
+_Released 2026-10-12 · beta channel_
+
+### Improved
+- Migrated maintained JavaScript sources, scripts, recovery page and test suites to TypeScript-family source files; generated JavaScript remains an ignored runtime artifact. Vendored JavaScript and native C++ Agent code were not changed.
+- Added browser smoke gates for dialogs, settings and Store Agent to Windows CI and release workflows, alongside targeted webview and updater security tests.
+
+### Fixed
+- Fixed dialogs displaced by Tailwind CSS 4 transforms, restoring usable fields and overlays at desktop and mobile widths.
+- Restored compact shared button sizes closer to the pre-Tailwind 4 layout.
+- Updated Store Agent browser test to match the current branch-card interface.
+
+### Security
+- Device credentials stay in Electron main; the webview session bridge no longer returns usernames or passwords, and guest ownership and same-origin redirects are checked before auto-login.
+- Device TLS now verifies certificates by default; an untrusted device fingerprint needs explicit approval for the current run. Revoked and expired certificates are rejected.
+- Restricted application navigation and IPC to parsed, exact origins instead of trusting URL string prefixes.
+- The unsigned installer fallback now verifies the exact release EXE, trusted download host, declared size and GitHub asset SHA-256; it refuses to run if the digest is missing or mismatched. This is not a publisher signature.
 ## 4.0.0
 
 **Android companion app and its server removed**

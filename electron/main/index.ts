@@ -18,7 +18,7 @@
 // us what happened when something goes wrong far away.
 const log = require('./logger')
 log.info(
-  `HyperFamily Branch Monitor ${require('../../package.json').version} starting (electron ${process.versions.electron}, win ${process.getSystemVersion?.() || 'n/a'})`
+  `HyperFamily Branch Monitor ${require('../../package.json').version} starting (electron ${process.versions.electron}, win ${(process as any).getSystemVersion?.() || 'n/a'})`
 )
 // A monitoring tool must survive a bad moment: log the fault, stay alive.
 process.on('uncaughtException', (error) => {

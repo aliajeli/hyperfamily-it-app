@@ -1,5 +1,5 @@
 const path = require('node:path')
-const { BrowserWindow, session, webContents } = require('electron')
+const { BrowserWindow, session, webContents, dialog } = require('electron')
 const { buildLoginScript } = require('./autologin')
 
 // Every auto-login window shares one partition so that a device that sets a
@@ -9,16 +9,50 @@ const PARTITION = 'persist:hyperfamily-devices'
 
 const windows = new Map()
 let partitionReady = false
+const allowedHosts = new Set()
+const trustedCertificates = new Map()
+
+function sameDeviceOrigin(current, expected) {
+  try {
+    return new URL(current).origin === new URL(expected).origin
+  } catch {
+    return false
+  }
+}
 
 function preparePartition() {
   if (partitionReady) return
   partitionReady = true
   const deviceSession = session.fromPartition(PARTITION)
 
-  // Appliance web UIs (iLO, NVR) almost always ship a self-signed certificate.
-  // Accepting it here is scoped to this partition only; the main application
-  // session keeps full certificate verification.
-  deviceSession.setCertificateVerifyProc((_request, callback) => callback(0))
+  // Never trust every certificate in this persistent device partition. For a
+  // self-signed appliance certificate, require explicit approval of its exact
+  // fingerprint; changed certificates prompt again. Trust lasts for this run.
+  deviceSession.setCertificateVerifyProc((request, callback) => {
+    const hostname = String(request.hostname || '').toLowerCase()
+    if (!allowedHosts.has(hostname)) return callback(-2)
+    if (request.verificationResult === 'OK') return callback(0)
+    if (['CERT_REVOKED', 'CERT_DATE_INVALID'].includes(request.verificationResult)) return callback(-2)
+    const fingerprint = request.certificate?.fingerprint
+    if (!fingerprint) return callback(-2)
+    if (trustedCertificates.get(hostname) === fingerprint) return callback(0)
+    dialog
+      .showMessageBox({
+        type: 'warning',
+        title: 'Verify device certificate',
+        message: `The certificate for ${hostname} is not trusted by Windows.`,
+        detail: `Fingerprint: ${fingerprint}\nReason: ${request.verificationResult}\n\nVerify this fingerprint with the device administrator before trusting it for this session.`,
+        buttons: ['Reject connection', 'Trust this fingerprint for this session'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true
+      })
+      .then(({ response }) => {
+        if (response === 1) trustedCertificates.set(hostname, fingerprint)
+        callback(response === 1 ? 0 : -2)
+      })
+      .catch(() => callback(-2))
+  })
   deviceSession.setPermissionRequestHandler((_contents, permission, callback) => {
     callback(['fullscreen', 'clipboard-sanitized-write'].includes(permission))
   })
@@ -37,6 +71,9 @@ function paletteCss(palette = {}) {
  */
 function openDeviceWebview(session_, parent) {
   preparePartition()
+  const deviceOrigin = new URL(session_.url)
+  if (!['http:', 'https:'].includes(deviceOrigin.protocol)) throw new Error('Unsupported device URL')
+  allowedHosts.add(deviceOrigin.hostname.toLowerCase())
   const key = `${session_.kind}:${session_.deviceId}`
   const existing = windows.get(key)
   if (existing && !existing.isDestroyed()) {
@@ -79,6 +116,14 @@ function openDeviceWebview(session_, parent) {
     paletteCss: paletteCss(palette)
   }
   win.__hyperfamilySession = payload
+  win.webContents.on('did-attach-webview', (_event, guest) => {
+    const restrict = (event, target) => {
+      if (!sameDeviceOrigin(target, session_.url)) event.preventDefault()
+    }
+    guest.on('will-navigate', restrict)
+    guest.on('will-redirect', restrict)
+    guest.setWindowOpenHandler(() => ({ action: 'deny' }))
+  })
 
   win.loadFile(path.join(__dirname, 'device-webview.html'))
   win.once('ready-to-show', () => win.show())
@@ -101,7 +146,7 @@ function broadcastPalette(palette) {
  * Guest pages keep their own look, but the scrollbars and form controls are
  * tinted so the embedded UI does not clash with the application shell.
  */
-function guestThemeCss(palette = {}) {
+function guestThemeCss(palette: any = {}) {
   const surface = palette.surface || '24 27 34'
   const border = palette.border || '44 48 58'
   const primary = palette.primary || '96 165 250'
@@ -120,7 +165,8 @@ function guestContents(win, webContentsId) {
   if (!guest || guest.isDestroyed()) throw new Error('The device view is no longer available')
   // Only accept ids that belong to a window this module opened.
   const owner = [...windows.values()].find((item) => !item.isDestroyed() && item === win)
-  if (!owner) throw new Error('This window cannot control device views')
+  if (!owner || guest.hostWebContents !== win.webContents || guest.getType() !== 'webview')
+    throw new Error('This window cannot control that device view')
   return guest
 }
 
@@ -130,6 +176,7 @@ function registerDeviceWebviewHandlers(ipcMain) {
     const config = win?.__hyperfamilySession
     if (!config) throw new Error('This window has no device session')
     const guest = guestContents(win, webContentsId)
+    if (!sameDeviceOrigin(guest.getURL(), config.url)) throw new Error('Device origin changed')
     const script = buildLoginScript({
       username: config.username,
       password: config.password,
@@ -149,7 +196,9 @@ function registerDeviceWebviewHandlers(ipcMain) {
 
   ipcMain.handle('device-webview:session', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    return win?.__hyperfamilySession || null
+    if (!win?.__hyperfamilySession) return null
+    const { url, title, kind, autologin, partition, palette, paletteCss } = win.__hyperfamilySession
+    return { url, title, kind, autologin, partition, palette, paletteCss }
   })
   ipcMain.handle('device-webview:close', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
@@ -157,4 +206,10 @@ function registerDeviceWebviewHandlers(ipcMain) {
   })
 }
 
-module.exports = { openDeviceWebview, registerDeviceWebviewHandlers, broadcastPalette, PARTITION }
+module.exports = {
+  openDeviceWebview,
+  registerDeviceWebviewHandlers,
+  broadcastPalette,
+  sameDeviceOrigin,
+  PARTITION
+}

@@ -28,3 +28,18 @@ electron/services/*.js
 electron/preload/*.js
 electron/database/*.js
 electron/main/ipc-handlers.js
+
+# JavaScript emitted from the tracked TypeScript application and test sources.
+electron/main/*.js
+electron/recovery/*.js
+electron/scripts/*.js
+electron/scripts/*.cjs
+scripts/*.js
+tests/*.js
+tests/*.mjs
+tests/unit/*.js
+next.config.js
+postcss.config.js
+tailwind.config.js
+eslint.config.mjs
+electron/recovery/page.js

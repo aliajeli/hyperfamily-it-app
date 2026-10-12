@@ -15,15 +15,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          'bg-[rgb(var(--primary-strong))] px-4 py-2.5 text-white shadow-md shadow-black/10 hover:-translate-y-0.5 hover:brightness-110',
+          'bg-[rgb(var(--primary-strong))] px-3.5 py-2 text-white shadow-md shadow-black/10 hover:-translate-y-0.5 hover:brightness-110',
         secondary:
-          'border bg-[rgb(var(--surface)/.65)] px-4 py-2.5 text-[rgb(var(--text))] hover:bg-[rgb(var(--surface))]',
+          'border bg-[rgb(var(--surface)/.65)] px-3.5 py-2 text-[rgb(var(--text))] hover:bg-[rgb(var(--surface))]',
         ghost:
-          'px-3 py-2 text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.55)] hover:text-[rgb(var(--text))]',
-        danger: 'bg-[rgb(var(--danger-strong))] px-4 py-2.5 text-white hover:brightness-110',
-        success: 'bg-nord-14 px-4 py-2.5 text-nord-0 hover:brightness-105'
+          'px-2.5 py-1.5 text-[rgb(var(--muted))] hover:bg-[rgb(var(--border)/.55)] hover:text-[rgb(var(--text))]',
+        danger: 'bg-[rgb(var(--danger-strong))] px-3.5 py-2 text-white hover:brightness-110',
+        success: 'bg-nord-14 px-3.5 py-2 text-nord-0 hover:brightness-105'
       },
-      size: { default: '', sm: 'h-9 px-3 text-xs', icon: 'h-10 w-10 p-0' }
+      size: { default: '', sm: 'h-8 px-2.5 text-xs', icon: 'h-9 w-9 p-0' }
     },
     defaultVariants: { variant: 'primary', size: 'default' }
   }

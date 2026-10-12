@@ -10,7 +10,7 @@
     // Every file is a module even without import/export (CJS sources stay untouched).
     "moduleDetection": "force",
     "moduleResolution": "node",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.AsyncIterable"],
     "types": ["node"],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -30,7 +30,13 @@
     "electron/services/**/*.ts",
     "electron/preload/**/*.ts",
     "electron/database/**/*.ts",
-    "electron/main/ipc-handlers.ts"
+    "electron/main/**/*.ts",
+    "electron/recovery/**/*.ts"
   ],
-  "exclude": ["node_modules", "electron/recovery", "electron/vendor"]
+  "exclude": [
+    "node_modules",
+    "electron/vendor",
+    "electron/main/device-webview-renderer.ts",
+    "electron/recovery/page.ts"
+  ]
 }

@@ -10,7 +10,7 @@ function checkAudit(report, now = new Date(), packages = require('../package-loc
   if (!report || !report.vulnerabilities || typeof report.vulnerabilities !== 'object') {
     throw new Error('npm audit returned no vulnerability data')
   }
-  const vulnerabilities = report.vulnerabilities
+  const vulnerabilities: Record<string, any> = report.vulnerabilities
   const allowed = new Set()
   const expired = now.toISOString().slice(0, 10) > EXPIRES
   const devOnly = (issue) =>

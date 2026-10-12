@@ -22,13 +22,12 @@ jobs:
           node -e "const v=require('./package.json').version; if (!/^\d+\.\d+\.\d+$/.test(v) || process.env.GITHUB_REF_NAME !== 'v'+v) throw new Error('Stable tag must match package.json version')"
       # The release notes come from lib/changelog.json — the same file the
       # in-app Change log reads — so the release page and About always agree.
+      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
+      - run: npm ci
+      - run: npm run build:agent
       - name: Require a changelog entry for this version
         shell: bash
         run: node scripts/release-notes.js "${GITHUB_REF_NAME#v}" > /dev/null
-
-      # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
-      - run: npm run build:agent
-      - run: npm ci
       - name: Test the real Windows Agent service
         run: npm run test:agent
         env:
@@ -40,6 +39,11 @@ jobs:
       - run: npm run test:vpn
       - run: npm run test:template
       - run: npm run build
+      - name: Install Chromium for release-gating UI smoke tests
+        run: npx playwright install chromium
+      - name: Browser smoke (dialogs, settings, Store Agent)
+        shell: bash
+        run: bash .github/scripts/browser-smoke.sh
       # electron-builder uploads each artifact through its own "create the
       # release if it is missing" call. Those calls can land in the same second
       # and produce two releases on one tag, splitting the assets between them
