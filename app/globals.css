@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* Preserve the explicit dark-mode toggle; v4 defaults to the OS preference. */
+@custom-variant dark (&:where(.dark, .dark *, [data-color-mode="dark"], [data-color-mode="dark"] *));
 
 /* -----------------------------------------------------------------------------
    Theme transition (v2.0.18).
@@ -307,7 +309,11 @@ textarea:focus-visible {
     box-shadow: 0 20px 60px rgb(46 52 64 / 0.09);
   }
   .panel {
-    @apply glass rounded-2xl;
+    background: linear-gradient(145deg, rgb(var(--surface) / 0.84), rgb(var(--surface) / 0.64));
+    backdrop-filter: blur(18px) saturate(135%);
+    border: 1px solid rgb(var(--border) / 0.82);
+    box-shadow: 0 20px 60px rgb(46 52 64 / 0.09);
+    border-radius: 1rem;
   }
   /* Nothing in the interface is sized with a fixed pixel utility any more: the
      348 occurrences of text-[7px] … text-[13px] were mapped onto the scaled
