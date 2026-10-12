@@ -13,5 +13,20 @@
  */
 'use strict'
 
+// The main process keeps a rotating file log (electron-log): every start,
+// every uncaught fault. On a store PC this file is the black box that tells
+// us what happened when something goes wrong far away.
+const log = require('./logger')
+log.info(
+  `HyperFamily Branch Monitor ${require('../../package.json').version} starting (electron ${process.versions.electron}, win ${process.getSystemVersion?.() || 'n/a'})`
+)
+// A monitoring tool must survive a bad moment: log the fault, stay alive.
+process.on('uncaughtException', (error) => {
+  log.error('Uncaught exception in main process:', error)
+})
+process.on('unhandledRejection', (reason) => {
+  log.error('Unhandled rejection in main process:', reason)
+})
+
 if (process.argv.includes('--recovery')) require('./recovery-mode')
 else require('./main-window')

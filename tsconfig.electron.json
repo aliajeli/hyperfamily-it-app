@@ -1,0 +1,36 @@
+{
+  // TypeScript for the Electron layer. Sources are committed as .ts and the
+  // compiler emits plain CommonJS .js next to them (the emitted files are
+  // git-ignored build artifacts), so packaging, runtime paths and tests keep
+  // working exactly as before. Conversion is incremental: require()/module.exports
+  // stay as-is and types are tightened over time.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    // Every file is a module even without import/export (CJS sources stay untouched).
+    "moduleDetection": "force",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    // Bare field declarations must not emit defineProperty (keep JS semantics identical).
+    "useDefineForClassFields": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "sourceMap": false,
+    "declaration": false,
+    "removeComments": false,
+    "newLine": "lf",
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "electron/services/**/*.ts",
+    "electron/preload/**/*.ts",
+    "electron/database/**/*.ts",
+    "electron/main/ipc-handlers.ts"
+  ],
+  "exclude": ["node_modules", "electron/recovery", "electron/vendor"]
+}

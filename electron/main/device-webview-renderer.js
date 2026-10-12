@@ -1,6 +1,6 @@
 /* Renderer for the themed device window. Runs with contextIsolation on and
    talks to the main process exclusively through the deviceWebview bridge. */
-(async () => {
+;(async () => {
   const bridge = window.deviceWebview
   const dot = document.getElementById('dot')
   const overlay = document.getElementById('overlay')
@@ -20,7 +20,10 @@
   }
 
   const session = await bridge.session()
-  if (!session) { setStatus('This window has no device session.', 'error'); return }
+  if (!session) {
+    setStatus('This window has no device session.', 'error')
+    return
+  }
 
   applyPalette(session.paletteCss)
   bridge.onPalette(({ paletteCss }) => applyPalette(paletteCss))
@@ -41,26 +44,42 @@
     setStatus('Signing in with the assigned credential\u2026')
     try {
       const result = await bridge.autologin(view.getWebContentsId())
-      if (result === 'no-form') setStatus('No sign-in form was found \u2014 the device may already be signed in.', 'done')
-      else { signedIn = true; setStatus('Credential submitted.', 'done') }
+      if (result === 'no-form')
+        setStatus('No sign-in form was found \u2014 the device may already be signed in.', 'done')
+      else {
+        signedIn = true
+        setStatus('Credential submitted.', 'done')
+      }
     } catch (error) {
       setStatus(error.message || 'Automatic sign-in failed.', 'error')
     }
   }
 
-  view.addEventListener('did-start-loading', () => { if (!signedIn) setStatus('Loading the device interface\u2026') })
+  view.addEventListener('did-start-loading', () => {
+    if (!signedIn) setStatus('Loading the device interface\u2026')
+  })
 
   view.addEventListener('dom-ready', async () => {
     urlBox.textContent = view.getURL()
     overlay.classList.add('hide')
-    try { await bridge.applyGuestTheme(view.getWebContentsId()) } catch (error) { void error }
+    try {
+      await bridge.applyGuestTheme(view.getWebContentsId())
+    } catch (error) {
+      void error
+    }
     if (session.autologin && !signedIn) runLogin()
     else if (signedIn) setStatus('Session active.', 'done')
   })
 
-  view.addEventListener('did-navigate', () => { urlBox.textContent = view.getURL() })
-  view.addEventListener('did-navigate-in-page', () => { urlBox.textContent = view.getURL() })
-  view.addEventListener('page-title-updated', (event) => { titleBox.textContent = event.title || session.title })
+  view.addEventListener('did-navigate', () => {
+    urlBox.textContent = view.getURL()
+  })
+  view.addEventListener('did-navigate-in-page', () => {
+    urlBox.textContent = view.getURL()
+  })
+  view.addEventListener('page-title-updated', (event) => {
+    titleBox.textContent = event.title || session.title
+  })
 
   view.addEventListener('did-fail-load', (event) => {
     if (event.errorCode === -3) return // user-initiated abort
@@ -69,8 +88,13 @@
     setStatus(`Connection failed: ${event.errorDescription || event.errorCode}`, 'error')
   })
 
-  document.getElementById('reload').addEventListener('click', () => { signedIn = false; view.reload() })
-  document.getElementById('back').addEventListener('click', () => { if (view.canGoBack()) view.goBack() })
+  document.getElementById('reload').addEventListener('click', () => {
+    signedIn = false
+    view.reload()
+  })
+  document.getElementById('back').addEventListener('click', () => {
+    if (view.canGoBack()) view.goBack()
+  })
   document.getElementById('login').addEventListener('click', runLogin)
   document.getElementById('close').addEventListener('click', () => bridge.close())
 })()

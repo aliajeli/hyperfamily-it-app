@@ -1,11 +1,21 @@
+# Weekly dependency updates. Groups keep the PR count low: one PR for
+# development tooling, one for production dependencies, one for actions.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    groups:
+      production:
+        dependency-type: production
+      development:
+        dependency-type: development
+  - package-ecosystem: npm
+    directory: /electron/recovery
+    schedule:
+      interval: weekly
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly

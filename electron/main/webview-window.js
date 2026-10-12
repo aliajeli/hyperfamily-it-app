@@ -39,11 +39,17 @@ function openDeviceWebview(session_, parent) {
   preparePartition()
   const key = `${session_.kind}:${session_.deviceId}`
   const existing = windows.get(key)
-  if (existing && !existing.isDestroyed()) { existing.focus(); return { success: true, reused: true } }
+  if (existing && !existing.isDestroyed()) {
+    existing.focus()
+    return { success: true, reused: true }
+  }
 
   const palette = session_.palette || {}
   const win = new BrowserWindow({
-    width: 1360, height: 900, minWidth: 720, minHeight: 520,
+    width: 1360,
+    height: 900,
+    minWidth: 720,
+    minHeight: 520,
     parent: parent && !parent.isDestroyed() ? parent : undefined,
     show: false,
     title: session_.title,
@@ -53,7 +59,8 @@ function openDeviceWebview(session_, parent) {
       preload: path.join(__dirname, '../preload/device-webview.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Same hardening as the main window: the preload only bridges IPC.
+      sandbox: true,
       webviewTag: true,
       devTools: process.env.NODE_ENV === 'development'
     }
@@ -123,7 +130,11 @@ function registerDeviceWebviewHandlers(ipcMain) {
     const config = win?.__hyperfamilySession
     if (!config) throw new Error('This window has no device session')
     const guest = guestContents(win, webContentsId)
-    const script = buildLoginScript({ username: config.username, password: config.password, kind: config.kind })
+    const script = buildLoginScript({
+      username: config.username,
+      password: config.password,
+      kind: config.kind
+    })
     return guest.executeJavaScript(script, true)
   })
 

@@ -6,10 +6,7 @@
     "app": "electron/recovery",
     "output": "recovery-dist"
   },
-  "files": [
-    "**/*",
-    "!**/*.map"
-  ],
+  "files": ["**/*", "!**/*.map"],
   "win": {
     "target": [
       {

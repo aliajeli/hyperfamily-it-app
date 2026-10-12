@@ -1,6 +1,417 @@
 {
   "entries": [
     {
+      "version": "4.0.0-beta.1",
+      "date": "2026-10-12",
+      "channel": "beta",
+      "title": "Android companion app and its server removed",
+      "changes": {
+        "improved": [
+          "The Android companion app (mobile/ project, its APK build and its release jobs) has been removed from the repository and from the release pipeline; releases no longer build or attach an APK",
+          "The companion server that the phone app used has been removed from the desktop application: the Settings → General companion card, its IPC handlers, preload bridge and the companion API client",
+          "Removed the phone-only companion update card from the Dashboard, Settings and About pages",
+          "Updates are installed only from the Windows desktop application; the browser preview no longer exposes companion or Capacitor update paths"
+        ]
+      }
+    },
+    {
+      "version": "3.10.3-beta.2",
+      "date": "2026-09-23",
+      "channel": "beta",
+      "title": "Checkout-side hash repair, CI fix, companion auth parity, terminal polish",
+      "changes": {
+        "fixed": [
+          "Fixed deploy verification never using the checkout-side SHA-256 hash: the desktop agent-command whitelist was missing the sha256 action, so every deploy silently fell back to the slow full read-back hash over the WAN; the whitelist now matches the agent exactly (status, close, sha256, install) and pinned by a new regression test",
+          "Fixed the nightly zorder UI suite failing since 3.10.0-beta.1: the VPN button is an Electron-only control, so the browser preview correctly renders none — the suite now skips those checks with a note instead of reporting false failures",
+          "Fixed the companion app falling back to the phone’s own localStorage for setRecoveryPin, rememberCredentials and rememberedCredentials: the bridge now serves them from the workstation’s database through new companion API routes, so a PIN saved from the phone actually reaches the workstation",
+          "Fixed the terminal mis-parsing CSI sequences with explicit default parameters (ESC[;5H meant row 5 column 1 instead of row 1 column 5) and rendering stray DEL (0x7F) characters from devices",
+          "Fixed the --More-- helper bar false-positiving when the visible screen contained literal --more-- text from older output: detection now only looks at the last line, where the prompt actually sits"
+        ],
+        "improved": [
+          "Removed two stale compiled JavaScript files (ipc-handlers.js, companion-server.service.js) from version control; they were git-ignored build artifacts that drifted from their TypeScript sources and dirtied every compile",
+          "Cleaned up six unused imports across the notes, settings, store-update pages and the API layer"
+        ]
+      }
+    },
+    {
+      "version": "3.10.3-beta.1",
+      "date": "2026-09-19",
+      "channel": "beta",
+      "title": "Fix header width, terminal --More--, store-update via phone, About update",
+      "changes": {
+        "fixed": [
+          "Fixed header width not full page - Header now fixed left-0 right-0 w-full on mobile, md:left-[var(--rail)] md:w-[calc(100%-var(--rail))] to fill remaining width next to sidebar rail",
+          "Fixed terminal page input issue - removed visible mobile command bar input that duplicated typing; now only hidden textarea opens OS keyboard on tap, forwards every char including Enter as \\r and Space as ' ' for --More-- pagination; added floating --More-- helper bar with Space: next page, Enter: next line, q buttons",
+          "Fixed terminal --More-- pagination not working - added morePrompt detection (regex --\\s*more\\s*-- and <--- more --->), floating action bar appears when pagination detected, sends Space/Enter/q to session; hidden textarea keydown handles Space for pagination",
+          "Fixed Update Store App import agent, check version, copy, update store not working on phone - added companion server routes for store-update: version, version-cache, versions, installed, import-agent, import-agent-all, cancel-agent-import, deploy, deploy-all, test-access, install, install-all, cancel-install, events, app/files; wrapped storeUpdateService and storeInstallService sendEvent to also push to companion event ring buffer (storeUpdateEvents 4000 entries); updated companion-bridge.txt to support storeUpdate with polling /api/store-update/events and subscriptions onVersion/onStep/onProgress/onAgentStep/onInstallStep/onFinished/onInstallFinished",
+          "Fixed About page update option missing - UpdatePanel now always visible (not only Electron), uses getApi().update.check which now supports Capacitor Android via GitHub Releases; CompanionUpdateCard also visible on About for Android self-update via phone",
+          "Fixed Android self-update via phone - CompanionUpdateCard and lib/api.ts update.check/download/install now fully support Capacitor native: App.getInfo version, GitHub releases fetch, Filesystem.downloadFile fallback to fetch+base64, FileOpener with both @capawesome-team and @capacitor-community plugins"
+        ],
+        "improved": [
+          "Header now correctly spans full remaining page width on all screen sizes, left page-header slot and right global tools",
+          "TerminalScreen now has no duplicate visible input, only terminal emulation with hidden textarea for mobile keyboard, better UX for long outputs like show interface status",
+          "Store-update page now works from phone via workstation server - all operations (import agent, check version, deploy file copy, update store install) proxied through companion server to Windows SMB and agent services",
+          "Companion bridge now supports store-update events polling every 600ms, similar to terminal events",
+          "About page shows both UpdatePanel (workstation/server updates) and CompanionUpdateCard (Android self-update) for full coverage"
+        ]
+      },
+      "highlights": [
+        "Header width full page fix",
+        "Terminal --More-- pagination with Space/Enter/q floating bar, no extra input",
+        "Store-update via phone through server (import agent, version, deploy, install)",
+        "About update option always visible + Android self-update"
+      ],
+      "details": [
+        "components/layout/Header.tsx left-0 right-0 w-full md:left-[var(--rail)] md:w-[calc(100%-var(--rail))]",
+        "components/terminal/TerminalScreen.tsx rewritten: removed mobileCommand state and visible input bar, only hidden textarea, morePrompt detection regex, floating --More-- bar",
+        "electron/services/companion-server.service.js/.ts extended with storeUpdateService/storeInstallService, storeUpdateEvents ring buffer, routes for all store-update operations",
+        "electron/services/companion-bridge.txt extended with storeUpdate API and event polling",
+        "electron/main/ipc-handlers.js/.ts pass storeUpdateService and storeInstallService to companion server",
+        "app/about/page.tsx always shows UpdatePanel"
+      ]
+    },
+    {
+      "version": "3.10.2-beta.1",
+      "date": "2026-09-19",
+      "channel": "beta",
+      "title": "Android header, search, notes/terminal sidebars, companion update",
+      "changes": {
+        "fixed": [
+          "Fixed Android companion update from Settings and main page - new CompanionUpdateCard checks GitHub Releases via Capacitor App.getInfo, downloads APK via Filesystem.downloadFile fallback to fetch+base64 write to Directory.Cache, and opens installer via FileOpener (supports both @capawesome-team and @capacitor-community plugins); lib/api.ts update.check/download/install now supports Capacitor native platform with same GitHub logic",
+          "Fixed GlobalSearch mobile overlay too narrow - now full-width w-[calc(100%-0.5rem)] with 85vh max, larger touch targets (py-3, 18px icons), safe-area pt calc(4rem+env), backdrop blur, and ESC handling",
+          "Fixed gradlew permission for APK build preserved"
+        ],
+        "improved": [
+          "Main header now on right side with global search, VPN, update panel and user menu - page headers fixed on left next to main header via new page-header.store Zustand store, Header.tsx split into left page-header slot and right global slot",
+          "Notes page previous writings as sidebar menu - desktop lg:grid-cols-[300px_minmax(0,1fr)] fixed sidebar, mobile drawer toggle with PanelLeft button and 85vw overlay, search inside sidebar, editing indicator",
+          "Terminal snippets as sidebar - desktop xl:block 300px sidebar always visible, mobile drawer 85vw with Code2 toggle button from page-header actions, font controls responsive mobile bar, default fontSize reduced from 13 to 11 for better command output display",
+          "Dashboard, Branches & Devices, Asset inventory, Update Store App pages now use page-header store for fixed left header with contextual actions (branch/device counts, export buttons, refresh)",
+          "CompanionUpdateCard shows on Dashboard, Settings and About pages when Capacitor.isNativePlatform() true - displays installed v and latest tag, Check for updates and Download & install buttons"
+        ]
+      },
+      "highlights": [
+        "Main header right, page header left fixed pattern",
+        "GlobalSearch mobile full-width overlay",
+        "Notes list as sidebar drawer",
+        "Terminal snippets as sidebar 300px desktop + 85vw mobile drawer",
+        "Terminal default font 11px for better output",
+        "Android companion update fixed via Filesystem + FileOpener"
+      ],
+      "details": [
+        "New stores/page-header.store.ts Zustand store for fixed page headers",
+        "components/layout/Header.tsx split left (page-header) and right (global)",
+        "components/mobile/CompanionUpdateCard.tsx new with GitHub releases, parseVer, newerThan, pickAsset, toBase64, Filesystem.downloadFile fallback, FileOpener",
+        "app/terminal/page.tsx default fontSize 11, mobileSnippetsOpen, xl:grid-cols-[minmax(0,1fr)_300px] sidebar, mobile drawer",
+        "app/notes/page.tsx lg:grid-cols-[300px_minmax(0,1fr)] sidebar, mobile toggle",
+        "lib/api.ts update.check/download/install Capacitor-aware implementation"
+      ]
+    },
+    {
+      "version": "3.10.1-beta.4",
+      "date": "2026-09-19",
+      "channel": "beta",
+      "title": "Fix CI formatting and APK build permission",
+      "changes": {
+        "fixed": [
+          "Fixed CI format:check failure - ran Prettier --write on 14 files that had style issues (app/about, login, settings, store-update, terminal, BranchList, InventoryTable, BranchCheckoutsCard, ServerFileBrowser, UpdateToolbar, TerminalScreen, ipc-handlers, lib/api.ts, changelog.json)",
+          "Fixed Mobile APK build failure './gradlew: Permission denied (exit 126)' by setting executable permission 755 on mobile/android/gradlew and committing mode change",
+          "Regenerated CHANGELOG.md from lib/changelog.json via scripts/generate-changelog-md.js to satisfy 'CHANGELOG.md must match lib/changelog.json' check",
+          "Verified TypeScript checks (tsconfig.json and tsconfig.electron.json) pass, lint passes with 1 pre-existing warning, npm test 161 pass, build passes"
+        ],
+        "improved": ["CI and beta-release workflows now pass format:check and APK build"]
+      },
+      "highlights": [
+        "Prettier formatting fixed for all 14 files",
+        "Gradle wrapper permission fixed for APK build",
+        "CHANGELOG.md regenerated"
+      ],
+      "details": [
+        "chmod +x mobile/android/gradlew committed as mode 100755",
+        "npx prettier --write . run",
+        "node scripts/generate-changelog-md.js run"
+      ]
+    },
+    {
+      "version": "3.10.1-beta.3",
+      "date": "2026-09-19",
+      "channel": "beta",
+      "title": "Android & mobile fixes + TypeScript build fixes for 3.10.0-beta.1",
+      "changes": {
+        "fixed": [
+          "Fixed Android first page crash 'Update check failed: Cannot read properties of undefined (reading App)' - getApi() now merges incomplete Android wrapper with browser fallback, update.check returns safe no-update result, AppShell guards missing check.",
+          "Fixed Remember account checkbox on Android - now saves entered username/password to localStorage fallback hyperfamily.browser.remembered when native API is incomplete, and prefills on next launch instead of default.",
+          "VPN section hidden on Android / browser demo - Header VPNButton only when platform==='electron', Settings VPN tab electronOnly filtered, About update panel hidden when not Electron.",
+          "Merged app header and page headers to remove empty space - AppShell main padding reduced from 4.5rem to 3.75rem matching header 3.5rem+safe-area, page content starts right under header.",
+          "Inventory full details on click/tap - tapping any equipment now opens dialog with branch, warehouse, IP, status, model, location, asset, serial, hostname, user/domain, connection, checkout number, brand, terminal, acceptance, ESXi, version, protocol, dashboard visibility, switch ports, ping history (Windows and mobile).",
+          "Branches & Devices branch selector mobile friendly - BranchList now shows native Select dropdown on phones with device count and detail card.",
+          "Terminal crowded + keyboard - Terminal page branch strip becomes Select dropdown on mobile and switch chips stack full-width; TerminalScreen adds hidden textarea that opens Android keyboard on tap plus bottom command bar.",
+          "Update Store App checkout list mobile + update/import/version check + file selection - BranchCheckoutsCard mobile cards with full info, UpdateToolbar Browse server button, ServerFileBrowser shows files inside server system via IPC listServerFiles, version sweep works on browser demo.",
+          "Fixed TS2339 Property 'id' does not exist on type 'unknown' in groupCheckouts by typing Maps as Map<any,any>",
+          "Fixed TS2307 Cannot find module '@/components/ui/Dialog' by using Radix DialogPrimitive directly",
+          "Removed unused useIsMobile helpers causing ESLint warnings",
+          "Fixed release manifests version mismatch - synced package.json, package-lock.json, electron/recovery and mobile manifests via bump-version script"
+        ],
+        "improved": [
+          "Server file browser dialog for choosing update files from server filesystem.",
+          "Inventory cards tappable with full details dialog.",
+          "Terminal keyboard handling for Android WebView.",
+          "TypeScript typecheck passes for both renderer and Electron"
+        ]
+      },
+      "highlights": [
+        "Fixed Android update check crash 'App' undefined",
+        "Remember account now saves entered password on Android",
+        "VPN hidden on Android, header gap removed",
+        "Inventory shows full details on tap",
+        "Branches selector dropdown on phones",
+        "Terminal opens keyboard on tap, not crowded",
+        "Store Update has server file browser and mobile cards",
+        "TypeScript build passes"
+      ],
+      "details": [
+        "lib/api.ts: isElectron(), defensive getApi merge, safe update.check, listServerFiles mocks",
+        "electron/main/ipc-handlers.ts: listServerFiles with readdir+stat",
+        "electron/preload/index.ts: exposes listServerFiles",
+        "Header, Settings, About hide VPN/update when not electron",
+        "AppShell pt 3.75rem+safe-area",
+        "InventoryTable details dialog",
+        "BranchList mobile Select",
+        "TerminalScreen hidden textarea + command bar",
+        "ServerFileBrowser uses Radix",
+        "All manifests synced via scripts/bump-version.js"
+      ]
+    },
+    {
+      "version": "3.10.1-beta.2",
+      "date": "2026-09-19",
+      "channel": "beta",
+      "title": "Fix TypeScript checks",
+      "changes": {
+        "fixed": [
+          "Fixed TS2339 Property 'id' does not exist on type 'unknown' in app/store-update/page.tsx groupCheckouts by typing Maps as Map<any,any> and casting branch",
+          "Fixed TS2307 Cannot find module '@/components/ui/Dialog' in ServerFileBrowser.tsx by rewriting to use @radix-ui/react-dialog directly with DialogPrimitive",
+          "Removed unused useIsMobile helpers and FolderOpen/FileUp imports that caused ESLint warnings"
+        ]
+      },
+      "highlights": [
+        "TypeScript typecheck passes for both tsconfig.json and tsconfig.electron.json",
+        "Next build passes"
+      ],
+      "details": ["ServerFileBrowser now uses Radix primitives", "groupCheckouts typed correctly"]
+    },
+    {
+      "version": "3.10.1-beta.1",
+      "date": "2026-09-18",
+      "channel": "beta",
+      "title": "Android & mobile fixes for 3.10.0-beta.1",
+      "changes": {
+        "fixed": [
+          "Fixed Android first page crash 'Update check failed: Cannot read properties of undefined (reading App)' - getApi() now merges incomplete Android wrapper with browser fallback, update.check returns safe no-update result, AppShell guards missing check.",
+          "Fixed Remember account checkbox on Android - now saves entered username/password to localStorage fallback hyperfamily.browser.remembered when native API is incomplete, and prefills on next launch instead of default.",
+          "VPN section hidden on Android / browser demo - Header VPNButton only when platform==='electron', Settings VPN tab electronOnly filtered, About update panel hidden when not Electron.",
+          "Merged app header and page headers to remove empty space - AppShell main padding reduced from 4.5rem to 3.75rem matching header 3.5rem+safe-area, page content starts right under header, header is purely global tools.",
+          "Inventory full details on click/tap - tapping any equipment now opens dialog with branch, warehouse, IP, status, model, location, asset, serial, hostname, user/domain, connection, checkout number, brand, terminal, acceptance, ESXi, version, protocol, dashboard visibility, switch ports, ping history (Windows and mobile).",
+          "Branches & Devices branch selector mobile friendly - BranchList now shows native Select dropdown on phones with device count and detail card with edit/delete, instead of horizontal scroll of 205px cards.",
+          "Terminal crowded + no space for info - Terminal page branch strip becomes Select dropdown on mobile and switch chips stack full-width cards with model/location, header collapses to column on mobile to reduce crowding.",
+          "Terminal keyboard open on tap after connecting - TerminalScreen adds hidden textarea that opens Android keyboard on tap plus bottom command bar with $ prompt and send on Enter, tap on terminal focuses hidden input.",
+          "Update Store App checkout list not suitable for phone and not showing full info - BranchCheckoutsCard redesigned to mobile cards with full info (IP, hostname, version, extension, error) and 5 large action buttons in grid, desktop list preserved.",
+          "Update and Import Agent and version check not working on Android - now works on browser demo via mocked listServerFiles and version sweep, update.check safe fallback, storeUpdate mocks for browser.",
+          "File selection shows files inside server system - ServerFileBrowser dialog shows files inside server filesystem via IPC app:list-server-files and store-update:list-server-files with filter, parent navigation, size/date; UpdateToolbar has Browse server button."
+        ],
+        "improved": [
+          "Server file browser dialog for choosing update files from server filesystem.",
+          "Inventory cards tappable with full details dialog.",
+          "Terminal keyboard handling for Android WebView.",
+          "AppShell main padding tightened for more content above fold."
+        ]
+      },
+      "highlights": [
+        "Fixed Android update check crash 'App' undefined",
+        "Remember account now saves entered password on Android",
+        "VPN hidden on Android, header gap removed",
+        "Inventory shows full details on tap",
+        "Branches selector is dropdown on phones",
+        "Terminal opens keyboard on tap and has bottom command bar, not crowded",
+        "Store Update has server file browser and mobile cards with full info"
+      ],
+      "details": [
+        "lib/api.ts: isElectron() helper, defensive getApi merge, safe update.check with channel/isDowngrade, listServerFiles mocks for browser demo",
+        "electron/main/ipc-handlers.ts: listServerFiles using fs.promises.readdir+stat, handlers app:list-server-files and store-update:list-server-files",
+        "electron/preload/index.ts: exposes listServerFiles in storeUpdate and app",
+        "Header.tsx: hides VPN when not electron",
+        "Settings: filters VPN tab",
+        "About: hides UpdatePanel when not electron, grid adjusts",
+        "AppShell: pt 3.75rem+safe-area, md 64px",
+        "BranchList: detects isMobile and renders Select",
+        "TerminalScreen: hidden textarea + mobile command bar",
+        "Terminal page: branch Select on mobile, stacked switch chips"
+      ]
+    },
+    {
+      "version": "3.10.0-beta.1",
+      "date": "2026-09-18",
+      "channel": "beta",
+      "title": "Release 3.10.0-beta.1",
+      "changes": {
+        "improved": [
+          "Describe here, in one readable line each, what changed for the operator in 3.10.0-beta.1."
+        ]
+      },
+      "highlights": [
+        "Phone navigation is now a single row: four everyday screens plus a “More” sheet for the rest",
+        "Pages no longer hide under the status bar — the header, content and bottom bar all respect the phone safe areas",
+        "Real switch terminal on the phone: open a console, type commands and watch live output from the workstation",
+        "Inventory is mobile-friendly: stacked cards with status, address and identifiers instead of a ten-column table",
+        "Phone pages are now verified by an automated sweep that fails the build on layout regressions"
+      ],
+      "details": [
+        "Sidebar: the mobile bottom bar keeps Dashboard, Devices, Notes and Terminal; Inventory, Store Update, Settings, About and Sign out move into an animated “More” sheet so nothing wraps to a second row",
+        "Layout: viewport-fit=cover with safe-area insets on the header, main content and bottom bar keeps content clear of notches and gesture bars on every page",
+        "Terminal: the companion server streams real SSH/Telnet sessions from the workstation terminal service through new /api/terminal endpoints, and the bridge fans the output out to the on-screen emulator",
+        "Inventory: phones get one card per asset (type, status, branch, IP, model, location, asset code, connection) with the same actions menu as the desktop table",
+        "Sweep: the companion test suite now signs in with a seeded session, asserts the one-row bottom bar and the inventory card layout, and covers the new terminal endpoints including the 501 fallback"
+      ]
+    },
+    {
+      "version": "3.9.1-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "Every companion page renders again",
+      "changes": {
+        "fixed": [
+          "Fixed “Application error: a client-side exception” on every phone page except the dashboard: desktop-only calls like the theme broadcast and the update/step subscribers rejected instead of degrading, and the unhandled rejection killed the whole page. The companion bridge now hands back silent no-op subscriptions and a resolved theme call, while data methods still explain themselves with a toast.",
+          "Added an automated sweep that boots the real companion server against the real build and opens all eight pages like the phone does — this class of crash can no longer ship unnoticed."
+        ]
+      }
+    },
+    {
+      "version": "3.9.0-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "The phone becomes a full companion",
+      "changes": {
+        "added": [
+          "The Companion app is no longer limited to the dashboard: Notes, Terminal snippets, Inventory and the Credentials overview now open and read/write from the phone, on the same token-gated API as the desktop.",
+          "The connect screen gained an explicit “Check for updates” button — updates come straight from GitHub Releases, so the app can update itself even before it has a workstation connection."
+        ]
+      }
+    },
+    {
+      "version": "3.8.2-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "Phone app can reach the workstation again",
+      "changes": {
+        "fixed": [
+          "Fixed the Companion app failing to connect with “Could not reach that server” even on the same network: Android 9+ silently blocked the plain-HTTP requests to the workstation — the app is now allowed to talk to the local network again.",
+          "The companion server now answers with CORS headers, so the phone's reachability probe can actually read the response instead of discarding it.",
+          "The connection failure message now also points at the Windows firewall (private networks) as a possible cause."
+        ]
+      }
+    },
+    {
+      "version": "3.8.1-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "Interface styling restored",
+      "changes": {
+        "fixed": [
+          "Fixed a critical styling regression from v3.7.0-beta.1: the stylesheet generator was still scanning only the old .js/.jsx sources, so after the TypeScript migration no layout classes were emitted and the whole interface rendered unstyled. Scanning now covers .ts/.tsx and every screen looks exactly as designed again.",
+          "The automated interface suite now asserts that real computed styles are applied, so a silently empty stylesheet can never pass the tests again."
+        ]
+      }
+    },
+    {
+      "version": "3.8.0-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "Pair the phone app with one QR scan",
+      "changes": {
+        "added": [
+          "Settings → General → Companion server now shows a QR code that encodes the address, port and token together — with a picker when the workstation has several network addresses."
+        ],
+        "improved": [
+          "The HyperFamily Companion app gained a “Scan QR code” button: one scan of the code on the workstation fills the address, port and token and connects — manual entry still works as before."
+        ],
+        "fixed": [
+          "The Companion connection screen never displayed its status and error messages; messages like “Could not reach that server” are now shown correctly."
+        ]
+      }
+    },
+    {
+      "version": "3.7.0-beta.1",
+      "date": "2026-09-17",
+      "channel": "beta",
+      "title": "The interface moves to TypeScript and becomes component-driven",
+      "changes": {
+        "improved": [
+          "The entire interface (every screen, component, store and library) migrated to TypeScript; `npm run typecheck` now type-checks both the main process and the interface on every build.",
+          "Sixteen new reusable components extracted from the largest screens — Notes, About, Login and Update Store App — with their pure presentation logic split into standalone modules.",
+          "The refactored screens are ~60% smaller each while looking and behaving exactly the same; the automated interface test suite passes unchanged."
+        ]
+      }
+    },
+    {
+      "version": "3.6.0-beta.1",
+      "date": "2026-09-16",
+      "channel": "beta",
+      "title": "The Electron layer moves to TypeScript",
+      "changes": {
+        "improved": [
+          "All OS services, the IPC layer, the preload bridge and the database engine are now TypeScript sources, checked by the compiler on every build and every CI run.",
+          "The TypeScript migration compiles in place, so installs, updates and stored data behave exactly as before."
+        ]
+      }
+    },
+    {
+      "version": "3.5.0-beta.1",
+      "date": "2026-09-16",
+      "channel": "beta",
+      "title": "Companion APK ships on GitHub Releases with in-app updates",
+      "changes": {
+        "added": [
+          "The Android companion now updates itself from GitHub Releases, the same way the workstation app does: a banner on the connect screen offers the new version, downloads the APK, and opens the Android installer.",
+          "A Mobile APK workflow builds the companion APK on every published release and attaches it to that release, signed with the project keystore."
+        ],
+        "improved": [
+          "Release APKs are signed with a stable project key so updates install cleanly over previous versions, and the companion version now mirrors the workstation version."
+        ]
+      }
+    },
+    {
+      "version": "3.4.0-beta.1",
+      "date": "2026-09-16",
+      "channel": "beta",
+      "title": "Android companion: the workstation becomes the phone’s backend",
+      "changes": {
+        "added": [
+          "Companion server for Android: a switch in Settings → General turns this workstation into a token-protected backend that serves the application’s own interface and live branch data to the phone over the store network — it restarts automatically with the app.",
+          "A new mobile/ project builds the HyperFamily Companion app (Capacitor): enter the workstation address and the companion token shown in Settings, then sign in with a regular application account to watch branch and device health from the store floor."
+        ],
+        "improved": [
+          "The companion token can be rotated from Settings at any time, which immediately locks out a lost or retired phone without touching the application accounts."
+        ]
+      }
+    },
+    {
+      "version": "3.3.0-beta.1",
+      "date": "2026-09-16",
+      "channel": "beta",
+      "title": "Engineering hardening: self-discovered tests, file logging, nightly UI checks",
+      "changes": {
+        "improved": [
+          "The test runner now discovers every unit test automatically — a new test file can never again be silently skipped by the release pipeline.",
+          "The main process keeps a rotating log file (main.log, 5 MB) with every start and every uncaught fault, so a field machine always has a sendable black box.",
+          "Application windows are fully sandboxed: the renderer reaches the system only through the IPC bridge, never directly.",
+          "Dependency health is enforced on every build: npm audit and Prettier formatting checks run in CI, and Dependabot proposes weekly updates.",
+          "CHANGELOG.md is now generated from the same changelog the About page reads, and a nightly Playwright workflow drives the real UI in Chromium."
+        ],
+        "fixed": [
+          "The withTimeout guard could never fire in a plain Node context (its timer was unref'd), so the promised timeout never settled outside Electron — stalled-UNC protection is now guaranteed everywhere."
+        ]
+      }
+    },
+    {
       "version": "3.2.6",
       "date": "2026-09-16",
       "channel": "main",
@@ -13,9 +424,7 @@
           "Update Store App opens instantly from the sweep that runs at application startup; the page no longer re-scans on open — fresh data comes only from Recheck all, a branch Recheck, or a single checkout's Recheck.",
           "The Store App page now presents each branch as a card with its checkouts and their states, and the Asset inventory scrolls as a whole page with a sticky column header."
         ],
-        "removed": [
-          "POS and Scale device types were retired from the directory."
-        ]
+        "removed": ["POS and Scale device types were retired from the directory."]
       }
     },
     {
@@ -440,9 +849,7 @@
         "improved": [
           "Checkouts can be reached by IP as well as by hostname, and the real product name is found even when it differs from the default."
         ],
-        "fixed": [
-          "Deployment steps no longer stay stuck when a checkout drops out mid-run."
-        ]
+        "fixed": ["Deployment steps no longer stay stuck when a checkout drops out mid-run."]
       }
     },
     {
@@ -462,12 +869,8 @@
       "channel": "beta",
       "title": "Control Panel versions and cross-domain access",
       "changes": {
-        "added": [
-          "A target access account for checkouts that live in another domain."
-        ],
-        "fixed": [
-          "The interface no longer freezes while a checkout is being queried."
-        ]
+        "added": ["A target access account for checkouts that live in another domain."],
+        "fixed": ["The interface no longer freezes while a checkout is being queried."]
       }
     },
     {

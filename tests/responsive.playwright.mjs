@@ -35,15 +35,7 @@ const VIEWPORTS = [
   { name: '820x1180 (tablet)', width: 820, height: 1180 }
 ]
 
-const PAGES = [
-  '/dashboard/',
-  '/devices/',
-  '/inventory/',
-  '/notes/',
-  '/settings/',
-  '/about/',
-  '/terminal/'
-]
+const PAGES = ['/dashboard/', '/devices/', '/inventory/', '/notes/', '/settings/', '/about/', '/terminal/']
 
 const SESSION = JSON.stringify({
   state: { user: { username: 'Admin', role: 'admin', display_name: 'Admin' } },
@@ -55,9 +47,15 @@ async function overflowReport(page) {
   return page.evaluate(() => {
     const docWidth = document.documentElement.clientWidth
     const IGNORE = [
-      '[role="dialog"]', '[role="alertdialog"]', '[role="menu"]', '[role="tooltip"]',
-      '[role="listbox"]', '[data-radix-popper-content-wrapper]', '[data-sonner-toaster]',
-      '.notification-popup', '.vpn-popup'
+      '[role="dialog"]',
+      '[role="alertdialog"]',
+      '[role="menu"]',
+      '[role="tooltip"]',
+      '[role="listbox"]',
+      '[data-radix-popper-content-wrapper]',
+      '[data-sonner-toaster]',
+      '.notification-popup',
+      '.vpn-popup'
     ].join(',')
 
     // An element that overhangs the viewport is harmless when an ancestor
@@ -66,7 +64,11 @@ async function overflowReport(page) {
     // design. Only overhang that propagates all the way to <body> can widen
     // the document, so walk up and discard anything already contained.
     const isContained = (element) => {
-      for (let parent = element.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+      for (
+        let parent = element.parentElement;
+        parent && parent !== document.body;
+        parent = parent.parentElement
+      ) {
         const overflowX = getComputedStyle(parent).overflowX
         if (overflowX !== 'visible') return true
       }
@@ -107,7 +109,18 @@ async function overflowReport(page) {
 // CI-hardened flags: the container's /dev/shm and software GL crash a shared
 // renderer while viewports change mid-run, which is a harness problem, not an
 // application fault — a fresh browser per viewport keeps the runs independent.
-const LAUNCH_ARGS = { args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--js-flags=--max-old-space-size=320', '--renderer-process-limit=1', '--disable-background-networking', '--disable-features=Translate,BackForwardCache,MediaRouter'] }
+const LAUNCH_ARGS = {
+  args: [
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process',
+    '--js-flags=--max-old-space-size=320',
+    '--renderer-process-limit=1',
+    '--disable-background-networking',
+    '--disable-features=Translate,BackForwardCache,MediaRouter'
+  ]
+}
 
 // Software rasterizers (SwiftShader/llvmpipe) die above a ~4096px raster:
 // 2560x1440 at the app's 1.75x zoom needs 4480px and reliably kills the
@@ -134,9 +147,14 @@ let checks = 0
 let failures = 0
 
 for (const viewport of VIEWPORTS) {
-  const zoom = Math.min(2.5, Math.max(0.5, Math.round(Math.min(viewport.width / 1366, viewport.height / 768) * 4) / 4))
+  const zoom = Math.min(
+    2.5,
+    Math.max(0.5, Math.round(Math.min(viewport.width / 1366, viewport.height / 768) * 4) / 4)
+  )
   if (softwareRasterizer && viewport.width * zoom > 4000) {
-    console.log(`- skipped ${viewport.name}: software rasterizer (${rasterizer}) cannot paint a ${Math.round(viewport.width * zoom)}px canvas`)
+    console.log(
+      `- skipped ${viewport.name}: software rasterizer (${rasterizer}) cannot paint a ${Math.round(viewport.width * zoom)}px canvas`
+    )
     continue
   }
   for (const path of PAGES) {
@@ -157,14 +175,15 @@ for (const viewport of VIEWPORTS) {
     checks += 1
 
     const scrolls =
-      report.docScrollWidth > report.docClientWidth + 1 ||
-      report.bodyScrollWidth > report.bodyClientWidth + 1
+      report.docScrollWidth > report.docClientWidth + 1 || report.bodyScrollWidth > report.bodyClientWidth + 1
 
     if (scrolls || report.offenders.length) {
       failures += 1
       console.log(`✖ ${viewport.name}  ${path}`)
-      console.log(`   html ${report.docScrollWidth}/${report.docClientWidth}` +
-        `  body ${report.bodyScrollWidth}/${report.bodyClientWidth}`)
+      console.log(
+        `   html ${report.docScrollWidth}/${report.docClientWidth}` +
+          `  body ${report.bodyScrollWidth}/${report.bodyClientWidth}`
+      )
       for (const offender of report.offenders) {
         console.log(`   overhang +${offender.overhang}px  <${offender.tag} class="${offender.cls}">`)
       }

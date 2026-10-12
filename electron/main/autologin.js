@@ -7,7 +7,11 @@
  * submits. It gives up quietly after the timeout instead of looping forever.
  */
 function buildLoginScript({ username, password, kind }) {
-  const payload = JSON.stringify({ username: String(username ?? ''), password: String(password ?? ''), kind: kind || 'ilo' })
+  const payload = JSON.stringify({
+    username: String(username ?? ''),
+    password: String(password ?? ''),
+    kind: kind || 'ilo'
+  })
   return `(() => {
   const CREDENTIAL = ${payload};
   if (window.__hyperfamilyAutologin) return 'already-running';

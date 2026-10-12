@@ -4,3 +4,8 @@ out
 dist
 package-lock.json
 electron/vendor
+CHANGELOG.md
+electron/services/*.js
+electron/preload/*.js
+electron/database/*.js
+electron/main/ipc-handlers.js

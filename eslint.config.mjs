@@ -1,13 +1,33 @@
 import nextPlugin from '@next/eslint-plugin-next'
 import reactPlugin from 'eslint-plugin-react'
+import tsParser from '@typescript-eslint/parser'
+import tsPlugin from '@typescript-eslint/eslint-plugin'
 
 export default [
   // electron/vendor holds verbatim upstream library sources (ssh2 and its pure
   // JavaScript dependencies). They are third-party code and are not linted.
-  { ignores: ['node_modules/**', '.next/**', 'out/**', 'dist/**', 'electron/vendor/**'] },
+  {
+    ignores: [
+      'node_modules/**',
+      '.next/**',
+      'out/**',
+      'dist/**',
+      'electron/vendor/**',
+      // Capacitor-generated Android project (built with Gradle, not eslint).
+      'mobile/android/**',
+      'mobile/www/**',
+      // Emitted by tsc from the .ts sources next to them; lint the sources.
+      'electron/services/*.js',
+      'electron/preload/*.js',
+      'electron/database/*.js',
+      'electron/main/ipc-handlers.js'
+    ]
+  },
   {
     files: ['**/*.{js,jsx,mjs}'],
-    languageOptions: { parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } } },
+    languageOptions: {
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } }
+    },
     plugins: { '@next/next': nextPlugin, react: reactPlugin },
     rules: {
       ...nextPlugin.configs.recommended.rules,
@@ -19,23 +39,209 @@ export default [
     }
   },
   {
-    files: ['electron/**/*.js', 'tests/**/*.{js,mjs}', 'scripts/**/*.js', 'next.config.js', 'tailwind.config.js', 'postcss.config.js'],
-    languageOptions: { globals: { require: 'readonly', module: 'readonly', process: 'readonly', __dirname: 'readonly', Buffer: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', setImmediate: 'readonly', fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', Response: 'readonly', AbortController: 'readonly', FormData: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly' } }
+    // TypeScript renderer (Next.js). Type checking belongs to tsc; eslint
+    // keeps the Next/React rules and the native-dialog ban.
+    files: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}', 'stores/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'module', ecmaFeatures: { jsx: true } },
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        navigator: 'readonly',
+        CustomEvent: 'readonly',
+        Event: 'readonly',
+        FileReader: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        console: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        ResizeObserver: 'readonly',
+        MutationObserver: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        AbortController: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        URLSearchParams: 'readonly',
+        FormData: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
+        getComputedStyle: 'readonly',
+        process: 'readonly'
+      }
+    },
+    plugins: { '@next/next': nextPlugin, react: reactPlugin, '@typescript-eslint': tsPlugin },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+      'react/jsx-uses-vars': 'error',
+      'react/jsx-uses-react': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-undef': 'off',
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'confirm',
+          message:
+            'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.'
+        },
+        { name: 'alert', message: 'Use toast() from sonner instead of native alert().' },
+        { name: 'prompt', message: 'Use a themed dialog instead of native prompt().' }
+      ],
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'window',
+          property: 'confirm',
+          message:
+            'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.'
+        },
+        {
+          object: 'window',
+          property: 'alert',
+          message: 'Use toast() from sonner instead of native alert().'
+        },
+        { object: 'window', property: 'prompt', message: 'Use a themed dialog instead of native prompt().' }
+      ]
+    }
+  },
+  {
+    // TypeScript sources of the Electron layer. tsc does the type checking
+    // (npm run typecheck); eslint only keeps the basic hygiene rules here.
+    files: ['electron/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaVersion: 'latest', sourceType: 'script' },
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'writable',
+        process: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setImmediate: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Response: 'readonly',
+        AbortController: 'readonly',
+        FormData: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly'
+      }
+    },
+    plugins: { '@typescript-eslint': tsPlugin },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // Redundant under tsc, which resolves Node/DOM types properly.
+      'no-undef': 'off'
+    }
+  },
+  {
+    files: [
+      'electron/**/*.js',
+      'tests/**/*.{js,mjs}',
+      'scripts/**/*.js',
+      'next.config.js',
+      'tailwind.config.js',
+      'postcss.config.js'
+    ],
+    languageOptions: {
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        process: 'readonly',
+        __dirname: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setImmediate: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Response: 'readonly',
+        AbortController: 'readonly',
+        FormData: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly'
+      }
+    }
   },
   {
     // Runs inside the themed device-webview window, not in the main process.
     files: ['electron/main/device-webview-renderer.js'],
-    languageOptions: { globals: { window: 'readonly', document: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', requestAnimationFrame: 'readonly', URL: 'readonly' } }
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        requestAnimationFrame: 'readonly',
+        URL: 'readonly'
+      }
+    }
   },
   {
     // The callbacks handed to page.evaluate() are serialised and run in the
     // browser under test, so browser globals are legitimate in these files.
     files: ['tests/**/*.playwright.mjs'],
-    languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', sessionStorage: 'readonly', getComputedStyle: 'readonly' } }
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        getComputedStyle: 'readonly'
+      }
+    }
   },
   {
     files: ['app/**/*.{js,jsx}', 'components/**/*.{js,jsx}', 'stores/**/*.js', 'lib/**/*.js'],
-    languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', sessionStorage: 'readonly', navigator: 'readonly', CustomEvent: 'readonly', Event: 'readonly', FileReader: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', requestAnimationFrame: 'readonly', cancelAnimationFrame: 'readonly', ResizeObserver: 'readonly', MutationObserver: 'readonly', Blob: 'readonly', URL: 'readonly' } },
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        navigator: 'readonly',
+        CustomEvent: 'readonly',
+        Event: 'readonly',
+        FileReader: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        console: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        ResizeObserver: 'readonly',
+        MutationObserver: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly'
+      }
+    },
     rules: {
       /*
        * Native confirm()/alert()/prompt() called from inside a Radix-portalled
@@ -47,21 +253,34 @@ export default [
        */
       'no-restricted-globals': [
         'error',
-        { name: 'confirm', message: 'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.' },
+        {
+          name: 'confirm',
+          message:
+            'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.'
+        },
         { name: 'alert', message: 'Use toast() from sonner instead of native alert().' },
         { name: 'prompt', message: 'Use a themed dialog instead of native prompt().' }
       ],
       'no-restricted-properties': [
         'error',
-        { object: 'window', property: 'confirm', message: 'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.' },
-        { object: 'window', property: 'alert', message: 'Use toast() from sonner instead of native alert().' },
+        {
+          object: 'window',
+          property: 'confirm',
+          message:
+            'Use useConfirm() from @/components/ui/ConfirmDialog — native confirm() locks pointer-events on <body>.'
+        },
+        {
+          object: 'window',
+          property: 'alert',
+          message: 'Use toast() from sonner instead of native alert().'
+        },
         { object: 'window', property: 'prompt', message: 'Use a themed dialog instead of native prompt().' }
       ]
     }
   },
   {
     // The single sanctioned use: the fallback when no ConfirmProvider is mounted.
-    files: ['components/ui/ConfirmDialog.jsx'],
+    files: ['components/ui/ConfirmDialog.tsx'],
     rules: { 'no-restricted-properties': 'off' }
   }
 ]

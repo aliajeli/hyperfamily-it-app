@@ -6,13 +6,18 @@ const browser = await chromium.launch()
 try {
   const context = await browser.newContext({ viewport: { width: 1366, height: 900 } })
   await context.addInitScript(() => {
-    sessionStorage.setItem('hyperfamily-session', JSON.stringify({ state: { user: { username: 'Admin', role: 'admin' } }, version: 0 }))
+    sessionStorage.setItem(
+      'hyperfamily-session',
+      JSON.stringify({ state: { user: { username: 'Admin', role: 'admin' } }, version: 0 })
+    )
   })
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('http://127.0.0.1:3000/store-update/', { waitUntil: 'networkidle' })
-  await expect(page.getByText('Agent is not running', { exact: true }).first()).toBeVisible({ timeout: 20000 })
+  await expect(page.getByText('Agent is not running', { exact: true }).first()).toBeVisible({
+    timeout: 20000
+  })
   await expect(page.getByRole('button', { name: 'Import Agent to all', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Import Agent', exact: true })).toHaveCount(16)
   await page.getByRole('button', { name: 'Import Agent', exact: true }).first().click()
@@ -35,5 +40,9 @@ try {
     expect(overflow, `horizontal overflow at ${width}px`).toBe(false)
   }
   expect(errors).toEqual([])
-  console.log('PASS: missing-agent label, single/bulk Import, confirmation, hash skip, summaries, responsive layout and no browser exceptions')
-} finally { await browser.close() }
+  console.log(
+    'PASS: missing-agent label, single/bulk Import, confirmation, hash skip, summaries, responsive layout and no browser exceptions'
+  )
+} finally {
+  await browser.close()
+}

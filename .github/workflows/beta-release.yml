@@ -47,11 +47,11 @@ jobs:
 
       # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
       - run: npm run build:agent
+      - run: npm ci
       - name: Test the real Windows Agent service
         run: npm run test:agent
         env:
           HF_AGENT_WINDOWS_TEST: '1'
-      - run: npm ci
       - run: npm run lint
       - run: npm test
       - run: npm run test:database
@@ -86,13 +86,14 @@ jobs:
         run: npx electron-builder --win nsis --x64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EP_PRE_RELEASE: "true"
+          EP_PRE_RELEASE: 'true'
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
       - name: Attach the standalone agent
         shell: bash
         run: gh release upload '${{ steps.meta.outputs.tag }}' "agent/build/HyperFamilyStoreAgent.exe" "agent/build/HyperFamilyStoreAgent.exe.sha256" --clobber
+
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

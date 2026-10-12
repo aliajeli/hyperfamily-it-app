@@ -1,0 +1,127 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import {
+  SlidersHorizontal,
+  KeyRound,
+  Link2,
+  MonitorCog,
+  PlugZap,
+  TerminalSquare,
+  Shield,
+  Palette,
+  Type,
+  LayoutDashboard,
+  Store
+} from 'lucide-react'
+import { toast } from 'sonner'
+import AppShell from '@/components/layout/AppShell'
+import GeneralSettings from '@/components/settings/GeneralSettings'
+import StoreAppSettings from '@/components/settings/StoreAppSettings'
+import CredentialsSettings from '@/components/settings/CredentialsSettings'
+import AssignmentsSettings from '@/components/settings/AssignmentsSettings'
+import ConnectionsSettings from '@/components/settings/ConnectionsSettings'
+import DeviceSettings from '@/components/settings/DeviceSettings'
+import TerminalSettings from '@/components/settings/TerminalSettings'
+import VPNSettings from '@/components/settings/VPNSettings'
+import ThemeSettings from '@/components/settings/ThemeSettings'
+import TypographySettings from '@/components/settings/TypographySettings'
+import DashboardSettings from '@/components/settings/DashboardSettings'
+import { Card, Skeleton, Tabs, TabsContent } from '@/components/ui'
+import { getApi, isElectron } from '@/lib/api'
+import { DEFAULT_SETTINGS } from '@/lib/constants'
+import { usePageHeaderStore } from '@/stores/page-header.store'
+
+const allTabs = [
+  { value: 'general', label: 'General', icon: <SlidersHorizontal size={14} /> },
+  { value: 'store-app', label: 'Store App', icon: <Store size={14} /> },
+  { value: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
+  { value: 'credentials', label: 'Credentials', icon: <KeyRound size={14} /> },
+  { value: 'assignments', label: 'Assignments', icon: <Link2 size={14} /> },
+  { value: 'connections', label: 'Connections', icon: <PlugZap size={14} /> },
+  { value: 'devices', label: 'Device tools', icon: <MonitorCog size={14} /> },
+  { value: 'terminal', label: 'Terminal & web', icon: <TerminalSquare size={14} /> },
+  { value: 'vpn', label: 'VPN', icon: <Shield size={14} />, electronOnly: true } as any,
+  { value: 'theme', label: 'Theme', icon: <Palette size={14} /> },
+  { value: 'typography', label: 'Fonts', icon: <Type size={14} /> }
+]
+
+export default function SettingsPage() {
+  const [tab, setTab] = useState('general')
+  const [settings, setSettings] = useState<any>(null)
+  const [isElectronEnv, setIsElectronEnv] = useState(true)
+  const { setHeader } = usePageHeaderStore()
+
+  useEffect(() => {
+    setHeader({
+      title: 'Application settings',
+      subtitle:
+        'Security, monitoring, Store App deployment, dashboard, credentials, connections, device tools, terminal, VPN, and appearance.'
+    })
+    return () => usePageHeaderStore.getState().clearHeader()
+  }, [])
+
+  useEffect(() => {
+    try {
+      setIsElectronEnv(isElectron())
+    } catch {
+      setIsElectronEnv(false)
+    }
+    getApi()
+      .settings.get()
+      .then((value) => setSettings({ ...DEFAULT_SETTINGS, ...value }))
+      .catch((error) => toast.error(error.message))
+  }, [])
+
+  const tabs = (allTabs as any).filter((t: any) => !(t.electronOnly && !isElectronEnv))
+
+  return (
+    <AppShell>
+      <div className="mx-auto max-w-[1600px] space-y-3">
+        {!settings ? (
+          <Skeleton className="h-[460px]" />
+        ) : (
+          <Tabs value={tab} onValueChange={setTab} tabs={tabs} listClassName="mb-2.5 w-fit max-w-full">
+            <Card className="p-3">
+              <TabsContent value="general">
+                <GeneralSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="store-app">
+                <StoreAppSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="dashboard">
+                <DashboardSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="credentials">
+                <CredentialsSettings />
+              </TabsContent>
+              <TabsContent value="assignments">
+                <AssignmentsSettings />
+              </TabsContent>
+              <TabsContent value="connections">
+                <ConnectionsSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="devices">
+                <DeviceSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="terminal">
+                <TerminalSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              {isElectronEnv && (
+                <TabsContent value="vpn">
+                  <VPNSettings settings={settings} onSaved={setSettings} />
+                </TabsContent>
+              )}
+              <TabsContent value="theme">
+                <ThemeSettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+              <TabsContent value="typography">
+                <TypographySettings settings={settings} onSaved={setSettings} />
+              </TabsContent>
+            </Card>
+          </Tabs>
+        )}
+      </div>
+    </AppShell>
+  )
+}

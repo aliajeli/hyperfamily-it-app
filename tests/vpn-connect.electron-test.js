@@ -24,7 +24,8 @@ const https = require('node:https')
 // exist in ELECTRON_RUN_AS_NODE, so stub the module before requiring it.
 const load = Module._load
 Module._load = function (request, ...rest) {
-  if (request === 'electron') return { app: { getPath: () => require('node:os').tmpdir(), isPackaged: false }, shell: {} }
+  if (request === 'electron')
+    return { app: { getPath: () => require('node:os').tmpdir(), isPackaged: false }, shell: {} }
   return load.call(this, request, ...rest)
 }
 const { VPNService } = require('../electron/services/vpn.service')
@@ -79,7 +80,8 @@ pIIOnRNpO5yOHxBtxr0aSEM4/sPzn6kv8qr2R6x3mo6jrMOxX7Iycok/MkPlFUNj
 u3Wn5XFhSi2R1A4QZeAGDAMUQqVSgixKbdj5l3e6eIM=
 -----END CERTIFICATE-----`
 
-const LOGIN_REPLY = 'ret=1,redir=/remote/hostcheck_install?auth_type=1&user=6C6168696A692E616C69&&grpname=&portal=66756C6C2D616363657373&rip=5.122.241.27&realm='
+const LOGIN_REPLY =
+  'ret=1,redir=/remote/hostcheck_install?auth_type=1&user=6C6168696A692E616C69&&grpname=&portal=66756C6C2D616363657373&rip=5.122.241.27&realm='
 
 function startGateway() {
   const state = { hostcheckHits: 0, hostcheckCookie: '', loginBody: '', loginHits: 0 }
@@ -106,7 +108,10 @@ function startGateway() {
     if (req.url.startsWith('/remote/hostcheck_install')) {
       state.hostcheckHits += 1
       state.hostcheckCookie = req.headers.cookie || ''
-      res.writeHead(200, { 'Content-Length': 2, 'Set-Cookie': ['SVPNCOOKIE=REALSESSION; path=/; secure; httponly'] })
+      res.writeHead(200, {
+        'Content-Length': 2,
+        'Set-Cookie': ['SVPNCOOKIE=REALSESSION; path=/; secure; httponly']
+      })
       res.end('ok')
       return
     }
@@ -121,14 +126,19 @@ function startGateway() {
 function makeService(port, events) {
   const settings = { vpn_gateway: '127.0.0.1', vpn_port: port, vpn_user: 'lahiji.ali', vpn_pass: 'secret' }
   const database = { getSettings: () => settings, audit: () => {} }
-  return new VPNService(database, require('node:os').tmpdir(), (_channel, payload) => events.push(payload.state))
+  return new VPNService(database, require('node:os').tmpdir(), (_channel, payload) =>
+    events.push(payload.state)
+  )
 }
 
 test('the portal layer still reaches the gateway for Test & diagnose', async (t) => {
   const { server, state, port } = await startGateway()
   const events = []
   const vpn = makeService(port, events)
-  t.after(() => { vpn.stop(); server.close() })
+  t.after(() => {
+    vpn.stop()
+    server.close()
+  })
 
   const report = await vpn.diagnose()
 
@@ -152,10 +162,21 @@ test('the in-app tunnel is gone and legacy modes fold into global', async (t) =>
   const { server, state, port } = await startGateway()
   const events = []
   const vpn = makeService(port, events)
-  t.after(() => { vpn.stop(); server.close() })
+  t.after(() => {
+    vpn.stop()
+    server.close()
+  })
 
-  for (const method of ['connectInApp', 'startProxy', 'openGatewayTunnel', 'applySessionProxy',
-    'clearSessionProxy', 'reachThroughTunnel', 'completeHostCheck', 'followPortalPath']) {
+  for (const method of [
+    'connectInApp',
+    'startProxy',
+    'openGatewayTunnel',
+    'applySessionProxy',
+    'clearSessionProxy',
+    'reachThroughTunnel',
+    'completeHostCheck',
+    'followPortalPath'
+  ]) {
     assert.equal(typeof vpn[method], 'undefined', `${method} must be removed with the in-app tunnel`)
   }
   assert.equal(vpn.proxy, undefined, 'no proxy handle may remain on the service')
@@ -165,18 +186,30 @@ test('the in-app tunnel is gone and legacy modes fold into global', async (t) =>
   // they take the FortiClient path, which is Windows-only.
   for (const legacy of ['in_app', 'split']) {
     vpn.state = 'disconnected'
-    const error = await vpn.connect(legacy, 'Admin').then(() => null, (e) => e)
+    const error = await vpn.connect(legacy, 'Admin').then(
+      () => null,
+      (e) => e
+    )
     assert.ok(error, `connect('${legacy}') must not silently succeed off-Windows`)
-    assert.doesNotMatch(error.message, /Invalid VPN mode/,
-      `connect('${legacy}') must fold into global, not be rejected outright`)
-    assert.match(error.message, /Windows desktop build|FortiClient/,
-      `connect('${legacy}') must take the FortiClient path`)
+    assert.doesNotMatch(
+      error.message,
+      /Invalid VPN mode/,
+      `connect('${legacy}') must fold into global, not be rejected outright`
+    )
+    assert.match(
+      error.message,
+      /Windows desktop build|FortiClient/,
+      `connect('${legacy}') must take the FortiClient path`
+    )
   }
   assert.equal(state.loginHits, 0, 'the removed tunnel must never authenticate to the portal again')
 
   // A genuinely unknown mode is still an error.
   vpn.state = 'disconnected'
-  const bogus = await vpn.connect('carrier-pigeon', 'Admin').then(() => null, (e) => e)
+  const bogus = await vpn.connect('carrier-pigeon', 'Admin').then(
+    () => null,
+    (e) => e
+  )
   assert.match(bogus.message, /Invalid VPN mode/)
 })
 
@@ -195,8 +228,10 @@ test('every TLS profile is valid for this runtime', () => {
   const tls = require('node:tls')
   const { TLS_PROFILES } = require('../electron/services/vpn.service.js')
 
-  assert.ok(Array.isArray(TLS_PROFILES) && TLS_PROFILES.length >= 2,
-    'the ladder must expose at least a default and one downgraded profile')
+  assert.ok(
+    Array.isArray(TLS_PROFILES) && TLS_PROFILES.length >= 2,
+    'the ladder must expose at least a default and one downgraded profile'
+  )
 
   TLS_PROFILES.forEach((profile, index) => {
     let socket
@@ -206,13 +241,17 @@ test('every TLS profile is valid for this runtime', () => {
       socket = tls.connect({ host: '127.0.0.1', port: 1, ...profile })
       socket.on('error', () => {})
     } catch (error) {
-      assert.fail(`TLS profile ${index} (${JSON.stringify(profile)}) is rejected by this runtime: ${error.code} ${error.message}`)
+      assert.fail(
+        `TLS profile ${index} (${JSON.stringify(profile)}) is rejected by this runtime: ${error.code} ${error.message}`
+      )
     } finally {
       if (socket) socket.destroy()
     }
   })
 
   const text = JSON.stringify(TLS_PROFILES)
-  assert.ok(!text.includes('SECLEVEL'),
-    'BoringSSL rejects @SECLEVEL cipher strings — such a rung can never negotiate')
+  assert.ok(
+    !text.includes('SECLEVEL'),
+    'BoringSSL rejects @SECLEVEL cipher strings — such a rung can never negotiate'
+  )
 })

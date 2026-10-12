@@ -19,12 +19,20 @@ jobs:
           cache: npm
       # CMake discovers the runner's Visual Studio C++ tools; no .NET SDK needed.
       - run: npm run build:agent
+      - run: npm ci
       - name: Test the real Windows Agent service
         run: npm run test:agent
         env:
           HF_AGENT_WINDOWS_TEST: '1'
-      - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run lint
+      - name: TypeScript check (Electron layer)
+        run: npm run typecheck
+      - run: npm run format:check
+      - name: CHANGELOG.md must match lib/changelog.json
+        run: |
+          node scripts/generate-changelog-md.js
+          git diff --exit-code CHANGELOG.md
       - run: npm test
       - run: npm run test:database
       - run: npm run test:ssh
@@ -35,7 +43,7 @@ jobs:
         if: github.event_name == 'push'
         run: npx electron-builder --win nsis --x64 --publish never
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'push'
         with:
