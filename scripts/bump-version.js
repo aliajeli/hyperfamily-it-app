@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Single-source version bump: updates all four version-bearing manifests and
+ * Single-source version bump: updates all version-bearing manifests and
  * guarantees a changelog entry exists for the new version (inserting a
  * template when missing, so `npm test` catches it if it is never filled in).
  *
@@ -51,15 +51,6 @@ const setJson = async (relative, mutate) => {
     d.version = version
   })
   await setJson('electron/recovery/package-lock.json', (d) => {
-    d.version = version
-    if (d.packages && d.packages['']) d.packages[''].version = version
-  })
-  // The companion app must track the workstation version: the in-app updater
-  // compares its versionName against the release tag.
-  await setJson('mobile/package.json', (d) => {
-    d.version = version
-  })
-  await setJson('mobile/package-lock.json', (d) => {
     d.version = version
     if (d.packages && d.packages['']) d.packages[''].version = version
   })

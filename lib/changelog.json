@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": "4.0.0-beta.1",
+      "date": "2026-10-12",
+      "channel": "beta",
+      "title": "Android companion app and its server removed",
+      "changes": {
+        "improved": [
+          "The Android companion app (mobile/ project, its APK build and its release jobs) has been removed from the repository and from the release pipeline; releases no longer build or attach an APK",
+          "The companion server that the phone app used has been removed from the desktop application: the Settings → General companion card, its IPC handlers, preload bridge and the companion API client",
+          "Removed the phone-only companion update card from the Dashboard, Settings and About pages",
+          "Updates are installed only from the Windows desktop application; the browser preview no longer exposes companion or Capacitor update paths"
+        ]
+      }
+    },
+    {
       "version": "3.10.3-beta.2",
       "date": "2026-09-23",
       "channel": "beta",

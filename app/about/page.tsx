@@ -9,7 +9,6 @@ import SupportCard from '@/components/about/SupportCard'
 import TechStackCard from '@/components/about/TechStackCard'
 import UpdateChangelogDialog from '@/components/about/UpdateChangelogDialog'
 import UpdatePanel from '@/components/about/UpdatePanel'
-import CompanionUpdateCard from '@/components/mobile/CompanionUpdateCard'
 import { getApi } from '@/lib/api'
 import { DEVELOPER_EMAIL, REPO } from '@/lib/about-presentation'
 import { APP_VERSION } from '@/lib/constants'
@@ -254,8 +253,6 @@ export default function AboutPage() {
     <AppShell>
       <div className="mx-auto max-w-[1400px] space-y-2.5">
         <AboutHero info={info} channel={channel} />
-
-        <CompanionUpdateCard />
 
         <div className="grid gap-2.5 lg:grid-cols-[1.15fr_.85fr]">
           <UpdatePanel

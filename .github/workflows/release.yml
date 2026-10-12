@@ -118,10 +118,3 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Companion APK for the same tag, built on Linux right after the release
-  # exists. The called workflow derives the tag from package.json.
-  apk:
-    needs: release
-    uses: ./.github/workflows/mobile-apk.yml
-    secrets: inherit
