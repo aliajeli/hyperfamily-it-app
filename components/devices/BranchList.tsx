@@ -109,7 +109,7 @@ export default function BranchList({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -6 }}
               transition={{ delay: Math.min(index * 0.018, 0.14) }}
-              className={`directory-branch-card group relative h-11 w-[205px] shrink-0 overflow-hidden rounded-xl border transition-all ${selected ? 'border-[rgb(var(--primary)/.48)] bg-[rgb(var(--primary)/.09)] shadow-sm' : 'bg-[rgb(var(--surface)/.62)] hover:border-[rgb(var(--primary)/.25)] hover:bg-[rgb(var(--surface))]'}`}
+              className={`directory-branch-card group relative h-10 w-[205px] shrink-0 overflow-hidden rounded-xl border transition-all ${selected ? 'border-[rgb(var(--primary)/.48)] bg-[rgb(var(--primary)/.09)] shadow-sm' : 'bg-[rgb(var(--surface)/.62)] hover:border-[rgb(var(--primary)/.25)] hover:bg-[rgb(var(--surface))]'}`}
             >
               <button
                 type="button"

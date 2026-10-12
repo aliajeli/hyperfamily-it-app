@@ -128,7 +128,7 @@ export default function BranchDetailsPanel({ branch, devices, view = 'modal', on
             <DialogPrimitive.Close asChild>
               <button
                 aria-label="Close branch details"
-                className="group absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-xl border bg-[rgb(var(--surface)/.72)] text-[rgb(var(--muted))] shadow-sm transition-all duration-300 hover:rotate-90 hover:scale-105 hover:bg-[rgb(var(--surface))] hover:text-[rgb(var(--text))]"
+                className="group absolute right-4 top-4 z-10 grid h-8 w-8 place-items-center rounded-xl border bg-[rgb(var(--surface)/.72)] text-[rgb(var(--muted))] shadow-sm transition-all duration-300 hover:rotate-90 hover:scale-105 hover:bg-[rgb(var(--surface))] hover:text-[rgb(var(--text))]"
               >
                 <X size={17} />
               </button>

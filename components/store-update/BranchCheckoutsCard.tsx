@@ -98,7 +98,7 @@ function RowAction({ onClick, disabled, label, title, children }: any) {
       aria-label={label}
       title={title}
       className={cn(
-        'grid h-9 w-9 shrink-0 place-items-center rounded-xl border bg-[rgb(var(--surface))] text-[rgb(var(--muted))] shadow-sm transition md:h-7 md:w-7 md:rounded-lg md:shadow-none',
+        'grid h-8 w-8 shrink-0 place-items-center rounded-lg border bg-[rgb(var(--surface))] text-[rgb(var(--muted))] shadow-sm transition md:h-7 md:w-7 md:rounded-lg md:shadow-none',
         'hover:border-[rgb(var(--primary)/.3)] hover:bg-[rgb(var(--primary)/.08)] hover:text-[rgb(var(--primary))]',
         'disabled:pointer-events-none disabled:opacity-40'
       )}

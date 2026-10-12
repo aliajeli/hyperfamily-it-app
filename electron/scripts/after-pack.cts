@@ -7,10 +7,28 @@
  */
 const fs = require('fs')
 const path = require('path')
+const asar = require('@electron/asar')
 
 const KEEP = new Set(['en-US.pak'])
 
 exports.default = async function afterPack(context) {
+  // The third-party fallback is now TS-only in Git. Check the packaged ASAR,
+  // not just the working tree, so a missing compile step cannot ship a broken
+  // SSH terminal when the native ssh2 engine is unavailable on a store PC.
+  const archive = path.join(context.appOutDir, 'resources', 'app.asar')
+  if (!fs.existsSync(archive)) throw new Error('The packaged application archive is missing')
+  for (const file of [
+    'electron/vendor/ssh2/lib/index.js',
+    'electron/vendor/ssh2/lib/protocol/crypto.js',
+    'electron/vendor/asn1/lib/index.js',
+    'electron/vendor/bcrypt-pbkdf/index.js',
+    'electron/vendor/safer-buffer/safer.js',
+    'electron/vendor/tweetnacl/nacl-fast.js'
+  ]) {
+    if (!asar.extractFile(archive, file).length) throw new Error(`Missing packaged vendored module: ${file}`)
+  }
+  console.log('after-pack: verified compiled vendored SSH fallback in app.asar')
+
   const localesDir = path.join(context.appOutDir, 'locales')
   if (!fs.existsSync(localesDir)) return
 

@@ -4,8 +4,8 @@ import tsParser from '@typescript-eslint/parser'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 
 export default [
-  // electron/vendor holds verbatim upstream library sources (ssh2 and its pure
-  // JavaScript dependencies). They are third-party code and are not linted.
+  // electron/vendor contains lightly adapted third-party sources. Their TS
+  // files compile to CommonJS for runtime, but are not linted or type-checked.
   {
     ignores: [
       'node_modules/**',

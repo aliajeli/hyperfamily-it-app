@@ -3,6 +3,17 @@
 Every release of HyperFamily Branch Monitor, newest first.
 Generated from lib/changelog.json by scripts/generate-changelog-md.js — do not edit by hand.
 
+## 4.0.1-beta.3
+
+**Compact buttons and TypeScript sources for the vendored SSH fallback**
+
+_Released 2026-10-12 · beta channel_
+
+### Improved
+- Reduced the shared button variants and prominent navigation, login, device and Store App controls by one size step across the desktop interface, while retaining the 44px phone navigation touch targets.
+- Converted all 30 checked-in third-party JavaScript sources to TypeScript-family source files; the build now emits ignored CommonJS JavaScript for the SSH fallback and its dependencies before packaging or tests. Original third-party licenses are preserved.
+- Added a regression test for visual button dimensions and an Electron SSH handshake using the newly compiled vendored fallback.
+- The vendored TypeScript currently compiles without full type-checking; Electron still needs the generated JavaScript at runtime. The installer remains unsigned and initial Admin/Admin behavior is unchanged.
 ## 4.0.1-beta.2
 
 **Tailwind dialog repair, safer device access, and TypeScript migration**

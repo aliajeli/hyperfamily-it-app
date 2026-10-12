@@ -47,7 +47,7 @@ export default function Header({ user }: any) {
         <div className="hidden items-center gap-2 border-l pl-3 sm:flex">
           <motion.div
             whileHover={{ y: -2, rotate: -3, scale: 1.04 }}
-            className="grid h-9 w-9 place-items-center rounded-xl bg-[rgb(var(--primary-strong))] text-xs font-extrabold text-white shadow-md shadow-black/10"
+            className="grid h-8 w-8 place-items-center rounded-lg bg-[rgb(var(--primary-strong))] text-xs font-extrabold text-white shadow-md shadow-black/10"
           >
             {user?.username?.slice(0, 2).toUpperCase() || 'AD'}
           </motion.div>

@@ -139,7 +139,7 @@ export default function VPNButton() {
       aria-label={`VPN status: ${label}. ${live ? 'Disconnect' : 'Connect'}`}
       data-vpn-live={live ? 'true' : 'false'}
       className={cn(
-        'no-drag flex h-9 items-center gap-2 rounded-xl px-2.5 text-xs font-bold transition disabled:cursor-wait',
+        'no-drag flex h-8 items-center gap-2 rounded-xl px-2.5 text-xs font-bold transition disabled:cursor-wait',
         TONES[tone]
       )}
     >

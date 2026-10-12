@@ -122,7 +122,7 @@ export default function NotificationCenter() {
         onClick={() => setOpen((value) => !value)}
         whileHover={{ y: -2, scale: 1.04 }}
         whileTap={{ scale: 0.94 }}
-        className={`notification-button relative grid h-10 w-10 place-items-center rounded-xl border bg-[rgb(var(--surface)/.62)] text-[rgb(var(--muted))] shadow-sm transition-colors hover:text-[rgb(var(--text))] ${open ? 'border-[rgb(var(--primary)/.5)] text-[rgb(var(--primary))] shadow-md' : ''}`}
+        className={`notification-button relative grid h-9 w-9 place-items-center rounded-xl border bg-[rgb(var(--surface)/.62)] text-[rgb(var(--muted))] shadow-sm transition-colors hover:text-[rgb(var(--text))] ${open ? 'border-[rgb(var(--primary)/.5)] text-[rgb(var(--primary))] shadow-md' : ''}`}
       >
         <motion.span
           animate={open ? { rotate: [0, -14, 12, -7, 0] } : { rotate: 0 }}

@@ -43,3 +43,6 @@ postcss.config.js
 tailwind.config.js
 eslint.config.mjs
 electron/recovery/page.js
+
+# Runtime CommonJS emitted from vendored TypeScript sources.
+electron/vendor/**/*.js

@@ -91,7 +91,7 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }: any) {
                   href={item.href}
                   title={collapsed ? item.label : undefined}
                   className={cn(
-                    'group relative flex h-10 items-center gap-2.5 overflow-hidden rounded-xl px-3 text-sm font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))] hover:shadow-sm',
+                    'group relative flex h-9 items-center gap-2.5 overflow-hidden rounded-xl px-3 text-sm font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))] hover:shadow-sm',
                     active && 'text-[rgb(var(--primary))]'
                   )}
                 >
@@ -143,7 +143,7 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }: any) {
         <div className="space-y-1 border-t p-3">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="group flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))]"
+            className="group flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[rgb(var(--muted))] transition-all duration-300 hover:bg-[rgb(var(--border)/.45)] hover:text-[rgb(var(--text))]"
           >
             {collapsed ? (
               <PanelLeftOpen size={19} className="transition-transform group-hover:translate-x-0.5" />
@@ -156,7 +156,7 @@ export default function Sidebar({ collapsed, setCollapsed, onLogout }: any) {
           </button>
           <button
             onClick={onLogout}
-            className="group flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-nord-11 transition-all duration-300 hover:bg-nord-11/10"
+            className="group flex h-9 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-nord-11 transition-all duration-300 hover:bg-nord-11/10"
           >
             <LogOut
               size={19}

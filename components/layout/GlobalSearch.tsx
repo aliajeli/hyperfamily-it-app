@@ -138,7 +138,7 @@ export default function GlobalSearch() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open global search"
-        className="group hidden h-9 w-56 items-center gap-2 rounded-xl border bg-[rgb(var(--surface)/.58)] px-3 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgb(var(--primary)/.35)] hover:bg-[rgb(var(--surface)/.8)] hover:shadow-md xl:flex"
+        className="group hidden h-8 w-56 items-center gap-2 rounded-xl border bg-[rgb(var(--surface)/.58)] px-3 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgb(var(--primary)/.35)] hover:bg-[rgb(var(--surface)/.8)] hover:shadow-md xl:flex"
       >
         <Search
           size={16}
@@ -154,7 +154,7 @@ export default function GlobalSearch() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open global search"
-        className="grid h-10 w-10 place-items-center rounded-xl border bg-[rgb(var(--surface)/.7)] text-[rgb(var(--muted))] shadow-sm transition hover:text-[rgb(var(--text))] md:h-9 md:w-9 xl:hidden"
+        className="grid h-9 w-9 place-items-center rounded-xl border bg-[rgb(var(--surface)/.7)] text-[rgb(var(--muted))] shadow-sm transition hover:text-[rgb(var(--text))] md:h-8 md:w-8 xl:hidden"
       >
         <Search size={18} />
       </button>

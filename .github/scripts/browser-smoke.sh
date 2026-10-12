@@ -8,6 +8,7 @@ for i in $(seq 1 30); do
   sleep 1
 done
 curl -fsS http://127.0.0.1:3000/store-update/ >/dev/null
+node tests/button-sizes.playwright.mjs
 node tests/typing-after-delete.playwright.mjs
 node tests/settings-about.playwright.mjs
 node tests/store-agent.playwright.mjs

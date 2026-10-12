@@ -299,7 +299,7 @@ export default function LoginPage() {
               >
                 <Button
                   disabled={isAuthenticating}
-                  className="login-button group mt-1 h-12 w-full overflow-hidden"
+                  className="login-button group mt-1 h-10 w-full overflow-hidden"
                 >
                   <span className="relative z-10">Sign in securely</span>
                   <ArrowRight

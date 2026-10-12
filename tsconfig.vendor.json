@@ -1,0 +1,19 @@
+{
+  // Vendored CommonJS code is preserved as close to upstream as possible.
+  // TypeScript is the checked-in source; tsc emits the .js that Node/Electron
+  // still need. These third-party files are transpiled without type checking.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleDetection": "legacy",
+    "moduleResolution": "node",
+    "noCheck": true,
+    "skipLibCheck": true,
+    "sourceMap": false,
+    "declaration": false,
+    "removeComments": false,
+    "useDefineForClassFields": false
+  },
+  "include": ["electron/vendor/**/*.ts"],
+  "exclude": ["node_modules"]
+}
