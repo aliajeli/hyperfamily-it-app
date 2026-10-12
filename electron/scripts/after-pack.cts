@@ -25,7 +25,10 @@ exports.default = async function afterPack(context) {
     'electron/vendor/safer-buffer/safer.js',
     'electron/vendor/tweetnacl/nacl-fast.js'
   ]) {
-    if (!asar.extractFile(archive, file).length) throw new Error(`Missing packaged vendored module: ${file}`)
+    // asar's filesystem splits using the host OS path separator. Forward-slash
+    // archive names must be converted to backslashes on Windows before lookup.
+    if (!asar.extractFile(archive, path.join(...file.split('/'))).length)
+      throw new Error(`Missing packaged vendored module: ${file}`)
   }
   console.log('after-pack: verified compiled vendored SSH fallback in app.asar')
 
